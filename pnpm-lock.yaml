@@ -79,6 +79,67 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  apps/field:
+    dependencies:
+      '@autocare/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@autocare/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
+      '@react-navigation/native':
+        specifier: ^7.0.0
+        version: 7.3.16(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      '@react-navigation/native-stack':
+        specifier: ^7.0.0
+        version: 7.18.8(@react-navigation/native@7.3.16(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native-safe-area-context@5.6.2(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native-screens@4.16.0(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      expo:
+        specifier: ~57.0.14
+        version: 57.0.14(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@18.3.1(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
+      expo-secure-store:
+        specifier: ~15.0.7
+        version: 15.0.8(expo@57.0.14)
+      expo-status-bar:
+        specifier: ~57.0.1
+        version: 57.0.1(expo@57.0.14)(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-native:
+        specifier: 0.86.2
+        version: 0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3)
+      react-native-safe-area-context:
+        specifier: ~5.6.0
+        version: 5.6.2(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      react-native-screens:
+        specifier: ~4.16.0
+        version: 4.16.0(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+    devDependencies:
+      '@autocare/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@testing-library/react-native':
+        specifier: ^13.0.0
+        version: 13.3.3(jest@29.7.0)(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react-test-renderer@19.2.3(react@19.2.3))(react@19.2.3)
+      '@types/jest':
+        specifier: ^29.5.12
+        version: 29.5.14
+      '@types/react':
+        specifier: ~19.2.2
+        version: 19.2.18
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.43)
+      jest-expo:
+        specifier: ~57.0.0
+        version: 57.0.4(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(expo@57.0.14)(jest@29.7.0)(react-native@0.86.2(@babel/core@7.29.7)(@react-native/jest-preset@0.86.2(@babel/core@7.29.7)(react@19.2.3))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      react-test-renderer:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      typescript:
+        specifier: ~5.9.0
+        version: 5.9.3
+
   apps/member:
     dependencies:
       '@autocare/api-client':
