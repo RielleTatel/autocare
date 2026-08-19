@@ -1,0 +1,13 @@
+{
+  "name": "autocare",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "engines": { "node": ">=20 <21" },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": { "turbo": "^2.1.0", "typescript": "^5.5.0" }
+}
