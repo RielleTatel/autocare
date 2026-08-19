@@ -79,6 +79,22 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/api-client:
+    dependencies:
+      '@autocare/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@autocare/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.20.1)(terser@5.50.0)
+
   packages/config: {}
 
   packages/contracts:
