@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  FLEET_MANAGER
+  MECHANIC
+  ADVISOR
+  DRIVER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum OdometerSource {
+  MEMBER
+  INSPECTION
+  TRIP
+}
+
+model User {
+  id                    String          @id @default(uuid()) @db.Uuid
+  firebaseUid           String          @unique @map("firebase_uid")
+  mobile                String?         @unique
+  email                 String?         @unique
+  name                  String?
+  role                  Role            @default(MEMBER)
+  status                UserStatus      @default(ACTIVE)
+  isCertifiedTechnician Boolean         @default(false) @map("is_certified_technician")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  consents              ConsentRecord[]
+  vehicles              Vehicle[]
+
+  @@map("users")
+}
+
+model ConsentRecord {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  user          User      @relation(fields: [userId], references: [id])
+  policyVersion String    @map("policy_version")
+  consentedAt   DateTime  @default(now()) @map("consented_at")
+  ip            String?
+  withdrawnAt   DateTime? @map("withdrawn_at")
+
+  @@map("consent_records")
+}
+
+model Vehicle {
+  id                String            @id @default(uuid()) @db.Uuid
+  ownerUserId       String?           @map("owner_user_id") @db.Uuid
+  owner             User?             @relation(fields: [ownerUserId], references: [id])
+  plateNo           String            @unique @map("plate_no")
+  make              String
+  model             String
+  year              Int
+  variant           String?
+  engineCc          Int?              @map("engine_cc")
+  fuelType          String            @map("fuel_type")
+  transmission      String
+  vin               String?
+  color             String?
+  currentOdometerKm Int               @default(0) @map("current_odometer_km")
+  status            String            @default("ACTIVE")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  odometerReadings  OdometerReading[]
+
+  @@index([ownerUserId, status])
+  @@map("vehicles")
+}
+
+model OdometerReading {
+  id         String         @id @default(uuid()) @db.Uuid
+  vehicleId  String         @map("vehicle_id") @db.Uuid
+  vehicle    Vehicle        @relation(fields: [vehicleId], references: [id])
+  km         Int
+  source     OdometerSource
+  recordedAt DateTime       @default(now()) @map("recorded_at")
+  recordedBy String?        @map("recorded_by") @db.Uuid
+
+  @@map("odometer_readings")
+}
