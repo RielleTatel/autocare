@@ -1,0 +1,29 @@
+name: ci
+on: { push: { branches: [main] }, pull_request: {} }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env: { POSTGRES_USER: autocare, POSTGRES_PASSWORD: autocare, POSTGRES_DB: autocare }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U autocare" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://autocare:autocare@localhost:5432/autocare
+      REDIS_URL: redis://localhost:6379
+      FIREBASE_PROJECT_ID: ci-stub
+      FIREBASE_CLIENT_EMAIL: ci@ci-stub.iam.gserviceaccount.com
+      FIREBASE_PRIVATE_KEY: "stub"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api exec prisma migrate deploy
+      - run: pnpm turbo run typecheck lint test
