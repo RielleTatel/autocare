@@ -1,0 +1,12 @@
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+  FIREBASE_PROJECT_ID: z.string(),
+  FIREBASE_CLIENT_EMAIL: z.string().email(),
+  FIREBASE_PRIVATE_KEY: z.string(),
+  API_PORT: z.coerce.number().default(3001),
+});
+export type Env = z.infer<typeof envSchema>;
+export const loadEnv = (): Env => envSchema.parse(process.env);

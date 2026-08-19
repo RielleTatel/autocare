@@ -5,5 +5,5 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": { "test": "vitest run", "typecheck": "tsc --noEmit" },
-  "devDependencies": { "vitest": "^2.0.0", "typescript": "^5.5.0" }
+  "devDependencies": { "@autocare/config": "workspace:*", "vitest": "^2.0.0", "typescript": "^5.5.0" }
 }

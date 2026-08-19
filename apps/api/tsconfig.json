@@ -1,0 +1,15 @@
+{
+  "extends": "@autocare/config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "ES2021",
+    "outDir": "dist",
+    "declaration": false,
+    "sourceMap": true,
+    "baseUrl": "."
+  },
+  "include": ["src", "test"]
+}
