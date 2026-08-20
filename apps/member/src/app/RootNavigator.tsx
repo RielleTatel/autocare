@@ -1,15 +1,26 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { bootstrap, type BootState } from "../features/auth/session";
-import { sendOtp, signInWithGoogle } from "../features/auth/firebaseAuth";
+import { sendOtp, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
+import { Vehicle } from "@autocare/contracts";
 import { OnboardingScreen } from "../features/auth/OnboardingScreen";
 import { PhoneEntryScreen } from "../features/auth/PhoneEntryScreen";
 import { OtpScreen } from "../features/auth/OtpScreen";
 import { ConsentScreen } from "../features/auth/ConsentScreen";
+import { HomeTabs } from "./HomeTabs";
+import { HomeScreen } from "../features/home/HomeScreen";
+import { AddVehicleScreen } from "../features/vehicles/AddVehicleScreen";
+import { VehiclePhotosScreen } from "../features/vehicles/VehiclePhotosScreen";
+import { VehiclesListScreen } from "../features/vehicles/VehiclesListScreen";
+import { VehicleDetailScreen } from "../features/vehicles/VehicleDetailScreen";
+import { uploadVehiclePhoto } from "../features/vehicles/uploadPhoto";
+import { ProfileScreen } from "../features/profile/ProfileScreen";
+import { PrivacyScreen } from "../features/profile/PrivacyScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -21,13 +32,15 @@ function Splash() {
   );
 }
 
-/** After Firebase sign-in, ask the API for a session and route by consentRequired. */
-async function afterSignIn(navigation: any) {
+/** After Firebase sign-in, ask the API for a session and route by consentRequired.
+ * Transitions RootNavigator's top-level boot state rather than navigating within
+ * the current (soon-to-be-unmounted) stack, so READY mounts the real vehicle stack. */
+async function afterSignIn(navigation: any, setBootState: (s: BootState) => void) {
   const session = await api.createSession();
   if (session.consentRequired) {
-    navigation.reset({ index: 0, routes: [{ name: "Consent" }] });
+    setBootState("NEEDS_CONSENT");
   } else {
-    navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    setBootState("READY");
   }
 }
 
@@ -35,7 +48,7 @@ function OnboardingContainer({ navigation }: any) {
   return <OnboardingScreen onGetStarted={() => navigation.navigate("PhoneEntry")} />;
 }
 
-function PhoneEntryContainer({ navigation }: any) {
+function PhoneEntryContainer({ navigation, setBootState }: any) {
   const [error, setError] = useState<string | null>(null);
   return (
     <PhoneEntryScreen
@@ -53,7 +66,7 @@ function PhoneEntryContainer({ navigation }: any) {
         setError(null);
         try {
           await signInWithGoogle();
-          await afterSignIn(navigation);
+          await afterSignIn(navigation, setBootState);
         } catch {
           setError("Google sign-in failed. Try again.");
         }
@@ -62,7 +75,7 @@ function PhoneEntryContainer({ navigation }: any) {
   );
 }
 
-function OtpContainer({ navigation, route }: any) {
+function OtpContainer({ navigation, route, setBootState }: any) {
   const { phone, confirmation } = route.params;
   const [error, setError] = useState<string | null>(null);
   return (
@@ -73,7 +86,7 @@ function OtpContainer({ navigation, route }: any) {
         setError(null);
         try {
           await confirmation.confirm(code);
-          await afterSignIn(navigation);
+          await afterSignIn(navigation, setBootState);
         } catch {
           setError("That code didn't work, try again.");
         }
@@ -90,16 +103,175 @@ function OtpContainer({ navigation, route }: any) {
   );
 }
 
-function ConsentContainer({ navigation }: any) {
-  return <ConsentScreen onConsented={() => navigation.reset({ index: 0, routes: [{ name: "Home" }] })} />;
+function ConsentContainer({ setBootState }: any) {
+  return <ConsentScreen onConsented={() => setBootState("READY")} />;
 }
 
 function HomePlaceholder() {
-  // Placeholder until Task 9 hangs the real vehicle stack off READY.
+  // Used pre-READY (ANONYMOUS/NEEDS_CONSENT stacks reset to "Home" before the
+  // READY vehicle data is available).
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
       <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Home</Text>
     </View>
+  );
+}
+
+/** Home tab container: needs the vehicle list (for the primary card) and stack nav to reach AddVehicle/Detail. */
+function HomeTabContainer({ navigation, vehicles, firstName }: any) {
+  return (
+    <HomeScreen
+      firstName={firstName}
+      vehicle={vehicles[0] ?? null}
+      onAddVehicle={() => navigation.getParent()?.navigate("AddVehicle")}
+      onUpdateOdometer={() =>
+        vehicles[0]
+          ? navigation.getParent()?.navigate("VehicleDetail", { vehicle: vehicles[0] })
+          : navigation.getParent()?.navigate("AddVehicle")
+      }
+    />
+  );
+}
+
+function VehiclesTabContainer({ navigation, vehicles, refreshVehicles }: any) {
+  return (
+    <VehiclesListScreen
+      fetchVehicles={async () => { await refreshVehicles(); return vehicles; }}
+      onSelectVehicle={(vehicle: Vehicle) => navigation.getParent()?.navigate("VehicleDetail", { vehicle })}
+      onAddVehicle={() => navigation.getParent()?.navigate("AddVehicle")}
+    />
+  );
+}
+
+function ProfileTabContainer({ navigation, setBootState }: any) {
+  const [profile, setProfile] = useState<any>(null);
+  useEffect(() => { api.get("/users/me").then(setProfile).catch(() => setProfile({})); }, []);
+  return (
+    <ProfileScreen
+      initialProfile={profile}
+      saveProfile={(data) => api.patch("/users/me", data)}
+      onSignOut={async () => {
+        await signOut();
+        setBootState("ANONYMOUS");
+      }}
+      onPrivacy={() => navigation.getParent()?.navigate("Privacy")}
+    />
+  );
+}
+
+function HomeTabsContainer({ navigation, vehicles, refreshVehicles, firstName, setBootState }: any) {
+  return (
+    <HomeTabs
+      HomeComponent={(props: any) => <HomeTabContainer {...props} navigation={props.navigation ?? navigation} vehicles={vehicles} firstName={firstName} />}
+      VehiclesComponent={(props: any) => <VehiclesTabContainer {...props} vehicles={vehicles} refreshVehicles={refreshVehicles} />}
+      ProfileComponent={(props: any) => <ProfileTabContainer {...props} setBootState={setBootState} />}
+    />
+  );
+}
+
+function AddVehicleContainer({ navigation, refreshVehicles }: any) {
+  return (
+    <AddVehicleScreen
+      createVehicle={(data) => api.post<Vehicle>("/vehicles", data)}
+      onCreated={async (vehicle: Vehicle) => {
+        await refreshVehicles();
+        navigation.replace("Photos", { vehicle });
+      }}
+    />
+  );
+}
+
+function PhotosContainer({ navigation, route, refreshVehicles }: any) {
+  const { vehicle } = route.params;
+  const goHome = async () => {
+    await refreshVehicles();
+    navigation.reset({ index: 0, routes: [{ name: "HomeTabsScreen" }] });
+  };
+  return (
+    <VehiclePhotosScreen
+      vehicleId={vehicle.id}
+      onDone={goHome}
+      pickImage={async () => {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) return null;
+        const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
+        if (result.canceled || result.assets.length === 0) return null;
+        return result.assets[0].uri;
+      }}
+      uploadPhoto={uploadVehiclePhoto}
+      patchVehicle={(id, body) => api.patch(`/vehicles/${id}`, body)}
+    />
+  );
+}
+
+function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
+  const { vehicle } = route.params;
+  return (
+    <VehicleDetailScreen
+      vehicle={vehicle}
+      onUpdateOdometer={async (km: number, justification?: string) => {
+        await api.post(`/vehicles/${vehicle.id}/odometer`, { km, justification });
+        await refreshVehicles();
+      }}
+      onArchive={(id: string) => api.del(`/vehicles/${id}`)}
+      onArchived={async () => {
+        await refreshVehicles();
+        navigation.goBack();
+      }}
+      onBack={() => navigation.goBack()}
+    />
+  );
+}
+
+function PrivacyContainer() {
+  return (
+    <PrivacyScreen
+      requestDataExport={() => api.post("/users/me/data-export")}
+      requestDeletion={() => api.post("/users/me/deletion-request")}
+      onSignedOut={async () => { await signOut(); }}
+    />
+  );
+}
+
+/** READY branch: fetches the vehicle list once, then decides the initial
+ * screen — a consented member with zero vehicles is deep-linked straight
+ * into AddVehicle (first-run flow). */
+function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) {
+  const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
+  const [firstName, setFirstName] = useState("there");
+
+  const refreshVehicles = useCallback(async () => {
+    const list = await api.get<Vehicle[]>("/vehicles");
+    setVehicles(list);
+    return list;
+  }, []);
+
+  useEffect(() => {
+    refreshVehicles();
+    api.get<{ name: string | null }>("/users/me").then((u) => {
+      if (u?.name) setFirstName(u.name.split(" ")[0]);
+    }).catch(() => {});
+  }, [refreshVehicles]);
+
+  if (vehicles === null) return <Splash />;
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}
+      initialRouteName={vehicles.length === 0 ? "AddVehicle" : "HomeTabsScreen"}>
+      <Stack.Screen name="HomeTabsScreen">
+        {(props) => <HomeTabsContainer {...props} vehicles={vehicles} refreshVehicles={refreshVehicles} firstName={firstName} setBootState={setBootState} />}
+      </Stack.Screen>
+      <Stack.Screen name="AddVehicle">
+        {(props) => <AddVehicleContainer {...props} refreshVehicles={refreshVehicles} />}
+      </Stack.Screen>
+      <Stack.Screen name="Photos">
+        {(props) => <PhotosContainer {...props} refreshVehicles={refreshVehicles} />}
+      </Stack.Screen>
+      <Stack.Screen name="VehicleDetail">
+        {(props) => <VehicleDetailContainer {...props} refreshVehicles={refreshVehicles} />}
+      </Stack.Screen>
+      <Stack.Screen name="Privacy" component={PrivacyContainer} />
+    </Stack.Navigator>
   );
 }
 
@@ -112,25 +284,42 @@ export function RootNavigator() {
 
   if (state === "PENDING") return <Splash />;
 
+  if (state === "READY") {
+    return (
+      <NavigationContainer>
+        <ReadyStack setBootState={setState} />
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {state === "ANONYMOUS" && (
           <>
-            <Stack.Screen name="Onboarding" component={OnboardingContainer} />
-            <Stack.Screen name="PhoneEntry" component={PhoneEntryContainer} />
-            <Stack.Screen name="Otp" component={OtpContainer} />
-            <Stack.Screen name="Consent" component={ConsentContainer} />
+            <Stack.Screen name="Onboarding">
+              {(props) => <OnboardingContainer {...props} setBootState={setState} />}
+            </Stack.Screen>
+            <Stack.Screen name="PhoneEntry">
+              {(props) => <PhoneEntryContainer {...props} setBootState={setState} />}
+            </Stack.Screen>
+            <Stack.Screen name="Otp">
+              {(props) => <OtpContainer {...props} setBootState={setState} />}
+            </Stack.Screen>
+            <Stack.Screen name="Consent">
+              {(props) => <ConsentContainer {...props} setBootState={setState} />}
+            </Stack.Screen>
             <Stack.Screen name="Home" component={HomePlaceholder} />
           </>
         )}
         {state === "NEEDS_CONSENT" && (
           <>
-            <Stack.Screen name="Consent" component={ConsentContainer} />
+            <Stack.Screen name="Consent">
+              {(props) => <ConsentContainer {...props} setBootState={setState} />}
+            </Stack.Screen>
             <Stack.Screen name="Home" component={HomePlaceholder} />
           </>
         )}
-        {state === "READY" && <Stack.Screen name="Home" component={HomePlaceholder} />}
       </Stack.Navigator>
     </NavigationContainer>
   );
