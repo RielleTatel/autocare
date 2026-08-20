@@ -1,4 +1,5 @@
 import { Body, Controller, Ip, Post } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { consentSchema } from "@autocare/contracts";
 import { z } from "zod";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -6,6 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CurrentUser } from "../auth/current-user.decorator";
 
 @Controller("auth")
+@Throttle({ default: { limit: 5, ttl: 60_000 } })
 export class ConsentController {
   constructor(private prisma: PrismaService) {}
   @Post("consent")

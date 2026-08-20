@@ -12,4 +12,9 @@ describe("classifySession", () => {
   it("fresh token → TOKEN_OK", () => {
     expect(classifySession("tok", String(now - 1000), now)).toBe("TOKEN_OK");
   });
+  it("expires exactly past the 30-day boundary", () => {
+    const THIRTY = 30 * 24 * 3600 * 1000;
+    expect(classifySession("tok", String(now - THIRTY), now)).toBe("TOKEN_OK");
+    expect(classifySession("tok", String(now - THIRTY - 1), now)).toBe("ANONYMOUS");
+  });
 });

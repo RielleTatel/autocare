@@ -24,6 +24,7 @@
     "expo-build-properties": "^57.0.13",
     "expo-dev-client": "^57.0.14",
     "expo-image-picker": "^57.0.12",
+    "expo-local-authentication": "^57.0.2",
     "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.18.0",
