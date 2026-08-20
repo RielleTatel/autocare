@@ -17,7 +17,7 @@ export class VehiclesController {
     return this.vehicles.create(u, dto);
   }
 
-  @Get(":id") get(@CurrentUser() u: AbilityUser, @Param("id") id: string) { return this.vehicles.findForUser(u, id); }
+  @Get(":id") get(@CurrentUser() u: AbilityUser, @Param("id") id: string) { return this.vehicles.get(u, id); }
 
   @Patch(":id")
   update(@CurrentUser() u: AbilityUser, @Param("id") id: string,

@@ -33,6 +33,8 @@ describe("vehicles (e2e)", () => {
     vehicleId = res.body.data.id;
     expect(res.body.data.plateNo).toBe("XYZ7890");
     expect(res.body.data.currentOdometerKm).toBe(15000);
+    expect(res.body.data.ownerUserId).toBeUndefined();
+    expect(res.body.data.orgOwnerId).toBeUndefined();
   });
   it("rejects a duplicate plate with 409 PLATE_ALREADY_REGISTERED (FR-005)", async () => {
     const res = await as("veh-b").post("/api/v1/vehicles").send(body).expect(409);
@@ -46,7 +48,9 @@ describe("vehicles (e2e)", () => {
     await as("veh-b").patch(`/api/v1/vehicles/${vehicleId}`).send({ color: "red" }).expect(403);
   });
   it("staff can read but not update (FR-007)", async () => {
-    await as("veh-mech").get(`/api/v1/vehicles/${vehicleId}`).expect(200);
+    const res = await as("veh-mech").get(`/api/v1/vehicles/${vehicleId}`).expect(200);
+    expect(res.body.data.ownerUserId).toBeUndefined();
+    expect(res.body.data.orgOwnerId).toBeUndefined();
     await as("veh-mech").patch(`/api/v1/vehicles/${vehicleId}`).send({ color: "red" }).expect(403);
   });
   it("odometer regression is 422 without justification, accepted with one (FR-048, NFR-056)", async () => {
@@ -55,6 +59,13 @@ describe("vehicles (e2e)", () => {
     await as("veh-a").post(`/api/v1/vehicles/${vehicleId}/odometer`).send({ km: 14000, justification: "odometer cluster replaced" }).expect(201);
     const v = await as("veh-a").get(`/api/v1/vehicles/${vehicleId}`).expect(200);
     expect(v.body.data.currentOdometerKm).toBe(14000);
+  });
+  it("list responses never include internal owner fields", async () => {
+    const list = await as("veh-a").get("/api/v1/vehicles").expect(200);
+    for (const v of list.body.data) {
+      expect(v.ownerUserId).toBeUndefined();
+      expect(v.orgOwnerId).toBeUndefined();
+    }
   });
   it("DELETE archives; archived is absent from list but staff still GET it (FR-006 note)", async () => {
     await as("veh-a").del(`/api/v1/vehicles/${vehicleId}`).expect(200);
