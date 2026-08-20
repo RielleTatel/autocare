@@ -2,6 +2,8 @@ import { AbilityBuilder, createMongoAbility, MongoAbility } from "@casl/ability"
 import { Injectable } from "@nestjs/common";
 import type { Role } from "@autocare/contracts";
 
+export { subject } from "@casl/ability";
+
 export type Action = "manage" | "create" | "read" | "update" | "delete";
 export type Subjects = "Vehicle" | "Profile" | "User" | "Organization" | "all";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches @casl/ability's own AnyRecord (Record<PropertyKey, any>); `unknown` fails structural assignability for ForcedSubject intersections under strict mode.
