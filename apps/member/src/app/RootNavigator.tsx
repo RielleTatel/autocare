@@ -36,15 +36,27 @@ function OnboardingContainer({ navigation }: any) {
 }
 
 function PhoneEntryContainer({ navigation }: any) {
+  const [error, setError] = useState<string | null>(null);
   return (
     <PhoneEntryScreen
+      error={error}
       onSubmit={async (phoneE164) => {
-        const confirmation = await sendOtp(phoneE164);
-        navigation.navigate("Otp", { phone: phoneE164, confirmation });
+        setError(null);
+        try {
+          const confirmation = await sendOtp(phoneE164);
+          navigation.navigate("Otp", { phone: phoneE164, confirmation });
+        } catch {
+          setError("Couldn't send the code. Check the number and try again.");
+        }
       }}
       onGoogle={async () => {
-        await signInWithGoogle();
-        await afterSignIn(navigation);
+        setError(null);
+        try {
+          await signInWithGoogle();
+          await afterSignIn(navigation);
+        } catch {
+          setError("Google sign-in failed. Try again.");
+        }
       }}
     />
   );
@@ -52,16 +64,27 @@ function PhoneEntryContainer({ navigation }: any) {
 
 function OtpContainer({ navigation, route }: any) {
   const { phone, confirmation } = route.params;
+  const [error, setError] = useState<string | null>(null);
   return (
     <OtpScreen
       phone={phone}
+      error={error}
       onConfirm={async (code: string) => {
-        await confirmation.confirm(code);
-        await afterSignIn(navigation);
+        setError(null);
+        try {
+          await confirmation.confirm(code);
+          await afterSignIn(navigation);
+        } catch {
+          setError("That code didn't work, try again.");
+        }
       }}
       onResend={async () => {
-        const next = await sendOtp(phone);
-        navigation.setParams({ confirmation: next });
+        try {
+          const next = await sendOtp(phone);
+          navigation.setParams({ confirmation: next });
+        } catch {
+          setError("Couldn't resend the code. Try again.");
+        }
       }}
     />
   );

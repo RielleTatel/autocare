@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { theme } from "../../theme";
 
-export function OtpScreen({ phone, onConfirm, onResend }:
-  { phone: string; onConfirm: (code: string) => void; onResend: () => void }) {
+export function OtpScreen({ phone, onConfirm, onResend, error }:
+  { phone: string; onConfirm: (code: string) => void; onResend: () => void; error?: string | null }) {
   const [code, setCode] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(60);
   useEffect(() => {
@@ -32,6 +32,11 @@ export function OtpScreen({ phone, onConfirm, onResend }:
           {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}
         </Text>
       </Pressable>
+      {error ? (
+        <Text testID="error" style={[theme.text("label"), { color: theme.colors.danger, marginTop: theme.spacing.sm }]}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }

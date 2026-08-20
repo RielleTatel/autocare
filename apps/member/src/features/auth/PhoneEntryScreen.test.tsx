@@ -15,4 +15,11 @@ describe("PhoneEntryScreen", () => {
     fireEvent.press(getByTestId("continue"));
     expect(onSubmit).toHaveBeenCalledWith("+639171234567");
   });
+  it("shows an error message when sendOtp/Google sign-in fails", () => {
+    const { getByTestId, queryByTestId } = render(
+      <PhoneEntryScreen onSubmit={jest.fn()} onGoogle={jest.fn()} error="Google sign-in failed. Try again." />
+    );
+    expect(queryByTestId("error")).not.toBeNull();
+    expect(getByTestId("error").props.children).toBe("Google sign-in failed. Try again.");
+  });
 });

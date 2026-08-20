@@ -4,7 +4,8 @@ import { theme } from "../../theme";
 
 const PH_MOBILE = /^9\d{9}$/; // local part after +63
 
-export function PhoneEntryScreen({ onSubmit, onGoogle }: { onSubmit: (e164: string) => void; onGoogle: () => void }) {
+export function PhoneEntryScreen({ onSubmit, onGoogle, error }:
+  { onSubmit: (e164: string) => void; onGoogle: () => void; error?: string | null }) {
   const [digits, setDigits] = useState("");
   const valid = PH_MOBILE.test(digits);
   return (
@@ -31,6 +32,11 @@ export function PhoneEntryScreen({ onSubmit, onGoogle }: { onSubmit: (e164: stri
         style={{ height: theme.minTarget, alignItems: "center", justifyContent: "center", marginTop: theme.spacing.sm }}>
         <Text style={[theme.text("body"), { color: theme.colors.primary }]}>Continue with Google</Text>
       </Pressable>
+      {error ? (
+        <Text testID="error" style={[theme.text("label"), { color: theme.colors.danger, marginTop: theme.spacing.sm }]}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
