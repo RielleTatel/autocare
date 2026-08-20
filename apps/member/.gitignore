@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase config (secret) — commit GoogleService-Info.example.plist instead
+GoogleService-Info.plist
+.env
