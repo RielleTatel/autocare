@@ -21,6 +21,11 @@ export class AuthService {
       update: {},
       create: { firebaseUid: decoded.uid, mobile: decoded.phone, email: decoded.email, role: "MEMBER" },
     });
+    const consentRequired = ["MEMBER", "FLEET_MANAGER"].includes(user.role)
+      ? !(await this.prisma.consentRecord.findFirst({
+          where: { userId: user.id, policyVersion: process.env.POLICY_VERSION, withdrawnAt: null },
+        }))
+      : false;
     return {
       user: {
         id: user.id,
@@ -30,6 +35,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
       },
+      consentRequired,
     };
   }
 }

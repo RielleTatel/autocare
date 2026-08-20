@@ -7,6 +7,7 @@ const envSchema = z.object({
   FIREBASE_CLIENT_EMAIL: z.string().email(),
   FIREBASE_PRIVATE_KEY: z.string(),
   API_PORT: z.coerce.number().default(3001),
+  POLICY_VERSION: z.string().min(1),
 });
 export type Env = z.infer<typeof envSchema>;
 export const loadEnv = (): Env => envSchema.parse(process.env);
