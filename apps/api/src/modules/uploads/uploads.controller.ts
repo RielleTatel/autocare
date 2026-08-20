@@ -8,7 +8,7 @@ import { AbilityUser } from "../../common/policies/ability.factory";
 import { VehiclesService } from "../vehicles/vehicles.service";
 
 export const signedUrlSchema = z.object({
-  vehicleId: z.string().min(1),
+  vehicleId: z.string().uuid(),
   contentType: z.enum(["image/jpeg", "image/png"]),
   kind: z.enum(["PHOTO", "ORCR"]),
 });
