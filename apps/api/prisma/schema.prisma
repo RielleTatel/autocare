@@ -63,6 +63,7 @@ model User {
   orgId                  String?         @map("org_id") @db.Uuid
   org                    Organization?   @relation(fields: [orgId], references: [id])
   erasureRequestedAt     DateTime?       @map("erasure_requested_at")
+  dataRequests           DataRequest[]
 
   @@map("users")
 }
@@ -104,6 +105,45 @@ model Vehicle {
 
   @@index([ownerUserId, status])
   @@map("vehicles")
+}
+
+enum DataRequestType {
+  EXPORT
+  ERASURE
+}
+
+enum DataRequestStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model DataRequest {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String            @map("user_id") @db.Uuid
+  user        User              @relation(fields: [userId], references: [id])
+  type        DataRequestType
+  status      DataRequestStatus @default(PENDING)
+  requestedAt DateTime          @default(now()) @map("requested_at")
+  completedAt DateTime?         @map("completed_at")
+  resultUrl   String?           @map("result_url")
+
+  @@map("data_requests")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@map("audit_log")
 }
 
 model OdometerReading {

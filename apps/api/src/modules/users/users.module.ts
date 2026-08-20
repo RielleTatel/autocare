@@ -2,9 +2,24 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConsentController } from "./consent.controller";
 import { ConsentGuard } from "./consent.guard";
+import { UsersController } from "./users.controller";
+import { UsersService } from "./users.service";
+import { DpaProcessor } from "./dpa.processor";
+import { QueueModule } from "../../common/queue/queue.module";
+import { AuditService } from "../../common/audit/audit.service";
+import { STORAGE_PORT } from "../../common/storage/storage.port";
+import { FsStorageAdapter } from "../../common/storage/fs-storage.adapter";
 
 @Module({
-  controllers: [ConsentController],
-  providers: [{ provide: APP_GUARD, useClass: ConsentGuard }],
+  imports: [QueueModule],
+  controllers: [ConsentController, UsersController],
+  providers: [
+    { provide: APP_GUARD, useClass: ConsentGuard },
+    UsersService,
+    AuditService,
+    DpaProcessor,
+    { provide: STORAGE_PORT, useClass: FsStorageAdapter },
+  ],
+  exports: [AuditService, STORAGE_PORT],
 })
 export class UsersModule {}

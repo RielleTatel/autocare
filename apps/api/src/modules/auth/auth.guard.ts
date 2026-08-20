@@ -30,6 +30,7 @@ export class AuthGuard implements CanActivate {
 
     const user = await this.prisma.user.findUnique({ where: { firebaseUid: decoded.uid } });
     if (!user) throw new DomainError("AUTH_TOKEN_INVALID", "No user for token", 401);
+    if (user.status === "SUSPENDED") throw new DomainError("FORBIDDEN_ROLE", "Account suspended", 403);
 
     req.user = user;
     return true;
