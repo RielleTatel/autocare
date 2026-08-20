@@ -16,12 +16,21 @@ describe("middleware", () => {
     const res = await middleware(req("/staff"));
     expect(res?.headers.get("location")).toContain("/login");
   });
+  it("redirects anonymous /admin to /login", async () => {
+    const res = await middleware(req("/admin"));
+    expect(res?.headers.get("location")).toContain("/login");
+  });
   it("blocks a MEMBER cookie from /admin", async () => {
     const res = await middleware(req("/admin", await sealSession({ uid: "u1", role: "MEMBER" })));
     expect(res?.headers.get("location")).toContain("/login");
   });
   it("lets an ADVISOR into /staff but not /admin", async () => {
     const cookie = await sealSession({ uid: "u2", role: "ADVISOR" });
+    expect((await middleware(req("/staff", cookie)))?.headers.get("location")).toBeNull();
+    expect((await middleware(req("/admin", cookie)))?.headers.get("location")).toContain("/login");
+  });
+  it("lets a MECHANIC into /staff but not /admin", async () => {
+    const cookie = await sealSession({ uid: "u4", role: "MECHANIC" });
     expect((await middleware(req("/staff", cookie)))?.headers.get("location")).toBeNull();
     expect((await middleware(req("/admin", cookie)))?.headers.get("location")).toContain("/login");
   });
