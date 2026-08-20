@@ -17,12 +17,14 @@ describe("vehicles (e2e)", () => {
       await prisma.user.create({ data: { firebaseUid: uid, role,
         consents: role === "MEMBER" ? { create: { policyVersion: "2026-08-privacy-v1" } } : undefined } });
     }
+    await prisma.user.create({ data: { firebaseUid: "veh-fm-noorg", role: "FLEET_MANAGER",
+      consents: { create: { policyVersion: "2026-08-privacy-v1" } } } });
   });
   afterAll(async () => {
     await prisma.odometerReading.deleteMany({ where: { vehicle: { plateNo: { in: ["XYZ7890"] } } } });
     await prisma.vehicle.deleteMany({ where: { plateNo: "XYZ7890" } });
-    await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { in: ["veh-a", "veh-b"] } } } });
-    await prisma.user.deleteMany({ where: { firebaseUid: { in: ["veh-a", "veh-b", "veh-mech"] } } });
+    await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { in: ["veh-a", "veh-b", "veh-fm-noorg"] } } } });
+    await prisma.user.deleteMany({ where: { firebaseUid: { in: ["veh-a", "veh-b", "veh-mech", "veh-fm-noorg"] } } });
     await app.close();
   });
   const as = (uid: string) => request.agent(app.getHttpServer()).set("Authorization", `Bearer ${uid}`);
@@ -42,6 +44,10 @@ describe("vehicles (e2e)", () => {
   });
   it("rejects an invalid plate with 400", async () => {
     await as("veh-a").post("/api/v1/vehicles").send({ ...body, plateNo: "1234ABC" }).expect(400);
+  });
+  it("orgless fleet manager cannot create a vehicle — 403 FORBIDDEN_ROLE, not a 500", async () => {
+    const res = await as("veh-fm-noorg").post("/api/v1/vehicles").send({ ...body, plateNo: "NOG 1111" }).expect(403);
+    expect(res.body.error.code).toBe("FORBIDDEN_ROLE");
   });
   it("another member cannot read or update it", async () => {
     await as("veh-b").get(`/api/v1/vehicles/${vehicleId}`).expect(403);

@@ -33,6 +33,8 @@ export class VehiclesService {
   }
 
   async create(user: AbilityUser, dto: VehicleCreate) {
+    if (user.role === "FLEET_MANAGER" && !user.orgId)
+      throw new DomainError("FORBIDDEN_ROLE", "Fleet manager account is not linked to an organization", 403);
     const { odometerKm, ...fields } = dto;
     const owner = user.role === "FLEET_MANAGER"
       ? { orgOwnerId: user.orgId ?? undefined }
