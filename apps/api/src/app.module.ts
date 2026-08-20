@@ -4,12 +4,13 @@ import { HealthController } from "./modules/health/health.controller";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
+import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { PoliciesModule } from "./common/policies/policies.module";
 import { EnvelopeInterceptor } from "./common/interceptors/envelope.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, PoliciesModule],
+  imports: [PrismaModule, AuthModule, UsersModule, VehiclesModule, PoliciesModule],
   controllers: [HealthController],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: EnvelopeInterceptor },
