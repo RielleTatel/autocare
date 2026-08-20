@@ -69,6 +69,7 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
   { onCreated: (vehicle: Vehicle) => void; createVehicle: (data: any) => Promise<Vehicle> }) {
   const [form, setForm] = useState<VehicleFormState>(emptyVehicleForm);
   const [errors, setErrors] = useState<Partial<Record<keyof VehicleFormState, string>>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -78,18 +79,23 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
     const result = validateVehicleForm(form);
     if (!result.ok) {
       setErrors(result.errors);
+      setFormError(null);
       return;
     }
     setErrors({});
+    setFormError(null);
     setSubmitting(true);
     try {
       const vehicle = await createVehicle(result.data);
       onCreated(vehicle);
     } catch (e) {
+      // Only field-specific ApiError codes get attributed to a field (e.g. the
+      // plate). Everything else (network errors, unknown codes) is a general
+      // failure, not a plate problem — mis-attributing it there was misleading.
       if (e instanceof ApiError && e.code === "PLATE_ALREADY_REGISTERED") {
         setErrors({ plateNo: "This plate is already registered — contact support if it's yours" });
       } else {
-        setErrors({ plateNo: e instanceof Error ? e.message : "Something went wrong. Try again." });
+        setFormError(e instanceof Error ? e.message : "Something went wrong. Try again.");
       }
     } finally {
       setSubmitting(false);
@@ -145,6 +151,12 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
           <TextField name="vin" value={form.vin} onChangeText={set("vin")} autoCapitalize="characters" mono error={errors.vin} />
         </View>
       )}
+
+      {formError ? (
+        <Text testID="form-error" style={[theme.text("label"), { color: theme.colors.danger, marginTop: theme.spacing.md }]}>
+          {formError}
+        </Text>
+      ) : null}
 
       <Pressable testID="submit" disabled={submitting} onPress={handleSubmit}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,

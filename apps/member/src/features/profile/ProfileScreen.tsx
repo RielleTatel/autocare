@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { theme } from "../../theme";
 import { profileUpdateSchema, ProfileUpdate } from "@autocare/contracts";
@@ -22,6 +22,17 @@ export function ProfileScreen({ initialProfile, saveProfile, onSignOut, onPrivac
   const [errors, setErrors] = useState<Partial<Record<keyof ProfileFormState, string>>>({});
   const [saved, setSaved] = useState(false);
   const set = (k: keyof ProfileFormState) => (v: string) => { setSaved(false); setForm((f) => ({ ...f, [k]: v })); };
+
+  // `initialProfile` typically starts null and the real GET /users/me resolves
+  // after mount — seed the form the first time it transitions null → loaded.
+  // Guarded to fire once so it never clobbers in-progress edits on later re-renders.
+  const seededRef = useRef(initialProfile != null);
+  useEffect(() => {
+    if (!seededRef.current && initialProfile != null) {
+      seededRef.current = true;
+      setForm(fieldsFromProfile(initialProfile));
+    }
+  }, [initialProfile]);
 
   const save = async () => {
     const candidate = {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { NavigationContainer } from "@react-navigation/native";
@@ -117,8 +117,34 @@ function HomePlaceholder() {
   );
 }
 
+/** Shared data for everything under the READY vehicle stack, provided once by
+ * `ReadyStack` and read via `useReady()`. Keeping this in context — rather than
+ * threading `vehicles`/`refreshVehicles`/etc. through inline wrapper components
+ * passed as `HomeTabs`'s `*Component` props — is what keeps those props'
+ * identities stable across renders. An inline `(props) => <X vehicles={vehicles} />`
+ * defined fresh in the parent's render body is itself a *new component type*
+ * every time `vehicles` changes, and React (independent of React Navigation)
+ * remounts on a type change — which re-ran each tab's mount-time fetch effect,
+ * which updated `vehicles` again, which re-created the wrapper again: an
+ * infinite refetch/remount loop. Module-level components read from context
+ * instead, so their identity never changes — only the context value updates,
+ * which re-renders (not remounts) the consumers. */
+const ReadyContext = createContext<{
+  vehicles: Vehicle[];
+  refreshVehicles: () => Promise<Vehicle[]>;
+  firstName: string;
+  setBootState: (s: BootState) => void;
+} | null>(null);
+
+function useReady() {
+  const ctx = useContext(ReadyContext);
+  if (!ctx) throw new Error("useReady() called outside ReadyContext.Provider");
+  return ctx;
+}
+
 /** Home tab container: needs the vehicle list (for the primary card) and stack nav to reach AddVehicle/Detail. */
-function HomeTabContainer({ navigation, vehicles, firstName }: any) {
+function HomeTabContainer({ navigation }: any) {
+  const { vehicles, firstName } = useReady();
   return (
     <HomeScreen
       firstName={firstName}
@@ -133,17 +159,19 @@ function HomeTabContainer({ navigation, vehicles, firstName }: any) {
   );
 }
 
-function VehiclesTabContainer({ navigation, vehicles, refreshVehicles }: any) {
+function VehiclesTabContainer({ navigation }: any) {
+  const { refreshVehicles } = useReady();
   return (
     <VehiclesListScreen
-      fetchVehicles={async () => { await refreshVehicles(); return vehicles; }}
+      fetchVehicles={refreshVehicles}
       onSelectVehicle={(vehicle: Vehicle) => navigation.getParent()?.navigate("VehicleDetail", { vehicle })}
       onAddVehicle={() => navigation.getParent()?.navigate("AddVehicle")}
     />
   );
 }
 
-function ProfileTabContainer({ navigation, setBootState }: any) {
+function ProfileTabContainer({ navigation }: any) {
+  const { setBootState } = useReady();
   const [profile, setProfile] = useState<any>(null);
   useEffect(() => { api.get("/users/me").then(setProfile).catch(() => setProfile({})); }, []);
   return (
@@ -159,12 +187,14 @@ function ProfileTabContainer({ navigation, setBootState }: any) {
   );
 }
 
-function HomeTabsContainer({ navigation, vehicles, refreshVehicles, firstName, setBootState }: any) {
+// Stable component references — passed straight through, never redefined per
+// render — so `HomeTabs`'s `Tab.Screen`s never see a changed component type.
+function HomeTabsContainer() {
   return (
     <HomeTabs
-      HomeComponent={(props: any) => <HomeTabContainer {...props} navigation={props.navigation ?? navigation} vehicles={vehicles} firstName={firstName} />}
-      VehiclesComponent={(props: any) => <VehiclesTabContainer {...props} vehicles={vehicles} refreshVehicles={refreshVehicles} />}
-      ProfileComponent={(props: any) => <ProfileTabContainer {...props} setBootState={setBootState} />}
+      HomeComponent={HomeTabContainer}
+      VehiclesComponent={VehiclesTabContainer}
+      ProfileComponent={ProfileTabContainer}
     />
   );
 }
@@ -259,7 +289,11 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
     <Stack.Navigator screenOptions={{ headerShown: false }}
       initialRouteName={vehicles.length === 0 ? "AddVehicle" : "HomeTabsScreen"}>
       <Stack.Screen name="HomeTabsScreen">
-        {(props) => <HomeTabsContainer {...props} vehicles={vehicles} refreshVehicles={refreshVehicles} firstName={firstName} setBootState={setBootState} />}
+        {() => (
+          <ReadyContext.Provider value={{ vehicles, refreshVehicles, firstName, setBootState }}>
+            <HomeTabsContainer />
+          </ReadyContext.Provider>
+        )}
       </Stack.Screen>
       <Stack.Screen name="AddVehicle">
         {(props) => <AddVehicleContainer {...props} refreshVehicles={refreshVehicles} />}

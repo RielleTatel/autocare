@@ -24,9 +24,12 @@ export function HomeTabs({ HomeComponent, VehiclesComponent, ProfileComponent }:
         tabBarIcon: () => <Text>{icons[route.name] ?? "•"}</Text>,
       })}
     >
-      <Tab.Screen name="Home" component={HomeComponent} />
-      <Tab.Screen name="Vehicles" component={VehiclesComponent} />
-      <Tab.Screen name="Profile" component={ProfileComponent} />
+      {/* `children` (not `component`) so a fresh inline function from the caller
+          doesn't read as a new component type and remount the tab on every render
+          — see https://reactnavigation.org/docs/screen#children. */}
+      <Tab.Screen name="Home">{(props) => <HomeComponent {...props} />}</Tab.Screen>
+      <Tab.Screen name="Vehicles">{(props) => <VehiclesComponent {...props} />}</Tab.Screen>
+      <Tab.Screen name="Profile">{(props) => <ProfileComponent {...props} />}</Tab.Screen>
     </Tab.Navigator>
   );
 }
