@@ -27,18 +27,43 @@ enum OdometerSource {
   TRIP
 }
 
+enum OrgType {
+  FLEET
+  INTERNAL
+}
+
+model Organization {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String
+  type           OrgType
+  tin            String?
+  billingContact String?   @map("billing_contact")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  members        User[]
+  vehicles       Vehicle[]
+
+  @@map("organizations")
+}
+
 model User {
-  id                    String          @id @default(uuid()) @db.Uuid
-  firebaseUid           String          @unique @map("firebase_uid")
-  mobile                String?         @unique
-  email                 String?         @unique
-  name                  String?
-  role                  Role            @default(MEMBER)
-  status                UserStatus      @default(ACTIVE)
-  isCertifiedTechnician Boolean         @default(false) @map("is_certified_technician")
-  createdAt             DateTime        @default(now()) @map("created_at")
-  consents              ConsentRecord[]
-  vehicles              Vehicle[]
+  id                     String          @id @default(uuid()) @db.Uuid
+  firebaseUid            String          @unique @map("firebase_uid")
+  mobile                 String?         @unique
+  email                  String?         @unique
+  name                   String?
+  role                   Role            @default(MEMBER)
+  status                 UserStatus      @default(ACTIVE)
+  isCertifiedTechnician  Boolean         @default(false) @map("is_certified_technician")
+  createdAt              DateTime        @default(now()) @map("created_at")
+  consents               ConsentRecord[]
+  vehicles               Vehicle[]
+  address                String?
+  emergencyContactName   String?         @map("emergency_contact_name")
+  emergencyContactMobile String?         @map("emergency_contact_mobile")
+  orgId                  String?         @map("org_id") @db.Uuid
+  org                    Organization?   @relation(fields: [orgId], references: [id])
+  erasureRequestedAt     DateTime?       @map("erasure_requested_at")
+  dataRequests           DataRequest[]
 
   @@map("users")
 }
@@ -73,19 +98,63 @@ model Vehicle {
   status            String            @default("ACTIVE")
   createdAt         DateTime          @default(now()) @map("created_at")
   odometerReadings  OdometerReading[]
+  orgOwnerId        String?           @map("owner_org_id") @db.Uuid
+  orgOwner          Organization?     @relation(fields: [orgOwnerId], references: [id])
+  photoUrls         String[]          @default([]) @map("photo_urls")
+  orCrUrls          String[]          @default([]) @map("or_cr_urls")
 
   @@index([ownerUserId, status])
   @@map("vehicles")
 }
 
+enum DataRequestType {
+  EXPORT
+  ERASURE
+}
+
+enum DataRequestStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model DataRequest {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String            @map("user_id") @db.Uuid
+  user        User              @relation(fields: [userId], references: [id])
+  type        DataRequestType
+  status      DataRequestStatus @default(PENDING)
+  requestedAt DateTime          @default(now()) @map("requested_at")
+  completedAt DateTime?         @map("completed_at")
+  resultUrl   String?           @map("result_url")
+
+  @@map("data_requests")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@map("audit_log")
+}
+
 model OdometerReading {
-  id         String         @id @default(uuid()) @db.Uuid
-  vehicleId  String         @map("vehicle_id") @db.Uuid
-  vehicle    Vehicle        @relation(fields: [vehicleId], references: [id])
-  km         Int
-  source     OdometerSource
-  recordedAt DateTime       @default(now()) @map("recorded_at")
-  recordedBy String?        @map("recorded_by") @db.Uuid
+  id            String         @id @default(uuid()) @db.Uuid
+  vehicleId     String         @map("vehicle_id") @db.Uuid
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id])
+  km            Int
+  source        OdometerSource
+  recordedAt    DateTime       @default(now()) @map("recorded_at")
+  recordedBy    String?        @map("recorded_by") @db.Uuid
+  justification String?
 
   @@map("odometer_readings")
 }

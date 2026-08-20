@@ -11,4 +11,13 @@ module.exports = {
   transformIgnorePatterns: [
     "/node_modules/.pnpm/(?!.*(react-native|@react-native|expo|@expo|react-navigation)).*",
   ],
+  // @react-native/jest-preset's react-native-env sets customExportConditions
+  // to ['require', 'react-native'], which has no match in firebase's (and
+  // @firebase/*'s) conditional "exports" map, so resolution falls through to
+  // the "default" condition — an untranspiled ESM build babel isn't set up
+  // for. Adding "node" makes those packages' "node" condition (which points
+  // at their CJS build) match instead.
+  testEnvironmentOptions: {
+    customExportConditions: ["require", "react-native", "node"],
+  },
 };

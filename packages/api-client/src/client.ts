@@ -30,6 +30,7 @@ export function createApiClient(opts: ApiClientOptions) {
     get: <T>(p: string) => call<T>("GET", p),
     post: <T>(p: string, b?: unknown) => call<T>("POST", p, b),
     patch: <T>(p: string, b?: unknown) => call<T>("PATCH", p, b),
+    del: <T>(p: string) => call<T>("DELETE", p),
     createSession: () => call<import("@autocare/contracts").SessionResponse>("POST", "/auth/session"),
   };
 }

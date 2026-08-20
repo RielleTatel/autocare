@@ -6,5 +6,6 @@ export const sessionResponseSchema = z.object({
     id: z.string().uuid(), firebaseUid: z.string(), name: z.string().nullable(),
     mobile: z.string().nullable(), email: z.string().nullable(), role: z.enum(roles),
   }),
+  consentRequired: z.boolean(),
 });
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;

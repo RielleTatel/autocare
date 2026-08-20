@@ -1,13 +1,14 @@
-import { Controller, Get, Post, Req } from "@nestjs/common";
+import { Controller, Post, Req } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import { Public } from "./public.decorator";
-import { CurrentUser } from "./current-user.decorator";
 
 interface BearerRequest {
   headers: { authorization?: string };
 }
 
 @Controller()
+@Throttle({ default: { limit: 5, ttl: 60_000 } })
 export class AuthController {
   constructor(private auth: AuthService) {}
 
@@ -15,11 +16,5 @@ export class AuthController {
   @Post("auth/session")
   session(@Req() req: BearerRequest) {
     return this.auth.createSession(req.headers.authorization);
-  }
-
-  // Minimal protected route to prove the guard; moves to UsersModule in Phase 1.
-  @Get("users/me")
-  me(@CurrentUser() user: unknown) {
-    return user;
   }
 }

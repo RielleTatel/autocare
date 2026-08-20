@@ -16,4 +16,11 @@ describe("api client", () => {
     const api = createApiClient({ baseUrl: "http://x", getToken: async () => null, fetchImpl: vi.fn().mockResolvedValue(err("ENTITLEMENT_EXHAUSTED")) as any });
     await expect(api.get("/subscriptions")).rejects.toMatchObject({ code: "ENTITLEMENT_EXHAUSTED" });
   });
+  it("supports DELETE", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ id: "v1", status: "ARCHIVED" }));
+    const api = createApiClient({ baseUrl: "http://x", getToken: async () => "tok", fetchImpl: fetchMock as any });
+    const out = await api.del<{ status: string }>("/vehicles/v1");
+    expect(out.status).toBe("ARCHIVED");
+    expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
+  });
 });

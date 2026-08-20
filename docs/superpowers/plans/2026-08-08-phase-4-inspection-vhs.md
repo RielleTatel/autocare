@@ -8,14 +8,16 @@
 
 **Tech Stack:** TypeScript, Vitest (scoring), NestJS + Prisma + Jest (api), expo-sqlite + expo-image-manipulator + expo-network (field), Next.js SSR + `ImageResponse` OG images (web), Socket.IO (`score.ready`).
 
-**Covers:** M5 (FR-053→FR-065), BR-05, BR-06, NFR-004/006/007/014/039/054/055; screens F-03→F-09, M-13→M-16, P-01→P-03, A-04/A-05.
+**Covers:** M5 (FR-053→FR-065) and **M11 in part (FR-114 star ratings, FR-115 tap-to-explain)**, BR-05, BR-06, NFR-004/006/007/014/039/054/055; screens F-03→F-09, M-13→M-16, P-01→P-03, A-04/A-05.
+
+> **Revised 2026-08-19.** FR-114/FR-115 were added to the SRS on 2026-08-17 and folded into this phase because both are display transforms over data the engine already emits — building M-13/M-14 without them would mean rebuilding those screens later. FR-116/FR-117 (2D diagram, M-39/M-40) stay deferred to v1.1 and are **not** in this phase; §11.6b explains why the payload built here is already diagram-ready.
 
 **Prerequisites:** Phases 0–3 merged. Schedule the mechanic review of seed thresholds now (risk R-08) — it gates launch, not development.
 
 ## Global Constraints
 
 - `packages/scoring` is pure: no I/O, no clock reads, no randomness; age enters as `daysSinceInspection`. 100% branch coverage (NFR-039).
-- **Rounding rule (fixes the spec's worked example exactly):** category sub-scores round to 1 dp; the rollup consumes the rounded sub-scores; `rawScore` rounds to 3 dp; final `score` rounds to nearest integer, clamped [0,100]. This reproduces §11.4: brakes 75.8 → raw 84.494 → capped 69.
+- **Rounding rule (fixes the spec's worked example exactly):** category sub-scores round to 1 dp; the rollup consumes the rounded sub-scores; `rawScore` rounds to 3 dp; final `score` rounds to nearest integer, clamped [0,100]. This reproduces §11.4: brakes 75.8 → raw 84.488 → capped 69.
 - `inspections`, `inspection_results`, `health_scores`, `category_scores` are append-only (NFR-054): corrections create new records via `supersedes_id`; no UPDATE path in any service.
 - Published checklist versions are immutable (FR-101); every score stores `checklistVersionId` + `weightVersion`; recomputation must reproduce stored scores bit-for-bit (NFR-055).
 - Offline: client UUID on every offline-created record; ordered drain; **client wins** for inspection content; server dedupes via `sync_outbox_receipts`.
@@ -82,26 +84,34 @@ import { describe, expect, it } from "vitest";
 import { computeVHS, deriveStatus } from "./engine";
 import type { ChecklistConfig } from "./types";
 
-/** Categories tuned so sub-scores match §11.4 exactly:
+/** Categories tuned so sub-scores match §11.4 exactly. Weights are the REBALANCED
+ *  10-category set (§11.3 Step 4, revised 2026-08-17) — Emissions and Sensors added,
+ *  everything else scaled down to keep the total at 100.
+ *  Condition factors implied by these fixtures: GOOD 100, MONITOR 75, ATTENTION 40.
  *  ENGINE 92 (w68 GOOD + w32 MONITOR), BRAKES 75.8 (the doc's 5 points),
  *  TYRES 70 (w50 GOOD + w50 ATTENTION), BATTERY 100, FLUIDS 85 (w75 GOOD + w25 ATTENTION),
- *  SUSPENSION 90 (w60 GOOD + w40 MONITOR), LIGHTS 75 (single MONITOR), BODY 95 (w80 GOOD + w20 MONITOR). */
+ *  SUSPENSION 90 (w60 GOOD + w40 MONITOR), LIGHTS 75 (single MONITOR),
+ *  EMISSIONS 88 (w52 GOOD + w48 MONITOR), SENSORS 82 (w28 GOOD + w72 MONITOR),
+ *  BODY 95 (w80 GOOD + w20 MONITOR). */
 export const workedExampleConfig: ChecklistConfig = {
   checklistVersion: "test-v1", weightVersion: "test-w1",
   categories: [
-    { code: "ENGINE", label: "Engine & Drivetrain", weight: 20, points: [
+    { code: "ENGINE", label: "Engine & Drivetrain", weight: 18, points: [
       p("ENG_A", 68), p("ENG_B", 32)] },
-    { code: "BRAKES", label: "Brakes", weight: 18, points: [
+    { code: "BRAKES", label: "Brakes", weight: 16, points: [
       m("BRAKE_PAD_FRONT", 30, true, { direction: "HIGHER_BETTER", good: 7, monitor: 4, attention: 2 }),
       m("BRAKE_PAD_REAR", 25, true, { direction: "HIGHER_BETTER", good: 7, monitor: 4, attention: 2 }),
       m("BRAKE_FLUID", 20, true, { direction: "LOWER_BETTER", good: 2, monitor: 3, attention: 4 }),
       p("BRAKE_DISC", 15, true), p("PARKING_BRAKE", 10, true)] },
-    { code: "TYRES", label: "Tyres & Wheels", weight: 15, points: [p("TY_A", 50), p("TY_B", 50)] },
-    { code: "BATTERY", label: "Battery & Electrical", weight: 12, points: [p("BAT_A", 100)] },
-    { code: "FLUIDS", label: "Fluids", weight: 12, points: [p("FL_A", 75), p("FL_B", 25)] },
-    { code: "SUSP", label: "Suspension & Steering", weight: 10, points: [p("SU_A", 60), p("SU_B", 40)] },
-    { code: "LIGHTS", label: "Lights & Visibility", weight: 8, points: [p("LI_A", 100)] },
-    { code: "BODY", label: "Body & Undercarriage", weight: 5, points: [p("BO_A", 80), p("BO_B", 20)] },
+    { code: "TYRES", label: "Tyres & Wheels", weight: 14, points: [p("TY_A", 50), p("TY_B", 50)] },
+    { code: "BATTERY", label: "Battery & Electrical", weight: 11, points: [p("BAT_A", 100)] },
+    { code: "FLUIDS", label: "Fluids", weight: 11, points: [p("FL_A", 75), p("FL_B", 25)] },
+    { code: "SUSP", label: "Suspension & Steering", weight: 9, points: [p("SU_A", 60), p("SU_B", 40)] },
+    { code: "LIGHTS", label: "Lights & Visibility", weight: 7, points: [p("LI_A", 100)] },
+    { code: "EMISSIONS", label: "Emissions Systems", weight: 5, points: [p("EM_A", 52), p("EM_B", 48)] },
+    { code: "SENSORS", label: "Sensors & Electronics", weight: 5, points: [
+      p("SEN_AIRBAG", 28, true), p("SEN_B", 72)] },
+    { code: "BODY", label: "Body & Undercarriage", weight: 4, points: [p("BO_A", 80), p("BO_B", 20)] },
   ],
 };
 function p(code: string, w: number, sc = false) {
@@ -122,6 +132,8 @@ const workedResults = [
   { pointCode: "FL_A", status: "GOOD" }, { pointCode: "FL_B", status: "ATTENTION" },
   { pointCode: "SU_A", status: "GOOD" }, { pointCode: "SU_B", status: "MONITOR" },
   { pointCode: "LI_A", status: "MONITOR" },
+  { pointCode: "EM_A", status: "GOOD" }, { pointCode: "EM_B", status: "MONITOR" },
+  { pointCode: "SEN_AIRBAG", status: "GOOD" }, { pointCode: "SEN_B", status: "MONITOR" },
   { pointCode: "BO_A", status: "GOOD" }, { pointCode: "BO_B", status: "MONITOR" },
 ] as const;
 
@@ -135,7 +147,7 @@ describe("worked example (VHS doc §11.4)", () => {
   it("computes brakes sub-score 75.8", () => {
     expect(result().categoryScores.find(c => c.categoryCode === "BRAKES")!.score).toBe(75.8);
   });
-  it("computes rawScore 84.494", () => { expect(result().rawScore).toBe(84.494); });
+  it("computes rawScore 84.488", () => { expect(result().rawScore).toBe(84.488); });
   it("caps at 69 via SAFETY_ATTENTION override", () => {
     expect(result().score).toBe(69);
     expect(result().overrideApplied).toBe("SAFETY_ATTENTION");
@@ -291,7 +303,7 @@ describe("golden fixtures", () => {
 ```
 
 - [ ] **Step 2: Author fixtures 1–30.** Required coverage matrix — one fixture each, hand-compute `expected` (show arithmetic in a `notes` field inside each JSON):
-  1. Worked example (§11.4) — raw 84.494, capped 69, FAIR.
+  1. Worked example (§11.4) — raw 84.488, capped 69, FAIR.
   2. All GOOD → 100, EXCELLENT, no override.
   3. All CRITICAL → 0, CRITICAL band, SAFETY_CRITICAL override.
   4. Safety-critical CRITICAL with otherwise-perfect car → cap 49 (raw ≈ high 90s).
@@ -331,9 +343,9 @@ describe("golden fixtures", () => {
 - Test: `apps/api/test/checklist-seed.e2e-spec.ts`
 
 **Interfaces:**
-- Produces: DB rows for checklist v1.0 (8 categories, 43 points); Prisma models `ChecklistVersion`, `ChecklistCategory`, `ChecklistPoint`, `Inspection`, `InspectionResult`, `HealthScore`, `CategoryScore`, `Certificate`, `Recommendation`, `SyncOutboxReceipt` exactly as the Data Model §8.3 tables; `seedConfig` export used by Task 2.
+- Produces: DB rows for checklist v1.0 (10 categories, 50 points); Prisma models `ChecklistVersion`, `ChecklistCategory`, `ChecklistPoint`, `Inspection`, `InspectionResult`, `HealthScore`, `CategoryScore`, `Certificate`, `Recommendation`, `SyncOutboxReceipt` exactly as the Data Model §8.3 tables; `seedConfig` export used by Task 2.
 
-- [ ] **Step 1: Author `seed-config.ts`.** Categories with spec weights — ENGINE 20, BRAKES 18, TYRES 15, BATTERY 12, FLUIDS 12, SUSP 10, LIGHTS 8, BODY 5. Points (43; `(M)`=measured with §11.3 Step 2 thresholds, `SC`=safety-critical; in-category weights shown, each category sums to 100):
+- [ ] **Step 1: Author `seed-config.ts`.** Categories with spec weights (§11.3 Step 4, **rebalanced 2026-08-17** when Emissions and Sensors & Electronics were added — total still 100) — ENGINE 18, BRAKES 16, TYRES 14, BATTERY 11, FLUIDS 11, SUSP 9, LIGHTS 7, EMISSIONS 5, SENSORS 5, BODY 4. Points (50; `(M)`=measured with §11.3 Step 2 thresholds, `SC`=safety-critical; in-category weights shown, each category sums to 100):
   - ENGINE: ENGINE_IDLE 20, ENGINE_NOISE 15, DRIVE_BELTS 15, ENGINE_LEAKS 15, TRANSMISSION_SHIFT 15, ENGINE_MOUNTS 10, CLUTCH_OPERATION 10 (N/A for AT)
   - BRAKES: BRAKE_PAD_FRONT (M mm) 30 SC, BRAKE_PAD_REAR (M mm) 25 SC, BRAKE_FLUID_MOISTURE (M %) 20 SC, BRAKE_DISC_CONDITION 15 SC, PARKING_BRAKE 10 SC
   - TYRES: TREAD_FL/FR/RL/RR (M mm) 20 each SC, TYRE_PRESSURE_DEV (M %) 10 SC, WHEEL_CONDITION 10
@@ -341,11 +353,13 @@ describe("golden fixtures", () => {
   - FLUIDS: ENGINE_OIL_LEVEL (M %) 30, COOLANT_LEVEL (M %) 25, BRAKE_FLUID_LEVEL 15, ATF_CONDITION 15 (N/A MT), PS_FLUID 10 (N/A EPS), WASHER_FLUID 5
   - SUSP: SHOCKS 30, BUSHINGS 20, BALL_JOINTS 20, STEERING_LINKAGE 20 SC, ALIGNMENT_PULL 10
   - LIGHTS: HEADLIGHTS 25 SC, BRAKE_LIGHTS 25 SC, TURN_SIGNALS 20 SC, WIPERS 15 SC, WINDSCREEN 10 SC, HORN 5
+  - EMISSIONS *(new 2026-08-17, §11.3 "New checklist points from this category expansion")*: O2_SENSOR_SWITCHING 40, CATALYST_READINESS 35, EXHAUST_ABNORMALITY 25 — all status-only, no measured thresholds
+  - SENSORS *(new 2026-08-17)*: AIRBAG_WARNING_LIGHT 35 **SC**, DASH_WARNING_LIGHTS 30, CRUISE_CONTROL 20 (N/A when not fitted), SENSOR_WIRING 15 — all status-only
   - BODY: RUST_UNDERCARRIAGE 40, BODY_PANELS 30, DOORS_LOCKS 15, INTERIOR 15
-  Each point carries EN + FIL labels and a plain-language `recommendation` (e.g. BRAKE_PAD_FRONT: "Replace front brake pads soon — they are below the safe minimum."). Thresholds verbatim from VHS §11.3 Step 2 (tread: HIGHER_BETTER 5.0/3.0/1.6; pads 7.0/4.0/2.0; voltage 12.6/12.4/12.0; oil & coolant level HIGHER_BETTER 80/60/40; moisture LOWER_BETTER 2.0/3.0/4.0; pressure deviation LOWER_BETTER 6/13/26).
-- [ ] **Step 2: Prisma models + migration.** Models per Data Model §8.3 (fields listed in this plan's draft header retained): weights-sum-100 enforced by a deferred DB trigger or a seed-time assertion + service-level validation (choose service-level + CI seed test; document why). `Inspection.clientUuid` unique. `HealthScore.inspectionId` unique. Add `supersedesId` self-relations on `Inspection`. Run `prisma migrate dev --name inspection-vhs`.
+  `AIRBAG_WARNING_LIGHT` is safety-critical despite Sensors carrying only 5 category weight — §11.3 is explicit that the safety-critical flag controls the *floor* while category weight controls the *average*; a golden fixture must prove an airbag fault alone caps the score. Each point carries EN + FIL labels and a plain-language `recommendation` (e.g. BRAKE_PAD_FRONT: "Replace front brake pads soon — they are below the safe minimum."). Thresholds verbatim from VHS §11.3 Step 2 (tread: HIGHER_BETTER 5.0/3.0/1.6; pads 7.0/4.0/2.0; voltage 12.6/12.4/12.0; oil & coolant level HIGHER_BETTER 80/60/40; moisture LOWER_BETTER 2.0/3.0/4.0; pressure deviation LOWER_BETTER 6/13/26). Every point additionally carries a `templates` object — one sentence per status, authored from the §11.6a table (e.g. `MONITOR`: "{Component} is serviceable, but {measured} is approaching the recommended limit.") — the content source for FR-115.
+- [ ] **Step 2: Prisma models + migration.** Models per Data Model §8.3 (fields listed in this plan's draft header retained): weights-sum-100 enforced by a deferred DB trigger or a seed-time assertion + service-level validation (choose service-level + CI seed test; document why). `Inspection.clientUuid` unique. `HealthScore.inspectionId` unique. Add `supersedesId` self-relations on `Inspection`. **Add `ChecklistPoint.templates Json?`** — one plain-language sentence per status (`GOOD`/`MONITOR`/`ATTENTION`/`CRITICAL`), the content source for FR-115 tap-to-explain (§11.6a); it versions with the checklist, so a published version's explanations are immutable alongside its thresholds. Run `prisma migrate dev --name inspection-vhs`.
 - [ ] **Step 3: Seed script** maps `seedConfig` → rows (version label `v1.0`, weightVersion `w1.0`, `isActive: true`). Idempotent (upsert by version label).
-- [ ] **Step 4: e2e test:** seed, then `GET /checklists/active` returns 8 categories / 43 points; category weights sum 100; every measured point has thresholds. Verify a fixture from Task 2 scored against DB-loaded config equals the same fixture scored against `seedConfig` (config round-trip fidelity — the DB representation must not lose precision).
+- [ ] **Step 4: e2e test:** seed, then `GET /checklists/active` returns 10 categories / 50 points; category weights sum 100; every measured point has thresholds. Verify a fixture from Task 2 scored against DB-loaded config equals the same fixture scored against `seedConfig` (config round-trip fidelity — the DB representation must not lose precision).
 - [ ] **Step 5: Commit** — `git commit -m "feat(api): inspection/VHS schema + seeded checklist v1.0"`
 
 ---
@@ -417,8 +431,8 @@ describe("golden fixtures", () => {
 
 - [ ] **Step 1: Failing hook tests** (`useInspectionDraft`): starting a draft snapshots the cached checklist version; progress = answered/total per category and overall; `completeness()` lists missing required points and adverse points missing required photos; `submit()` refuses while incomplete, then writes both outbox entries and locks the draft read-only.
 - [ ] **Step 2: Failing `PointEntry` component tests:** status chips render all 5 states at ≥56 dp; selecting MEASURED point shows numeric pad + unit and a live derived-status chip that matches `deriveStatus` for entered value; ATTENTION/CRITICAL selection with `requiresPhotoOnAdverse` shows a blocking "add photo" affordance; notes field present.
-- [ ] **Step 3: Implement screens.** F-05: 8 category tiles with progress rings, tile accent = worst finding color so far (band tokens); F-06: one point per screen, giant chips, swipe/next navigation, haptic on adverse; F-07: `expo-camera` capture → simple arrow/circle annotation overlay → compressed and linked; F-08: completion %, missing list (tap jumps to point), summary of adverse findings, submit button (disabled until complete) → outbox → lock → land on F-09 pending state ("Score will appear when synced" if offline).
-- [ ] **Step 4: RTL suite green; simulator run-through of a full 43-point capture.** Commit — `git commit -m "feat(field): offline inspection capture flow"`
+- [ ] **Step 3: Implement screens.** F-05: 10 category tiles with progress rings, tile accent = worst finding color so far (band tokens); F-06: one point per screen, giant chips, swipe/next navigation, haptic on adverse; F-07: `expo-camera` capture → simple arrow/circle annotation overlay → compressed and linked; F-08: completion %, missing list (tap jumps to point), summary of adverse findings, submit button (disabled until complete) → outbox → lock → land on F-09 pending state ("Score will appear when synced" if offline).
+- [ ] **Step 4: RTL suite green; simulator run-through of a full 50-point capture.** Commit — `git commit -m "feat(field): offline inspection capture flow"`
 
 ---
 
@@ -434,7 +448,7 @@ describe("golden fixtures", () => {
 **Interfaces:**
 - Produces: on submission — one transaction persisting `HealthScore` + `CategoryScore[]` + `Recommendation[]` (from ATTENTION/CRITICAL results; severity mirrors status; `estimatedCostCentavos` null until Phase 5 quoting), then Socket.IO `score.ready { vehicleId, score, band }`; `GET /vehicles/:id/health-score` (API §9.6 response shape verbatim), `GET /vehicles/:id/health-score/history`; `ScoreGauge` RN component reused by F-09 and M-13.
 
-- [ ] **Step 1: Failing e2e tests:** submitting the worked-example fixture through `/sync/batch` yields a `HealthScore` row with `score: 69, rawScore: 84.494, overrideApplied: "SAFETY_ATTENTION"` and 17 recommendations? no — exactly the adverse results (count the fixture's MONITOR+ATTENTION rows → assert exact count) within 2 s (assert elapsed, NFR-004); the score row is immutable (raw UPDATE attempt via service API → no path exists; Prisma middleware rejects); re-submission of the same inspection (`DUPLICATE`) computes nothing new; `GET .../health-score` matches the API-spec JSON shape including `topDetractors`; history returns scores ordered by `computedAt` with odometer.
+- [ ] **Step 1: Failing e2e tests:** submitting the worked-example fixture through `/sync/batch` yields a `HealthScore` row with `score: 69, rawScore: 84.488, overrideApplied: "SAFETY_ATTENTION"` and 17 recommendations? no — exactly the adverse results (count the fixture's MONITOR+ATTENTION rows → assert exact count) within 2 s (assert elapsed, NFR-004); the score row is immutable (raw UPDATE attempt via service API → no path exists; Prisma middleware rejects); re-submission of the same inspection (`DUPLICATE`) computes nothing new; `GET .../health-score` matches the API-spec JSON shape including `topDetractors`; history returns scores ordered by `computedAt` with odometer.
 - [ ] **Step 2: Implement integration service** (load config by the inspection's stored `checklistVersionId` — never "current active"; map results → engine input; `daysSinceInspection: 0` at compute time; persist; emit).
 - [ ] **Step 3: `scores.markStale` daily job** (05:00): set `isStale = true` where `computedAt < now − 90 days` and not already stale (BR-05); test with injected clock at day 90/91 boundary; assert score value untouched.
 - [ ] **Step 4: `ScoreGauge` component** — RN SVG (`react-native-svg`) port of the design-system arc: 180° track, band-colored progress arc, display-face numeral, band label EN/FIL, stale variant (grey arc, "inspected {n} days ago" caption), confidence chip. RTL tests: band color mapping for 95/80/69/45/20; stale rendering.
@@ -464,10 +478,34 @@ describe("golden fixtures", () => {
 
 ---
 
+### Task 10: Star ratings + tap-to-explain (FR-114, FR-115 — M-13, M-14)
+
+**Files:**
+- Modify: `packages/scoring/src/engine.ts`, `src/types.ts` (add `stars` to `ScoreResult` and each `categoryScores` entry)
+- Create: `packages/scoring/src/explain.ts` — `renderExplanation(point, result, templates): string`
+- Create: `apps/member/src/features/health-score/StarRating.tsx`, `ExplainSheet.tsx`
+- Modify: `apps/member/src/features/health-score/HealthScoreScreen.tsx` (M-13), `CategoryBreakdownScreen.tsx` (M-14)
+- Test: `packages/scoring/src/explain.test.ts`, `apps/member/src/features/health-score/StarRating.test.tsx`, `ExplainSheet.test.tsx`
+
+**Interfaces:**
+- Produces: `starsFor(band: Band): 1 | 2 | 3 | 4 | 5` — pure band→stars map from §11.5 (EXCELLENT 5, GOOD 4, FAIR 3, NEEDS_ATTENTION 2, CRITICAL 1); `renderExplanation()` used by both M-13 and M-14, and reused unchanged by the deferred v1.1 diagram (§11.6b) — this is why the payload shape matters now.
+- Consumes: `ChecklistPoint.templates` seeded in Task 3; `categoryScores` + `inspection_results` already returned by `GET /vehicles/:id/health-score` (Task 8) — **no new endpoint and no second round trip** (§11.6a).
+
+- [ ] **Step 1: Failing `starsFor` tests.** Assert the five band boundaries map to the §11.5 star counts, including the exact edges (90→5, 89→4, 75→4, 74→3, 60→3, 59→2, 40→2, 39→1, 0→1). Stars are derived from the **capped** score, not `rawScore` — a safety override must drag the stars down with it; assert the worked example (69, FAIR) renders 3 stars, not 4.
+- [ ] **Step 2: Implement `starsFor`** as a pure function in the engine and add `stars` to `ScoreResult` and every `categoryScores` entry. Category stars derive from that category's own sub-score against the same bands. No new I/O; branch coverage stays at 100%.
+- [ ] **Step 3: Failing `renderExplanation` tests.** Template substitution for each status with `{measured}`, `{threshold}`, `{unit}` filled; `NOT_APPLICABLE` points return null (nothing to explain); a point with **no** template for its status falls back to a generic sentence built from status + measured value (§11.6a "Fallback" row) rather than throwing or rendering an empty card. Oracle test: the spec's own Battery example — 12.40 V at `MONITOR` produces a sentence naming the component, its condition, and the monitoring advice.
+- [ ] **Step 4: Implement `explain.ts`** as a pure function (no I/O, no clock) so it is callable from the API, the member app, and later the diagram. Templates arrive as an argument; the function never reads the DB.
+- [ ] **Step 5: `StarRating` component** — RN SVG, 1–5 filled/half-empty stars in the band color, accessible label ("4 out of 5 stars — Good"), sized for both the M-13 header and compact M-14 rows. RTL tests: star count per band; screen-reader label present (NFR usability).
+- [ ] **Step 6: Wire M-13 and M-14.** M-13: stars beside the numeric gauge, never replacing it (§11.5 — stars are a display transform, not a second scoring system; the number stays authoritative). M-14: **every** category row is tappable and every constituent `inspection_result` beneath it is independently tappable — FR-115 is explicit that this works for all components, not just detractors. Tapping opens `ExplainSheet` (bottom sheet: component label, stars, templated sentence, measured value vs threshold, photo if the finding has one). RTL tests: tapping a `GOOD` component still opens a sheet with its "no action needed" sentence — the common regression is wiring taps only for adverse rows.
+- [ ] **Step 7: Run suites; simulator pass tapping through a full breakdown. Commit** — `git commit -m "feat: VHS star ratings and per-component tap-to-explain (FR-114, FR-115)"`
+
+---
+
 ## Phase 4 exit criteria
 
-- Airplane-mode 43-point inspection on the iOS field app; on reconnect a full inspection with 20 photos syncs ≤30 s (NFR-007), forced double-drain creates zero duplicates.
-- Golden suite (30+ fixtures incl. 84.494→69) green at 100% branch coverage; DB-config round-trip scores identically; historical recompute reproduces stored scores.
+- Airplane-mode 50-point inspection on the iOS field app; on reconnect a full inspection with 20 photos syncs ≤30 s (NFR-007), forced double-drain creates zero duplicates.
+- Golden suite (30+ fixtures incl. 84.488→69) green at 100% branch coverage; DB-config round-trip scores identically; historical recompute reproduces stored scores.
 - Member sees score, breakdown, and trend on iOS within 2 s of sync; stale flip verified at day 91.
 - Certificate link pasted into Messenger/Viber previews with the score card; page loads ≤2 s on throttled 4G with JS disabled; revoke kills the link immediately.
 - Checklist v1.1 publish leaves every v1.0 score untouched and reproducible; mechanic sign-off on thresholds recorded (R-08).
+- Every component on M-14 — including healthy ones — opens a plain-language explanation on tap (FR-115), and stars on M-13/M-14 track the capped score (FR-114). Seeded templates cover all 50 points × 4 statuses, with the generic fallback proven on a deliberately blank one.
