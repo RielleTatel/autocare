@@ -1,7 +1,16 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { fieldTheme } from "../../theme";
 
-export function StaffLoginScreen() {
+export interface StaffLoginScreenProps {
+  error: string | null;
+  onSubmit: (email: string, password: string) => void;
+}
+
+export function StaffLoginScreen({ error, onSubmit }: StaffLoginScreenProps) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   return (
     <View style={styles.screen}>
       <Text style={styles.brand}>Staff sign-in</Text>
@@ -14,6 +23,9 @@ export function StaffLoginScreen() {
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
+        value={email}
+        onChangeText={setEmail}
+        testID="staff-email"
       />
       <TextInput
         style={styles.input}
@@ -21,9 +33,23 @@ export function StaffLoginScreen() {
         placeholderTextColor={fieldTheme.colors.inkMuted}
         secureTextEntry
         autoComplete="current-password"
+        value={password}
+        onChangeText={setPassword}
+        testID="staff-password"
       />
 
-      <Pressable style={styles.button} accessibilityRole="button">
+      {error && (
+        <Text style={styles.error} testID="staff-login-error">
+          {error}
+        </Text>
+      )}
+
+      <Pressable
+        style={styles.button}
+        accessibilityRole="button"
+        onPress={() => onSubmit(email, password)}
+        testID="staff-login-submit"
+      >
         <Text style={styles.buttonLabel}>Sign in</Text>
       </Pressable>
     </View>
@@ -55,6 +81,11 @@ const styles = StyleSheet.create({
     borderRadius: fieldTheme.radii.sm,
     paddingHorizontal: fieldTheme.spacing.md,
     color: fieldTheme.colors.ink,
+    marginBottom: fieldTheme.spacing.md,
+  },
+  error: {
+    ...fieldTheme.text("body"),
+    color: fieldTheme.colors.danger,
     marginBottom: fieldTheme.spacing.md,
   },
   button: {
