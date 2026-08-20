@@ -6,6 +6,7 @@ const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string(),
   FIREBASE_CLIENT_EMAIL: z.string().email(),
   FIREBASE_PRIVATE_KEY: z.string(),
+  FIREBASE_STORAGE_BUCKET: z.string(),
   API_PORT: z.coerce.number().default(3001),
   POLICY_VERSION: z.string().min(1),
 });
