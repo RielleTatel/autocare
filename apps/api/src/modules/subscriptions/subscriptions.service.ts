@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { DomainError } from "../../common/errors/domain-error";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { VehiclesService } from "../vehicles/vehicles.service";
+import { subscriptionStatusFor } from "../payments/invoice-lifecycle";
 import { addMonthsManila, proratedUpgradeCentavos, etfCentavos, remainingLockInMonths } from "./billing-math";
 
 const SUBSCRIPTION_SELECT = {
@@ -14,8 +15,10 @@ const SUBSCRIPTION_SELECT = {
 } as const;
 
 const PLAN_SUMMARY_SELECT = { id: true, code: true, name: true, priceCentavos: true, billingInterval: true, lockInMonths: true } as const;
+const SUBSCRIPTION_WITH_PLAN_SELECT = { ...SUBSCRIPTION_SELECT, plan: { select: PLAN_SUMMARY_SELECT } } as const;
 
 type SubscriptionRow = Prisma.SubscriptionGetPayload<{ select: typeof SUBSCRIPTION_SELECT }>;
+type SubscriptionWithPlanRow = Prisma.SubscriptionGetPayload<{ select: typeof SUBSCRIPTION_WITH_PLAN_SELECT }>;
 type PlanSummaryRow = Prisma.PlanGetPayload<{ select: typeof PLAN_SUMMARY_SELECT }>;
 
 const toIso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -74,9 +77,12 @@ export class SubscriptionsService {
     return plan;
   }
 
-  /** Ownership-checked load — reused by every mutating/read subscription route. */
-  private async findForUser(user: AbilityUser, id: string, vehicleAction: "read" | "update" = "read") {
-    const sub = await this.prisma.subscription.findUnique({ where: { id }, select: SUBSCRIPTION_SELECT });
+  /**
+   * Ownership-checked load (with plan summary) — reused by every mutating/read subscription
+   * route, including `get()`, so the 404 + ownership-check logic lives in exactly one place.
+   */
+  private async findForUser(user: AbilityUser, id: string, vehicleAction: "read" | "update" = "read"): Promise<SubscriptionWithPlanRow> {
+    const sub = await this.prisma.subscription.findUnique({ where: { id }, select: SUBSCRIPTION_WITH_PLAN_SELECT });
     if (!sub) throw new DomainError("FORBIDDEN_ROLE", "Subscription not found", 404);
     await this.vehicles.findForUser(user, sub.vehicleId, vehicleAction);
     return sub;
@@ -86,6 +92,10 @@ export class SubscriptionsService {
     await this.vehicles.findForUser(user, dto.vehicleId, "update"); // owner-only
     const plan = await this.loadPlanOrThrow(dto.planId);
 
+    // Friendly, fast-path check — not race-safe on its own (two concurrent requests can both
+    // pass this and both attempt to insert an ACTIVE row for the same vehicle). The DB-level
+    // backstop is the partial unique index `subscriptions_one_active_per_vehicle` (migration
+    // 20260821112628) on (vehicle_id) WHERE status = 'ACTIVE', enforced below.
     const active = await this.prisma.subscription.findFirst({
       where: { vehicleId: dto.vehicleId, status: "ACTIVE" },
     });
@@ -94,23 +104,38 @@ export class SubscriptionsService {
     const now = new Date();
     const lockInEndsAt = addMonthsManila(now, plan.lockInMonths);
     const currentPeriodEnd = addMonthsManila(now, INTERVAL_MONTHS[plan.billingInterval] ?? 1);
+    // Reuses Task 2's invoice-lifecycle status mapping rather than re-deriving it — a freshly
+    // issued invoice always maps to ACTIVE, but going through subscriptionStatusFor keeps this
+    // in lockstep with the state machine instead of drifting if that mapping ever changes.
+    const initialStatus = subscriptionStatusFor("INVOICE_ISSUED");
 
     const row = await withInvoiceNumberRetry(() =>
       this.prisma.$transaction(async (tx) => {
-        const created = await tx.subscription.create({
-          data: {
-            vehicleId: dto.vehicleId,
-            planId: plan.id,
-            userId: user.id,
-            status: "ACTIVE",
-            startedAt: now,
-            lockInEndsAt,
-            currentPeriodStart: now,
-            currentPeriodEnd,
-            paymentMethod: dto.paymentMethod,
-          },
-          select: SUBSCRIPTION_SELECT,
-        });
+        let created;
+        try {
+          created = await tx.subscription.create({
+            data: {
+              vehicleId: dto.vehicleId,
+              planId: plan.id,
+              userId: user.id,
+              status: initialStatus,
+              startedAt: now,
+              lockInEndsAt,
+              currentPeriodStart: now,
+              currentPeriodEnd,
+              paymentMethod: dto.paymentMethod,
+            },
+            select: SUBSCRIPTION_SELECT,
+          });
+        } catch (e) {
+          // Race-guard backstop: the partial unique index rejects a second concurrent
+          // ACTIVE row for this vehicle with P2002 — surface the same friendly error the
+          // pre-check above returns, instead of a raw 500.
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+            throw new DomainError("SUBSCRIPTION_ALREADY_ACTIVE", "This vehicle already has an active subscription", 409);
+          }
+          throw e;
+        }
         const number = await nextInvoiceNumber(tx);
         await tx.invoice.create({
           data: {
@@ -136,19 +161,14 @@ export class SubscriptionsService {
     const vehicleOwner = user.role === "FLEET_MANAGER" ? { orgOwnerId: user.orgId } : { ownerUserId: user.id };
     const rows = await this.prisma.subscription.findMany({
       where: { vehicle: vehicleOwner },
-      select: { ...SUBSCRIPTION_SELECT, plan: { select: PLAN_SUMMARY_SELECT } },
+      select: SUBSCRIPTION_WITH_PLAN_SELECT,
       orderBy: { startedAt: "desc" },
     });
     return rows.map((r) => ({ ...toSubscriptionResponse(r), plan: toPlanSummary(r.plan) }));
   }
 
   async get(user: AbilityUser, id: string) {
-    const sub = await this.prisma.subscription.findUnique({
-      where: { id },
-      select: { ...SUBSCRIPTION_SELECT, plan: { select: PLAN_SUMMARY_SELECT } },
-    });
-    if (!sub) throw new DomainError("FORBIDDEN_ROLE", "Subscription not found", 404);
-    await this.vehicles.findForUser(user, sub.vehicleId, "read");
+    const sub = await this.findForUser(user, id, "read");
     return { ...toSubscriptionResponse(sub), plan: toPlanSummary(sub.plan) };
   }
 

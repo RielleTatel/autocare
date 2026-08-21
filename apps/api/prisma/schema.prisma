@@ -246,6 +246,13 @@ model PlanEntitlement {
   @@map("plan_entitlements")
 }
 
+// NOTE: migration `20260821112628_subscription_one_active_per_vehicle` adds a partial
+// unique index `subscriptions_one_active_per_vehicle` ON subscriptions(vehicle_id) WHERE
+// status = 'ACTIVE', enforcing "one ACTIVE subscription per vehicle" (FR-017/BR-08) as a
+// DB-level backstop to the check-then-act guard in SubscriptionsService.create. Prisma's
+// schema DSL has no syntax for partial/filtered unique indexes, so it is intentionally NOT
+// declared here — the migration history is the sole source of truth for it. Do not
+// `prisma migrate reset`/regenerate migrations in a way that drops that migration file.
 model Subscription {
   id                 String                    @id @default(uuid()) @db.Uuid
   vehicleId          String                    @map("vehicle_id") @db.Uuid

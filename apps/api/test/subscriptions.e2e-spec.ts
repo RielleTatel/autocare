@@ -200,4 +200,60 @@ describe("subscriptions (e2e)", () => {
     await prisma.subscription.deleteMany({ where: { id: sub.id } });
     await prisma.vehicle.deleteMany({ where: { id: vNoLockIn.id } });
   });
+
+  describe("real concurrency (race-condition fixes from code review)", () => {
+    it("idempotency race guard: two truly concurrent requests with the SAME key create exactly one subscription and one invoice", async () => {
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0004",
+        make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
+      const key = randomUUID();
+      const body = { vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" };
+
+      const [r1, r2] = await Promise.all([
+        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", key).send(body),
+        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", key).send(body),
+      ]);
+
+      // One request wins the reservation race (201 Created); the other polls and replays (200).
+      expect([r1.status, r2.status].sort()).toEqual([200, 201]);
+      const winner = r1.status === 201 ? r1 : r2;
+      const replay = r1.status === 201 ? r2 : r1;
+      expect(replay.body.data.id).toBe(winner.body.data.id);
+
+      const subCount = await prisma.subscription.count({ where: { vehicleId: v.id } });
+      expect(subCount).toBe(1); // handler ran exactly once, not twice
+      const invoiceCount = await prisma.invoice.count({ where: { subscription: { vehicleId: v.id } } });
+      expect(invoiceCount).toBe(1);
+
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: { vehicleId: v.id } } } });
+      await prisma.invoice.deleteMany({ where: { subscription: { vehicleId: v.id } } });
+      await prisma.subscription.deleteMany({ where: { vehicleId: v.id } });
+      await prisma.vehicle.deleteMany({ where: { id: v.id } });
+    });
+
+    it("one-ACTIVE-per-vehicle DB backstop: two truly concurrent requests with DIFFERENT keys for the same vehicle leave exactly one ACTIVE subscription", async () => {
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0005",
+        make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
+      const body = { vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" };
+
+      const [r1, r2] = await Promise.all([
+        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID()).send(body),
+        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID()).send(body),
+      ]);
+
+      const statuses = [r1.status, r2.status].sort((a, b) => a - b);
+      expect(statuses).toEqual([201, 409]); // one created, one rejected — never two ACTIVE rows
+      const rejected = r1.status === 409 ? r1 : r2;
+      expect(rejected.body.error.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
+
+      const activeCount = await prisma.subscription.count({ where: { vehicleId: v.id, status: "ACTIVE" } });
+      expect(activeCount).toBe(1);
+
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: { vehicleId: v.id } } } });
+      await prisma.invoice.deleteMany({ where: { subscription: { vehicleId: v.id } } });
+      await prisma.subscription.deleteMany({ where: { vehicleId: v.id } });
+      await prisma.vehicle.deleteMany({ where: { id: v.id } });
+    });
+  });
 });
