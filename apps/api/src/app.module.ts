@@ -13,6 +13,7 @@ import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { CashModule } from "./modules/cash/cash.module";
 import { BillingModule } from "./modules/billing/billing.module";
+import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { ClockModule } from "./common/clock/clock.module";
 import { PoliciesModule } from "./common/policies/policies.module";
 import { EnvelopeInterceptor } from "./common/interceptors/envelope.interceptor";
@@ -35,6 +36,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     PaymentsModule,
     CashModule,
     BillingModule,
+    InvoicesModule,
   ],
   controllers: [HealthController],
   providers: [

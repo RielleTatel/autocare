@@ -300,6 +300,7 @@ model Invoice {
   issuedAt       DateTime      @default(now()) @map("issued_at")
   chargeAttempts Int           @default(0) @map("charge_attempts")
   firstFailedAt  DateTime?     @map("first_failed_at")
+  pdfObjectPath  String?       @map("pdf_object_path")
   items          InvoiceItem[]
   payments       Payment[]
 

@@ -12,6 +12,10 @@ import { BullModule } from "@nestjs/bullmq";
     // "billing" backs the 5 scheduled billing jobs (Task 8, §7.8) — issueInvoices/autoCharge/
     // retryFailed/evaluateStates/resetCycle. See modules/billing/.
     BullModule.registerQueue({ name: "billing" }),
+    // "invoices" backs `invoices.generatePdf` (Task 9, FR-029) — async PDF-receipt rendering.
+    // GET /invoices/:id/pdf itself generates synchronously (see InvoicesService.pdfUrl); this
+    // queue exists for callers that want the render queued instead (e.g. a future email job).
+    BullModule.registerQueue({ name: "invoices" }),
   ],
   exports: [BullModule],
 })
