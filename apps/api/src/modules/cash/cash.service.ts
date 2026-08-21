@@ -50,6 +50,7 @@ export class CashService {
    * documented choice).
    */
   async closeShift(user: AbilityUser, shiftId: string, countedCentavos: number) {
+    this.requireCashCollector(user);
     const shift = await this.prisma.cashShift.findUnique({ where: { id: shiftId } });
     if (!shift) throw new DomainError("FORBIDDEN_ROLE", "Cash shift not found", 404);
     if (shift.userId !== user.id && user.role !== "ADMIN") {
@@ -80,7 +81,16 @@ export class CashService {
    * ACTIVE) all in one transaction. `clientUuid` (unique on Payment) provides offline replay
    * safety independent of the `Idempotency-Key` header handled by `@Idempotent()`: a P2002 on
    * `clientUuid` here means "already recorded" and is treated as an idempotent success rather
-   * than an error, returning the pre-existing payment/change.
+   * than an error, returning the pre-existing payment (see the replay `changeCentavos` note
+   * below).
+   *
+   * Double-settle / race guard (code-review fix): the invoice is re-read INSIDE the
+   * transaction and advanced via a conditional `updateMany({ where: { id, status: <the value
+   * just read> } })` rather than an unconditional `update`. If a concurrent request already
+   * flipped the invoice's status (or it was already PAID/non-cash-payable before this request
+   * even started), `nextState` is a no-op or the conditional update's affected count is 0 —
+   * either way we throw `INVOICE_ALREADY_PAID` and roll back instead of silently creating a
+   * second full-amount Payment against an already-settled invoice.
    */
   async recordCashPayment(user: AbilityUser, dto: CashPaymentCreate) {
     this.requireCashCollector(user);
@@ -90,20 +100,49 @@ export class CashService {
       throw new DomainError("NO_OPEN_SHIFT", "You must open a cash shift before recording cash payments", 409);
     }
 
-    const invoice = await this.prisma.invoice.findUnique({ where: { id: dto.invoiceId } });
-    if (!invoice) throw new DomainError("FORBIDDEN_ROLE", "Invoice not found", 404);
+    // Up-front clientUuid replay check (sequential offline retry — the common case): without
+    // this, a retry that reaches here AFTER the first request already advanced the invoice to
+    // PAID would hit the INVOICE_ALREADY_PAID guard below instead of being recognized as "this
+    // exact payment was already recorded". The P2002 catch further down remains as a race-safety
+    // net for the rarer case of two truly concurrent requests sharing the same clientUuid.
+    const preExisting = await this.prisma.payment.findUnique({ where: { clientUuid: dto.clientUuid } });
+    if (preExisting) {
+      return { paymentId: preExisting.id, changeCentavos: 0 };
+    }
 
     const tendered = BigInt(dto.amountTendered);
-    if (tendered < invoice.totalCentavos) {
-      // Amount-tendered-too-low: a dedicated code (not PAYMENT_FAILED, which reads as a PSP/charge
-      // failure) — 422 since the request is well-formed but the tendered amount is insufficient.
-      throw new DomainError("CASH_TENDER_INSUFFICIENT", "Amount tendered is less than the invoice total", 422);
-    }
-    const changeCentavos = tendered - invoice.totalCentavos;
 
     try {
-      const payment = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const invoice = await tx.invoice.findUnique({ where: { id: dto.invoiceId } });
+        if (!invoice) throw new DomainError("FORBIDDEN_ROLE", "Invoice not found", 404);
+
+        if (tendered < invoice.totalCentavos) {
+          // Amount-tendered-too-low: a dedicated code (not PAYMENT_FAILED, which reads as a
+          // PSP/charge failure) — 422 since the request is well-formed but the tendered
+          // amount is insufficient.
+          throw new DomainError("CASH_TENDER_INSUFFICIENT", "Amount tendered is less than the invoice total", 422);
+        }
+
         const nextInvoiceState: InvoiceState = nextState(invoice.status as InvoiceState, { type: "CASH_RECORDED" });
+        if (nextInvoiceState === invoice.status) {
+          // CASH_RECORDED didn't move this invoice at all — it's already PAID (or in a state
+          // cash payments can't advance, e.g. an e-payment-only invoice). Either way, no
+          // payment gets created.
+          throw new DomainError("INVOICE_ALREADY_PAID", "This invoice is already settled", 409);
+        }
+
+        // Conditional update — the concurrency guard: only the transaction that still sees
+        // the invoice at its pre-read status can flip it. A concurrent winner already moved
+        // it, so the loser's affected count is 0 here even though its own pre-read looked
+        // payable.
+        const advanced = await tx.invoice.updateMany({
+          where: { id: invoice.id, status: invoice.status },
+          data: { status: nextInvoiceState },
+        });
+        if (advanced.count === 0) {
+          throw new DomainError("INVOICE_ALREADY_PAID", "This invoice is already settled", 409);
+        }
 
         const created = await tx.payment.create({
           data: {
@@ -117,8 +156,6 @@ export class CashService {
           },
         });
 
-        await tx.invoice.update({ where: { id: invoice.id }, data: { status: nextInvoiceState } });
-
         if (invoice.subscriptionId) {
           await tx.subscription.update({
             where: { id: invoice.subscriptionId },
@@ -126,15 +163,24 @@ export class CashService {
           });
         }
 
-        return created;
+        return { paymentId: created.id, changeCentavos: Number(tendered - invoice.totalCentavos) };
       });
 
-      return { paymentId: payment.id, changeCentavos: Number(changeCentavos) };
+      return result;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        // Offline-retry replay via clientUuid (a DIFFERENT Idempotency-Key than the original
+        // request — the header-level replay in IdempotencyInterceptor already returns the
+        // exact original response body for a matching key, so this branch only fires for
+        // that mismatched-key case). `amountTendered` is not persisted on Payment, so the
+        // original change owed cannot be reconstructed from the DB; returning it from the
+        // CURRENT request's dto would be wrong if this replay's amountTendered differs from
+        // the original (the bug this fix addresses). Documented choice: return 0 rather than
+        // a possibly-incorrect value — the original settlement's change was already
+        // communicated to the counter staff in the first response.
         const existing = await this.prisma.payment.findUnique({ where: { clientUuid: dto.clientUuid } });
         if (existing) {
-          return { paymentId: existing.id, changeCentavos: Number(changeCentavos) };
+          return { paymentId: existing.id, changeCentavos: 0 };
         }
       }
       throw e;

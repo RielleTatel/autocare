@@ -144,9 +144,50 @@ describe("cash — COD payments, shifts, remittance (e2e)", () => {
     const first = await as("cash-advisor-a").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID()).send(body).expect(201);
     const replay = await as("cash-advisor-a").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID()).send(body).expect(201);
     expect(replay.body.data.paymentId).toBe(first.body.data.paymentId);
+    // clientUuid replay cannot reconstruct the ORIGINAL amountTendered (not persisted on
+    // Payment) — documented choice is to return 0 rather than a value derived from this
+    // replay request's amountTendered (which may legitimately differ from the original).
+    expect(replay.body.data.changeCentavos).toBe(0);
 
     const count = await prisma.payment.count({ where: { invoiceId: invoice.id } });
     expect(count).toBe(1);
+  });
+
+  it("rejects a cash payment on an ALREADY-PAID invoice with a fresh clientUuid — 409 INVOICE_ALREADY_PAID, no double-settle", async () => {
+    const invoice = await makeInvoice("AWAITING_CASH");
+    const first = await as("cash-advisor-a").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID())
+      .send({ invoiceId: invoice.id, amountTendered: 100000, clientUuid: randomUUID() }).expect(201);
+    expect(first.body.data.paymentId).toBeDefined();
+
+    // Same invoice, brand-new clientUuid AND Idempotency-Key — a genuinely distinct request,
+    // not a replay of the first. Must be rejected, not create a second Payment.
+    const second = await as("cash-advisor-a").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID())
+      .send({ invoiceId: invoice.id, amountTendered: 100000, clientUuid: randomUUID() }).expect(409);
+    expect(second.body.error.code).toBe("INVOICE_ALREADY_PAID");
+
+    const count = await prisma.payment.count({ where: { invoiceId: invoice.id } });
+    expect(count).toBe(1);
+  });
+
+  it("concurrency: two distinct cash-payment requests racing on the same invoice settle it exactly once", async () => {
+    const invoice = await makeInvoice("AWAITING_CASH");
+    const bodyA = { invoiceId: invoice.id, amountTendered: 100000, clientUuid: randomUUID() };
+    const bodyB = { invoiceId: invoice.id, amountTendered: 100000, clientUuid: randomUUID() };
+
+    const [r1, r2] = await Promise.all([
+      as("cash-advisor-a").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID()).send(bodyA),
+      as("cash-advisor-a").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID()).send(bodyB),
+    ]);
+
+    const statuses = [r1.status, r2.status].sort((a, b) => a - b);
+    expect(statuses).toEqual([201, 409]);
+    const rejected = r1.status === 409 ? r1 : r2;
+    expect(rejected.body.error.code).toBe("INVOICE_ALREADY_PAID");
+
+    const count = await prisma.payment.count({ where: { invoiceId: invoice.id } });
+    expect(count).toBe(1);
+    const settledInvoice = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+    expect(settledInvoice.status).toBe("PAID");
   });
 
   it("closes the shift and computes variance = counted − expected (owner-only)", async () => {

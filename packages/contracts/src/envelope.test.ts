@@ -16,6 +16,7 @@ describe("contracts", () => {
     expect(errorCodes).toContain("AUTH_TOKEN_INVALID");
     expect(errorCodes).toContain("ODOMETER_REGRESSION");
     expect(errorCodes).toContain("NO_OPEN_SHIFT");
-    expect(errorCodes.length).toBe(29);
+    expect(errorCodes).toContain("INVOICE_ALREADY_PAID");
+    expect(errorCodes.length).toBe(30);
   });
 });

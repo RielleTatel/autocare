@@ -8,5 +8,6 @@ export const errorCodes = [
   "SUBSCRIPTION_NOT_DOWNGRADE", "WEBHOOK_SIGNATURE_INVALID",
   // Task 7 — COD cash payments + shifts (FR-084..086):
   "NO_OPEN_SHIFT", "SHIFT_ALREADY_OPEN", "SHIFT_ALREADY_CLOSED", "CASH_TENDER_INSUFFICIENT",
+  "INVOICE_ALREADY_PAID",
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];
