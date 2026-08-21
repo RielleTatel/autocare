@@ -9,8 +9,10 @@ const PAYMONGO_API_BASE = "https://api.paymongo.com/v1";
  * Maps a PayMongo webhook payload (`data.attributes.type` + nested resource) to our PspEvent
  * shape. PayMongo's checkout/payment event envelope is roughly:
  * `{ data: { id, attributes: { type, data: { id, attributes: { amount, status, metadata } } } } }`.
- * Exported so the retry processor (webhooks.retryUnprocessed) can re-derive a PspEvent from a
- * stored `PspWebhookEvent.rawPayload` without re-verifying the (already-verified-once) signature.
+ * Exported (and exposed as `PaymongoAdapter.mapEvent`, part of ProviderPort) so the retry
+ * processor (webhooks.retryUnprocessed) can re-derive a PspEvent from a stored
+ * `PspWebhookEvent.rawPayload` without re-verifying the (already-verified-once) signature — via
+ * the injected PROVIDER_PORT, never by importing this concrete adapter directly.
  */
 export function mapPaymongoEvent(raw: unknown): PspEvent {
   const data = (raw as any)?.data ?? {};
@@ -75,6 +77,10 @@ export class PaymongoAdapter implements ProviderPort {
   verifyWebhook(rawBody: Buffer | string, signature: string): PspEvent {
     verifyHmacSignature(rawBody, signature, this.webhookSecret);
     const raw = JSON.parse((Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody)).toString("utf8"));
+    return this.mapEvent(raw);
+  }
+
+  mapEvent(raw: unknown): PspEvent {
     return mapPaymongoEvent(raw);
   }
 

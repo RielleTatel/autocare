@@ -30,7 +30,12 @@ export class FakeProviderAdapter implements ProviderPort {
 
   verifyWebhook(rawBody: Buffer | string, signature: string): PspEvent {
     verifyHmacSignature(rawBody, signature, FAKE_WEBHOOK_SECRET);
-    const parsed: FakePspPayload = JSON.parse((Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody)).toString("utf8"));
+    const raw = JSON.parse((Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody)).toString("utf8"));
+    return this.mapEvent(raw);
+  }
+
+  mapEvent(raw: unknown): PspEvent {
+    const parsed = raw as FakePspPayload;
     return {
       eventId: parsed.eventId,
       type: parsed.type,

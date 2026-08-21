@@ -23,5 +23,14 @@ export interface ProviderPort {
   }>;
   /** Verifies the HMAC signature over the RAW body and maps the payload to a PspEvent. Throws (WEBHOOK_SIGNATURE_INVALID, 401) on a bad/missing signature. */
   verifyWebhook(rawBody: Buffer | string, signature: string): PspEvent;
+  /**
+   * Maps an already-persisted, already-verified webhook payload (PspWebhookEvent.rawPayload)
+   * back to a PspEvent, WITHOUT re-checking any signature. Used by the retry path
+   * (webhooks.processor.ts) to reprocess unprocessed rows — going through the port (rather than
+   * importing a concrete adapter's mapper) keeps the retry path provider-agnostic: it uses
+   * whichever adapter is env-selected (fake in tests, real PayMongo in prod), matching the
+   * payload shape that adapter actually produced.
+   */
+  mapEvent(raw: unknown): PspEvent;
   refund(paymentId: string, amountCentavos: number): Promise<{ refundRef: string }>;
 }
