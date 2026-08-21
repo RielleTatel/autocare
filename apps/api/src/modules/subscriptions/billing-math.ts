@@ -14,6 +14,21 @@
 
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
 
+/**
+ * Months-per-cycle for each billing interval — drives `currentPeriodEnd` / next-cycle math.
+ * Shared by SubscriptionsService (Task 4) and BillingService (Task 8's `billing.issueInvoices`)
+ * so both compute the same cycle length for a given plan.
+ */
+export const INTERVAL_MONTHS: Record<string, number> = { MONTHLY: 1, QUARTERLY: 3, ANNUAL: 12 };
+
+/** Real-instant day index of the Manila calendar day containing `date` — floor(shifted ms / day ms). Two dates
+ * with the same index fall on the same Manila calendar day; the difference between two indices is the number
+ * of Manila calendar days between them. Used by Task 8's billing jobs for "is X due/crossing a boundary today"
+ * and "days since Y" checks against the injected clock. */
+export function manilaDayIndex(date: Date): number {
+  return Math.floor(toManila(date).getTime() / 86_400_000);
+}
+
 /** Shifts a real instant into a Date whose UTC getters read as Manila wall-clock time. */
 export function toManila(date: Date): Date {
   return new Date(date.getTime() + MANILA_OFFSET_MS);

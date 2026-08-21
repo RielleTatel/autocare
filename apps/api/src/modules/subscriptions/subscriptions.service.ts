@@ -6,7 +6,8 @@ import { DomainError } from "../../common/errors/domain-error";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { VehiclesService } from "../vehicles/vehicles.service";
 import { subscriptionStatusFor } from "../payments/invoice-lifecycle";
-import { addMonthsManila, proratedUpgradeCentavos, etfCentavos, remainingLockInMonths } from "./billing-math";
+import { addMonthsManila, proratedUpgradeCentavos, etfCentavos, remainingLockInMonths, INTERVAL_MONTHS } from "./billing-math";
+import { nextInvoiceNumber, withInvoiceNumberRetry } from "./invoice-numbering";
 
 const SUBSCRIPTION_SELECT = {
   id: true, vehicleId: true, planId: true, userId: true, status: true, startedAt: true,
@@ -34,38 +35,7 @@ const toSubscriptionResponse = (row: SubscriptionRow) => ({
 
 const toPlanSummary = (row: PlanSummaryRow) => ({ ...row, priceCentavos: Number(row.priceCentavos) });
 
-/** Months-per-cycle for each billing interval — drives currentPeriodEnd / next-cycle math. */
-const INTERVAL_MONTHS: Record<string, number> = { MONTHLY: 1, QUARTERLY: 3, ANNUAL: 12 };
-
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Invoice numbering (Task 4 decision): `INV-<year>-<6-digit counter>`, counter = count of
- * invoices already issued this year + 1. Because two concurrent requests can both read the
- * same count before either commits, a collision surfaces as a Postgres unique-constraint
- * violation (P2002) on `Invoice.number` — `withInvoiceNumberRetry` catches that and retries
- * the whole creation with a freshly-read count. This is correct but not lock-free; if
- * invoice-creation throughput ever becomes a bottleneck, swap for a Postgres `SEQUENCE`.
- */
-async function nextInvoiceNumber(tx: Prisma.TransactionClient): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
-  const count = await tx.invoice.count({ where: { number: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(6, "0")}`;
-}
-
-async function withInvoiceNumberRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      return await fn();
-    } catch (e) {
-      const isCollision = e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
-      if (!isCollision || i === attempts - 1) throw e;
-    }
-  }
-  /* istanbul ignore next — unreachable: loop always returns or throws */
-  throw new Error("unreachable");
-}
 
 @Injectable()
 export class SubscriptionsService {
