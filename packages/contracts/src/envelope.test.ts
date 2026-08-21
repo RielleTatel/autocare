@@ -15,6 +15,6 @@ describe("contracts", () => {
   it("contains all documented error codes", () => {
     expect(errorCodes).toContain("AUTH_TOKEN_INVALID");
     expect(errorCodes).toContain("ODOMETER_REGRESSION");
-    expect(errorCodes.length).toBe(20);
+    expect(errorCodes.length).toBe(24);
   });
 });

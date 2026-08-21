@@ -363,6 +363,9 @@ model IdempotencyKey {
   key          String   @id
   endpoint     String
   responseHash String   @map("response_hash")
+  // Not in the original Task 1 shape — added by Task 4 so a replay can return the
+  // *exact* original response, not just verify a hash of it. See idempotency.interceptor.ts.
+  responseBody Json?    @map("response_body")
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("idempotency_keys")

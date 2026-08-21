@@ -8,6 +8,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
 import { PlansModule } from "./modules/plans/plans.module";
+import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
 import { PoliciesModule } from "./common/policies/policies.module";
 import { EnvelopeInterceptor } from "./common/interceptors/envelope.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
@@ -22,6 +23,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     VehiclesModule,
     UploadsModule,
     PlansModule,
+    SubscriptionsModule,
     PoliciesModule,
   ],
   controllers: [HealthController],
