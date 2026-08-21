@@ -5,12 +5,11 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { bootstrap, type BootState } from "../features/auth/session";
-import { sendOtp, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
+import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
 import { Vehicle } from "@autocare/contracts";
 import { OnboardingScreen } from "../features/auth/OnboardingScreen";
-import { PhoneEntryScreen } from "../features/auth/PhoneEntryScreen";
-import { OtpScreen } from "../features/auth/OtpScreen";
+import { EmailAuthScreen } from "../features/auth/EmailAuthScreen";
 import { ConsentScreen } from "../features/auth/ConsentScreen";
 import { HomeTabs } from "./HomeTabs";
 import { HomeScreen } from "../features/home/HomeScreen";
@@ -45,25 +44,39 @@ async function afterSignIn(navigation: any, setBootState: (s: BootState) => void
 }
 
 function OnboardingContainer({ navigation }: any) {
-  return <OnboardingScreen onGetStarted={() => navigation.navigate("PhoneEntry")} />;
+  return <OnboardingScreen onGetStarted={() => navigation.navigate("EmailAuth")} />;
 }
 
-function PhoneEntryContainer({ navigation, setBootState }: any) {
+function EmailAuthContainer({ navigation, setBootState }: any) {
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   return (
-    <PhoneEntryScreen
+    <EmailAuthScreen
       error={error}
-      onSubmit={async (phoneE164) => {
+      notice={notice}
+      onSignIn={async (email, password) => {
         setError(null);
+        setNotice(null);
         try {
-          const confirmation = await sendOtp(phoneE164);
-          navigation.navigate("Otp", { phone: phoneE164, confirmation });
+          await signInWithEmail(email, password);
+          await afterSignIn(navigation, setBootState);
         } catch {
-          setError("Couldn't send the code. Check the number and try again.");
+          setError("That email or password didn't work. Try again.");
+        }
+      }}
+      onRegister={async (email, password) => {
+        setError(null);
+        setNotice(null);
+        try {
+          await registerWithEmail(email, password);
+          await afterSignIn(navigation, setBootState);
+        } catch {
+          setError("Couldn't create your account. Try a different email.");
         }
       }}
       onGoogle={async () => {
         setError(null);
+        setNotice(null);
         try {
           await signInWithGoogle();
           await afterSignIn(navigation, setBootState);
@@ -71,32 +84,14 @@ function PhoneEntryContainer({ navigation, setBootState }: any) {
           setError("Google sign-in failed. Try again.");
         }
       }}
-    />
-  );
-}
-
-function OtpContainer({ navigation, route, setBootState }: any) {
-  const { phone, confirmation } = route.params;
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <OtpScreen
-      phone={phone}
-      error={error}
-      onConfirm={async (code: string) => {
+      onForgotPassword={async (email) => {
         setError(null);
+        setNotice(null);
         try {
-          await confirmation.confirm(code);
-          await afterSignIn(navigation, setBootState);
+          await sendPasswordReset(email);
+          setNotice("Password reset email sent — check your inbox.");
         } catch {
-          setError("That code didn't work, try again.");
-        }
-      }}
-      onResend={async () => {
-        try {
-          const next = await sendOtp(phone);
-          navigation.setParams({ confirmation: next });
-        } catch {
-          setError("Couldn't resend the code. Try again.");
+          setError("Couldn't send a reset email. Check the address and try again.");
         }
       }}
     />
@@ -334,11 +329,8 @@ export function RootNavigator() {
             <Stack.Screen name="Onboarding">
               {(props) => <OnboardingContainer {...props} setBootState={setState} />}
             </Stack.Screen>
-            <Stack.Screen name="PhoneEntry">
-              {(props) => <PhoneEntryContainer {...props} setBootState={setState} />}
-            </Stack.Screen>
-            <Stack.Screen name="Otp">
-              {(props) => <OtpContainer {...props} setBootState={setState} />}
+            <Stack.Screen name="EmailAuth">
+              {(props) => <EmailAuthContainer {...props} setBootState={setState} />}
             </Stack.Screen>
             <Stack.Screen name="Consent">
               {(props) => <ConsentContainer {...props} setBootState={setState} />}

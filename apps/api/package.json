@@ -19,6 +19,7 @@
     "@nestjs/platform-express": "^10.4.0",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^5.19.0",
+    "@supabase/supabase-js": "^2.112.3",
     "bullmq": "^6.1.2",
     "firebase-admin": "^12.4.0",
     "ioredis": "^6.0.0",

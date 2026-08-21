@@ -19,7 +19,9 @@ jobs:
       FIREBASE_PROJECT_ID: ci-stub
       FIREBASE_CLIENT_EMAIL: ci@ci-stub.iam.gserviceaccount.com
       FIREBASE_PRIVATE_KEY: "stub"
-      FIREBASE_STORAGE_BUCKET: ci-stub.appspot.com
+      SUPABASE_URL: https://ci-stub.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-stub-service-role-key
+      SUPABASE_STORAGE_BUCKET: autocare
       POLICY_VERSION: 2026-08-privacy-v1
     steps:
       - uses: actions/checkout@v4
