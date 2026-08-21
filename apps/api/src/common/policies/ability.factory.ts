@@ -5,7 +5,7 @@ import type { Role } from "@autocare/contracts";
 export { subject } from "@casl/ability";
 
 export type Action = "manage" | "create" | "read" | "update" | "delete";
-export type Subjects = "Vehicle" | "Profile" | "User" | "Organization" | "all";
+export type Subjects = "Vehicle" | "Profile" | "User" | "Organization" | "Plan" | "all";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches @casl/ability's own AnyRecord (Record<PropertyKey, any>); `unknown` fails structural assignability for ForcedSubject intersections under strict mode.
 export type AppAbility = MongoAbility<[Action, Subjects | Record<string, any>]>;
 export interface AbilityUser { id: string; role: Role; orgId?: string | null }

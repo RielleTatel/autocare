@@ -231,6 +231,7 @@ model Plan {
   entitlements    PlanEntitlement[]
   subscriptions   Subscription[]
 
+  @@index([code])
   @@map("plans")
 }
 
