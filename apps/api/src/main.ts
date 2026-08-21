@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "./common/bigint-serializer";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { loadEnv } from "./config/env";
