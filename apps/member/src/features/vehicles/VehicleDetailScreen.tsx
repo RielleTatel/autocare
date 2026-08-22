@@ -14,12 +14,13 @@ function SpecRow({ label, value, mono }: { label: string; value: string; mono?: 
   );
 }
 
-export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onArchived, onBack }: {
+export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onArchived, onBack, onManageSubscription }: {
   vehicle: Vehicle;
   onUpdateOdometer: (km: number, justification?: string) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
   onArchived: () => void;
   onBack?: () => void;
+  onManageSubscription?: () => void;
 }) {
   const [editingOdo, setEditingOdo] = useState(false);
   const [odoValue, setOdoValue] = useState(String(vehicle.currentOdometerKm));
@@ -161,6 +162,14 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
             Coming with your first inspection
           </Text>
         </View>
+
+        {onManageSubscription ? (
+          <Pressable testID="manage-subscription" onPress={onManageSubscription}
+            style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
+              backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
+            <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Manage subscription</Text>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
   );
