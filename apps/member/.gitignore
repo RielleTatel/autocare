@@ -42,4 +42,5 @@ yarn-error.*
 
 # Firebase config (secret) — commit GoogleService-Info.example.plist instead
 GoogleService-Info.plist
+google-services.json
 .env
