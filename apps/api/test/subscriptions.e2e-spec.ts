@@ -1,9 +1,15 @@
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { randomUUID } from "crypto";
+import { createHmac } from "crypto";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { FAKE_WEBHOOK_SECRET, FakePspPayload } from "../src/modules/payments/fake-provider.adapter";
+
+function sign(body: string): string {
+  return createHmac("sha256", FAKE_WEBHOOK_SECRET).update(Buffer.from(body, "utf8")).digest("hex");
+}
 
 describe("subscriptions (e2e)", () => {
   let app: any, prisma: PrismaService;
@@ -12,17 +18,19 @@ describe("subscriptions (e2e)", () => {
   const eliteCode = "E2E-SUB-ELITE";
   let basicPlanId: string, premiumPlanId: string, elitePlanId: string;
   let vehicleAId: string, vehicleBId: string;
-  const uids = ["sub-owner-a", "sub-owner-b", "sub-mech"];
+  const uids = ["sub-owner-a", "sub-owner-b", "sub-mech", "sub-advisor"];
 
   beforeAll(async () => {
     process.env.POLICY_VERSION = "2026-08-privacy-v1";
     const mod = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(FirebaseService).useValue({ verifyIdToken: async (t: string) => ({ uid: t }) })
       .compile();
-    app = mod.createNestApplication(); app.setGlobalPrefix("api/v1"); await app.init();
+    // rawBody: true is required for the real E_PAYMENT seam test below, which posts a signed
+    // webhook through POST /webhooks/payments (same requirement as payments-webhook.e2e-spec.ts).
+    app = mod.createNestApplication({ rawBody: true }); app.setGlobalPrefix("api/v1"); await app.init();
     prisma = app.get(PrismaService);
 
-    for (const [uid, role] of [["sub-owner-a", "MEMBER"], ["sub-owner-b", "MEMBER"], ["sub-mech", "MECHANIC"]] as const) {
+    for (const [uid, role] of [["sub-owner-a", "MEMBER"], ["sub-owner-b", "MEMBER"], ["sub-mech", "MECHANIC"], ["sub-advisor", "ADVISOR"]] as const) {
       await prisma.user.create({ data: { firebaseUid: uid, role,
         consents: role === "MEMBER" ? { create: { policyVersion: "2026-08-privacy-v1" } } : undefined } });
     }
@@ -73,7 +81,11 @@ describe("subscriptions (e2e)", () => {
 
     const invoice = await prisma.invoice.findFirst({ where: { subscriptionId }, include: { items: true } });
     expect(invoice).not.toBeNull();
-    expect(invoice!.status).toBe("INVOICE_ISSUED");
+    // Final review fix: the initial invoice must be advanced PAST INVOICE_ISSUED at creation
+    // time (via nextState ISSUED) so it's actually payable — E_PAYMENT here -> AWAITING_AUTO_CHARGE.
+    // Staying at INVOICE_ISSUED (the pre-fix bug) meant it could never be settled by either
+    // the cash or auto-charge/webhook paths.
+    expect(invoice!.status).toBe("AWAITING_AUTO_CHARGE");
     expect(invoice!.number).toMatch(/^INV-\d{4}-\d{6}$/);
     expect(Number(invoice!.totalCentavos)).toBe(100000);
     expect(invoice!.items).toHaveLength(1);
@@ -253,6 +265,137 @@ describe("subscriptions (e2e)", () => {
       await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: { vehicleId: v.id } } } });
       await prisma.invoice.deleteMany({ where: { subscription: { vehicleId: v.id } } });
       await prisma.subscription.deleteMany({ where: { vehicleId: v.id } });
+      await prisma.vehicle.deleteMany({ where: { id: v.id } });
+    });
+  });
+
+  describe("status pre-check guards (Minor 2 — double-submit money-adjacent mint)", () => {
+    it("cancel on an already-CANCELLED subscription — 409 SUBSCRIPTION_ALREADY_CANCELLED, no second ETF invoice", async () => {
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0008",
+        make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
+      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+        .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
+      const subId = created.body.data.id;
+
+      const first = await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
+      expect(first.body.data.status).toBe("CANCELLED");
+      const invoiceCountAfterFirst = await prisma.invoice.count({ where: { subscriptionId: subId } });
+
+      const second = await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(409);
+      expect(second.body.error.code).toBe("SUBSCRIPTION_ALREADY_CANCELLED");
+
+      const invoiceCountAfterSecond = await prisma.invoice.count({ where: { subscriptionId: subId } });
+      expect(invoiceCountAfterSecond).toBe(invoiceCountAfterFirst); // no second ETF invoice minted
+
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscriptionId: subId } } });
+      await prisma.invoice.deleteMany({ where: { subscriptionId: subId } });
+      await prisma.subscription.deleteMany({ where: { id: subId } });
+      await prisma.vehicle.deleteMany({ where: { id: v.id } });
+    });
+
+    it("upgrade on a CANCELLED subscription — 409 SUBSCRIPTION_NOT_ACTIVE, no second pro-rated invoice", async () => {
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0009",
+        make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
+      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+        .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
+      const subId = created.body.data.id;
+      await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
+      const invoiceCountAfterCancel = await prisma.invoice.count({ where: { subscriptionId: subId } });
+
+      const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/upgrade`).send({ planId: premiumPlanId }).expect(409);
+      expect(res.body.error.code).toBe("SUBSCRIPTION_NOT_ACTIVE");
+
+      const invoiceCountAfterUpgradeAttempt = await prisma.invoice.count({ where: { subscriptionId: subId } });
+      expect(invoiceCountAfterUpgradeAttempt).toBe(invoiceCountAfterCancel); // no pro-rated invoice minted
+
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscriptionId: subId } } });
+      await prisma.invoice.deleteMany({ where: { subscriptionId: subId } });
+      await prisma.subscription.deleteMany({ where: { id: subId } });
+      await prisma.vehicle.deleteMany({ where: { id: v.id } });
+    });
+  });
+
+  // Whole-branch review Critical fix: prove the INITIAL invoice created by a real subscribe
+  // (not a hand-seeded AWAITING_* fixture, which is what every other spec uses) is actually
+  // payable end-to-end. Before the fix it was left at INVOICE_ISSUED forever.
+  describe("initial invoice is payable end-to-end (whole-branch review Critical fix)", () => {
+    it("real COD subscribe -> cash payment against the first invoice settles it to PAID and the subscription to ACTIVE", async () => {
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
+      const advisor = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-advisor" } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0006",
+        make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
+
+      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+        .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "COD" }).expect(201);
+      const subId = created.body.data.id;
+
+      const invoice = await prisma.invoice.findFirstOrThrow({ where: { subscriptionId: subId } });
+      expect(invoice.status).toBe("AWAITING_CASH");
+
+      // Open a shift for this test's advisor if one isn't already open (earlier cash specs run
+      // in a separate app instance/db-scoped user, so this advisor never has one yet).
+      const openShift = await prisma.cashShift.findFirst({ where: { userId: advisor.id, closedAt: null } });
+      if (!openShift) {
+        await as("sub-advisor").post("/api/v1/cash-shifts/open").expect(201);
+      }
+
+      const pay = await as("sub-advisor").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID())
+        .send({ invoiceId: invoice.id, amountTendered: Number(invoice.totalCentavos), clientUuid: randomUUID() }).expect(201);
+      expect(pay.body.data.paymentId).toBeDefined();
+
+      const settledInvoice = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+      expect(settledInvoice.status).toBe("PAID");
+      const settledSub = await prisma.subscription.findUniqueOrThrow({ where: { id: subId } });
+      expect(settledSub.status).toBe("ACTIVE");
+
+      const shift = await prisma.cashShift.findFirstOrThrow({ where: { userId: advisor.id, closedAt: null } });
+      await prisma.payment.deleteMany({ where: { invoiceId: invoice.id } });
+      await prisma.cashShift.deleteMany({ where: { id: shift.id } });
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscriptionId: subId } } });
+      await prisma.invoice.deleteMany({ where: { subscriptionId: subId } });
+      await prisma.subscription.deleteMany({ where: { id: subId } });
+      await prisma.vehicle.deleteMany({ where: { id: v.id } });
+    });
+
+    it("real E_PAYMENT subscribe -> webhook success settles the first invoice to PAID and the subscription to ACTIVE", async () => {
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0007",
+        make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
+
+      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+        .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
+      const subId = created.body.data.id;
+
+      const invoice = await prisma.invoice.findFirstOrThrow({ where: { subscriptionId: subId } });
+      expect(invoice.status).toBe("AWAITING_AUTO_CHARGE");
+
+      const payload: FakePspPayload = {
+        eventId: `evt-sub-e2e-${invoice.id}`, type: "payment.paid", pspReference: "pay-sub-e2e-1",
+        invoiceId: invoice.id, amountCentavos: Number(invoice.totalCentavos), succeeded: true,
+      };
+      const body = JSON.stringify(payload);
+      await request(app.getHttpServer())
+        .post("/api/v1/webhooks/payments")
+        .set("Content-Type", "application/json")
+        .set("paymongo-signature", sign(body))
+        .send(body)
+        .expect(200);
+
+      const settledInvoice = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+      expect(settledInvoice.status).toBe("PAID");
+      const settledSub = await prisma.subscription.findUniqueOrThrow({ where: { id: subId } });
+      expect(settledSub.status).toBe("ACTIVE");
+      const payments = await prisma.payment.findMany({ where: { invoiceId: invoice.id } });
+      expect(payments).toHaveLength(1);
+      expect(payments[0].status).toBe("SUCCEEDED");
+
+      await prisma.pspWebhookEvent.deleteMany({ where: { eventId: payload.eventId } });
+      await prisma.payment.deleteMany({ where: { invoiceId: invoice.id } });
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscriptionId: subId } } });
+      await prisma.invoice.deleteMany({ where: { subscriptionId: subId } });
+      await prisma.subscription.deleteMany({ where: { id: subId } });
       await prisma.vehicle.deleteMany({ where: { id: v.id } });
     });
   });

@@ -93,6 +93,15 @@ export class PaymentsService {
         event.succeeded ? { type: "CHARGE_SUCCEEDED" } : { type: "CHARGE_FAILED", attempt: nextAttempt },
       );
 
+      if (nextInvoiceState === invoice.status) {
+        // No-op — e.g. a duplicate SUCCEEDED webhook (distinct eventId) for an invoice
+        // already PAID, or a charge-failed event that can't move this state further.
+        // Mirrors the cash path's guard (cash.service.ts recordCashPayment): don't mint a
+        // second Payment row, just mark the webhook event processed.
+        await tx.pspWebhookEvent.update({ where: { id: webhookEventId }, data: { processedAt: new Date() } });
+        return;
+      }
+
       await tx.payment.create({
         data: {
           invoiceId: invoice.id,

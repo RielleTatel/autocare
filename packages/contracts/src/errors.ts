@@ -9,5 +9,7 @@ export const errorCodes = [
   // Task 7 — COD cash payments + shifts (FR-084..086):
   "NO_OPEN_SHIFT", "SHIFT_ALREADY_OPEN", "SHIFT_ALREADY_CLOSED", "CASH_TENDER_INSUFFICIENT",
   "INVOICE_ALREADY_PAID",
+  // Final whole-branch review — double-submit guards for money-adjacent subscription actions:
+  "SUBSCRIPTION_ALREADY_CANCELLED", "SUBSCRIPTION_NOT_ACTIVE",
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];

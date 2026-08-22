@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { DomainError } from "../../common/errors/domain-error";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { VehiclesService } from "../vehicles/vehicles.service";
-import { subscriptionStatusFor } from "../payments/invoice-lifecycle";
+import { subscriptionStatusFor, nextState } from "../payments/invoice-lifecycle";
 import { addMonthsManila, proratedUpgradeCentavos, etfCentavos, remainingLockInMonths, INTERVAL_MONTHS } from "./billing-math";
 import { nextInvoiceNumber, withInvoiceNumberRetry } from "./invoice-numbering";
 
@@ -107,12 +107,16 @@ export class SubscriptionsService {
           throw e;
         }
         const number = await nextInvoiceNumber(tx);
+        // Advance past INVOICE_ISSUED immediately — an invoice left at INVOICE_ISSUED can
+        // never be settled (neither the cash nor auto-charge paths query for it). Mirrors
+        // the renewal path in billing.service.ts.
+        const invoiceStatus = nextState("INVOICE_ISSUED", { type: "ISSUED", method: dto.paymentMethod });
         await tx.invoice.create({
           data: {
             subscriptionId: created.id,
             number,
             totalCentavos: plan.priceCentavos,
-            status: "INVOICE_ISSUED",
+            status: invoiceStatus,
             dueDate: now,
             items: {
               create: [{ description: `${plan.name} (${plan.billingInterval})`, qty: 1, unitPriceCentavos: plan.priceCentavos }],
@@ -170,6 +174,8 @@ export class SubscriptionsService {
     ]);
     if (newPlan.priceCentavos <= currentPlan.priceCentavos)
       throw new DomainError("SUBSCRIPTION_NOT_UPGRADE", "Target plan must be higher-priced than the current plan", 422);
+    if (sub.status !== "ACTIVE")
+      throw new DomainError("SUBSCRIPTION_NOT_ACTIVE", "Only an ACTIVE subscription can be upgraded", 409);
 
     const now = new Date();
     const periodDays = Math.max(Math.round((sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime()) / DAY_MS), 1);
@@ -180,12 +186,13 @@ export class SubscriptionsService {
       this.prisma.$transaction(async (tx) => {
         const updated = await tx.subscription.update({ where: { id: sub.id }, data: { planId: newPlan.id }, select: SUBSCRIPTION_SELECT });
         const number = await nextInvoiceNumber(tx);
+        const invoiceStatus = nextState("INVOICE_ISSUED", { type: "ISSUED", method: sub.paymentMethod });
         await tx.invoice.create({
           data: {
             subscriptionId: sub.id,
             number,
             totalCentavos: deltaCentavos,
-            status: "INVOICE_ISSUED",
+            status: invoiceStatus,
             dueDate: now,
             items: { create: [{ description: `Upgrade to ${newPlan.name} (pro-rated)`, qty: 1, unitPriceCentavos: deltaCentavos }] },
           },
@@ -230,6 +237,8 @@ export class SubscriptionsService {
 
   async cancel(user: AbilityUser, id: string, dto: SubscriptionCancel) {
     const sub = await this.findForUser(user, id, "update");
+    if (sub.status === "CANCELLED")
+      throw new DomainError("SUBSCRIPTION_ALREADY_CANCELLED", "This subscription is already cancelled", 409);
     const plan = await this.loadPlanOrThrow(sub.planId);
     const now = new Date();
     const insideLockIn = now.getTime() < sub.lockInEndsAt.getTime();
@@ -259,12 +268,13 @@ export class SubscriptionsService {
           select: SUBSCRIPTION_SELECT,
         });
         const number = await nextInvoiceNumber(tx);
+        const invoiceStatus = nextState("INVOICE_ISSUED", { type: "ISSUED", method: sub.paymentMethod });
         await tx.invoice.create({
           data: {
             subscriptionId: sub.id,
             number,
             totalCentavos: etf,
-            status: "INVOICE_ISSUED",
+            status: invoiceStatus,
             dueDate: now,
             items: { create: [{ description: "Early Termination Fee (BR-08)", qty: 1, unitPriceCentavos: etf }] },
           },

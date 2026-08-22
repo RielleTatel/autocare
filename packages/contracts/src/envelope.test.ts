@@ -17,6 +17,6 @@ describe("contracts", () => {
     expect(errorCodes).toContain("ODOMETER_REGRESSION");
     expect(errorCodes).toContain("NO_OPEN_SHIFT");
     expect(errorCodes).toContain("INVOICE_ALREADY_PAID");
-    expect(errorCodes.length).toBe(30);
+    expect(errorCodes.length).toBe(32);
   });
 });

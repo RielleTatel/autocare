@@ -138,6 +138,41 @@ describe("webhooks/payments (e2e)", () => {
     expect(updatedInvoice.status).toBe("PAID");
   });
 
+  it("no-op guard (Minor 1): two DISTINCT SUCCEEDED events for the same already-PAID invoice create exactly ONE Payment", async () => {
+    const { invoice } = await makeSubscriptionWithInvoice("AWAITING_AUTO_CHARGE");
+    const firstPayload: FakePspPayload = {
+      eventId: `evt-noop-a-${invoice.id}`, type: "payment.paid", pspReference: "pay-noop-a",
+      invoiceId: invoice.id, amountCentavos: 100000, succeeded: true,
+    };
+    // A genuinely different event (distinct eventId, distinct pspReference) for the SAME
+    // invoice, arriving after it is already PAID — e.g. a PSP double-send from a different
+    // charge attempt. The exactly-once-per-eventId guard in handleWebhook does NOT catch
+    // this (it's a different eventId); it's processEvent's own no-op-on-invoice guard that
+    // must prevent a second Payment row from being minted.
+    const secondPayload: FakePspPayload = {
+      eventId: `evt-noop-b-${invoice.id}`, type: "payment.paid", pspReference: "pay-noop-b",
+      invoiceId: invoice.id, amountCentavos: 100000, succeeded: true,
+    };
+
+    const first = await postWebhook(firstPayload).expect(200);
+    expect(first.body.data.alreadyProcessed).toBe(false);
+
+    const second = await postWebhook(secondPayload).expect(200);
+    expect(second.body.data.alreadyProcessed).toBe(false); // distinct event, inserted+processed — but a no-op on the invoice/payment
+
+    const payments = await prisma.payment.findMany({ where: { invoiceId: invoice.id } });
+    expect(payments).toHaveLength(1);
+    expect(payments[0].pspReference).toBe("pay-noop-a");
+
+    // Both events are still recorded as processed (so retryUnprocessed never re-picks them up).
+    const events = await prisma.pspWebhookEvent.findMany({ where: { eventId: { in: [firstPayload.eventId, secondPayload.eventId] } } });
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.processedAt !== null)).toBe(true);
+
+    const updatedInvoice = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+    expect(updatedInvoice.status).toBe("PAID");
+  });
+
   it("failed event: AWAITING_AUTO_CHARGE invoice -> RETRYING, chargeAttempts incremented, firstFailedAt set, Payment FAILED", async () => {
     const { invoice } = await makeSubscriptionWithInvoice("AWAITING_AUTO_CHARGE");
     const payload: FakePspPayload = {
