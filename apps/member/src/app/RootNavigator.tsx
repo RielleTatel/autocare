@@ -23,6 +23,7 @@ import { uploadVehiclePhoto } from "../features/vehicles/uploadPhoto";
 import { ProfileScreen } from "../features/profile/ProfileScreen";
 import { PrivacyScreen } from "../features/profile/PrivacyScreen";
 import { makeSubscriptionApi } from "../features/subscription/subscriptionApi";
+import { selectManageableSubscription } from "../features/subscription/subscriptionSelection";
 import { PlanSelectionScreen } from "../features/subscription/PlanSelectionScreen";
 import { PaymentMethodScreen } from "../features/subscription/PaymentMethodScreen";
 import { SubscriptionDashboardScreen } from "../features/subscription/SubscriptionDashboardScreen";
@@ -258,8 +259,8 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
       onBack={() => navigation.goBack()}
       onManageSubscription={async () => {
         const subs = await subApi.listSubscriptions();
-        const active = subs.find((s) => s.vehicleId === vehicle.id && s.status !== "CANCELLED");
-        if (active) navigation.navigate("SubscriptionDashboard", { subscriptionId: active.id });
+        const manageable = selectManageableSubscription(subs, vehicle.id);
+        if (manageable) navigation.navigate("SubscriptionDashboard", { subscriptionId: manageable.id });
         else navigation.navigate("PlanSelection", { vehicleId: vehicle.id });
       }}
     />
