@@ -16,6 +16,13 @@ describe("api client", () => {
     const api = createApiClient({ baseUrl: "http://x", getToken: async () => null, fetchImpl: vi.fn().mockResolvedValue(err("ENTITLEMENT_EXHAUSTED")) as any });
     await expect(api.get("/subscriptions")).rejects.toMatchObject({ code: "ENTITLEMENT_EXHAUSTED" });
   });
+  it("merges extra headers (e.g. Idempotency-Key) into a POST", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ id: "s1" }));
+    const api = createApiClient({ baseUrl: "http://x", getToken: async () => "tok", fetchImpl: fetchMock as any });
+    await api.post("/subscriptions", { planId: "p1" }, { "Idempotency-Key": "abc-123" });
+    expect(fetchMock.mock.calls[0][1].headers["Idempotency-Key"]).toBe("abc-123");
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer tok");
+  });
   it("supports DELETE", async () => {
     const fetchMock = vi.fn().mockResolvedValue(ok({ id: "v1", status: "ARCHIVED" }));
     const api = createApiClient({ baseUrl: "http://x", getToken: async () => "tok", fetchImpl: fetchMock as any });

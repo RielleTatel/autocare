@@ -12,11 +12,21 @@ async function persistToken() {
   }
 }
 
-export async function sendOtp(phoneE164: string) {
-  const confirmation = await auth().signInWithPhoneNumber(phoneE164);
-  return {
-    confirm: async (code: string) => { await confirmation.confirm(code); await persistToken(); },
-  };
+export async function signInWithEmail(email: string, password: string) {
+  await auth().signInWithEmailAndPassword(email, password);
+  await persistToken();
+}
+
+export async function registerWithEmail(email: string, password: string) {
+  const cred = await auth().createUserWithEmailAndPassword(email, password);
+  // Send-only verification (Architecture §7.3a): email the link, don't block the
+  // first session on it. Best-effort — a failed send must not fail registration.
+  await cred.user.sendEmailVerification().catch(() => {});
+  await persistToken();
+}
+
+export async function sendPasswordReset(email: string) {
+  await auth().sendPasswordResetEmail(email);
 }
 
 export async function signInWithGoogle() {

@@ -3,6 +3,7 @@
     "name": "AutoCare+",
     "slug": "member",
     "version": "1.0.0",
+    "scheme": "autocare",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

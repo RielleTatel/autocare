@@ -9,7 +9,7 @@ import { QueueModule } from "../../common/queue/queue.module";
 import { AuditService } from "../../common/audit/audit.service";
 import { STORAGE_PORT } from "../../common/storage/storage.port";
 import { FsStorageAdapter } from "../../common/storage/fs-storage.adapter";
-import { FirebaseStorageAdapter } from "../../common/storage/firebase-storage.adapter";
+import { SupabaseStorageAdapter } from "../../common/storage/supabase-storage.adapter";
 
 @Module({
   imports: [QueueModule],
@@ -19,7 +19,7 @@ import { FirebaseStorageAdapter } from "../../common/storage/firebase-storage.ad
     UsersService,
     AuditService,
     DpaProcessor,
-    { provide: STORAGE_PORT, useClass: process.env.NODE_ENV === "test" ? FsStorageAdapter : FirebaseStorageAdapter },
+    { provide: STORAGE_PORT, useClass: process.env.NODE_ENV === "test" ? FsStorageAdapter : SupabaseStorageAdapter },
   ],
   exports: [AuditService, STORAGE_PORT],
 })

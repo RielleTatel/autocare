@@ -1,9 +1,9 @@
 export const PRIVACY_POLICY = `# AutoCare+ Privacy Policy
 
 ## What we collect
-We collect your mobile number or Google account details, vehicle information,
-service history, and inspection records so we can schedule and perform
-maintenance on your vehicle.
+We collect your email or Google account details, an optional emergency
+contact number, vehicle information, service history, and inspection records
+so we can schedule and perform maintenance on your vehicle.
 
 ## How we use it
 Your data is used to run your subscription, schedule pickups and deliveries,

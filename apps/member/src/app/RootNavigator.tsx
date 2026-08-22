@@ -1,16 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { bootstrap, type BootState } from "../features/auth/session";
-import { sendOtp, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
+import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
-import { Vehicle } from "@autocare/contracts";
+import { Plan, Vehicle } from "@autocare/contracts";
 import { OnboardingScreen } from "../features/auth/OnboardingScreen";
-import { PhoneEntryScreen } from "../features/auth/PhoneEntryScreen";
-import { OtpScreen } from "../features/auth/OtpScreen";
+import { EmailAuthScreen } from "../features/auth/EmailAuthScreen";
 import { ConsentScreen } from "../features/auth/ConsentScreen";
 import { HomeTabs } from "./HomeTabs";
 import { HomeScreen } from "../features/home/HomeScreen";
@@ -21,6 +22,17 @@ import { VehicleDetailScreen } from "../features/vehicles/VehicleDetailScreen";
 import { uploadVehiclePhoto } from "../features/vehicles/uploadPhoto";
 import { ProfileScreen } from "../features/profile/ProfileScreen";
 import { PrivacyScreen } from "../features/profile/PrivacyScreen";
+import { makeSubscriptionApi } from "../features/subscription/subscriptionApi";
+import { selectManageableSubscription } from "../features/subscription/subscriptionSelection";
+import { PlanSelectionScreen } from "../features/subscription/PlanSelectionScreen";
+import { PaymentMethodScreen } from "../features/subscription/PaymentMethodScreen";
+import { SubscriptionDashboardScreen } from "../features/subscription/SubscriptionDashboardScreen";
+import { UpgradeDowngradeScreen } from "../features/subscription/UpgradeDowngradeScreen";
+import { CancellationScreen } from "../features/subscription/CancellationScreen";
+import { InvoicesScreen } from "../features/subscription/InvoicesScreen";
+import { InvoiceDetailScreen } from "../features/subscription/InvoiceDetailScreen";
+
+const subApi = makeSubscriptionApi(api);
 
 const Stack = createNativeStackNavigator();
 
@@ -45,25 +57,39 @@ async function afterSignIn(navigation: any, setBootState: (s: BootState) => void
 }
 
 function OnboardingContainer({ navigation }: any) {
-  return <OnboardingScreen onGetStarted={() => navigation.navigate("PhoneEntry")} />;
+  return <OnboardingScreen onGetStarted={() => navigation.navigate("EmailAuth")} />;
 }
 
-function PhoneEntryContainer({ navigation, setBootState }: any) {
+function EmailAuthContainer({ navigation, setBootState }: any) {
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   return (
-    <PhoneEntryScreen
+    <EmailAuthScreen
       error={error}
-      onSubmit={async (phoneE164) => {
+      notice={notice}
+      onSignIn={async (email, password) => {
         setError(null);
+        setNotice(null);
         try {
-          const confirmation = await sendOtp(phoneE164);
-          navigation.navigate("Otp", { phone: phoneE164, confirmation });
+          await signInWithEmail(email, password);
+          await afterSignIn(navigation, setBootState);
         } catch {
-          setError("Couldn't send the code. Check the number and try again.");
+          setError("That email or password didn't work. Try again.");
+        }
+      }}
+      onRegister={async (email, password) => {
+        setError(null);
+        setNotice(null);
+        try {
+          await registerWithEmail(email, password);
+          await afterSignIn(navigation, setBootState);
+        } catch {
+          setError("Couldn't create your account. Try a different email.");
         }
       }}
       onGoogle={async () => {
         setError(null);
+        setNotice(null);
         try {
           await signInWithGoogle();
           await afterSignIn(navigation, setBootState);
@@ -71,32 +97,14 @@ function PhoneEntryContainer({ navigation, setBootState }: any) {
           setError("Google sign-in failed. Try again.");
         }
       }}
-    />
-  );
-}
-
-function OtpContainer({ navigation, route, setBootState }: any) {
-  const { phone, confirmation } = route.params;
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <OtpScreen
-      phone={phone}
-      error={error}
-      onConfirm={async (code: string) => {
+      onForgotPassword={async (email) => {
         setError(null);
+        setNotice(null);
         try {
-          await confirmation.confirm(code);
-          await afterSignIn(navigation, setBootState);
+          await sendPasswordReset(email);
+          setNotice("Password reset email sent — check your inbox.");
         } catch {
-          setError("That code didn't work, try again.");
-        }
-      }}
-      onResend={async () => {
-        try {
-          const next = await sendOtp(phone);
-          navigation.setParams({ confirmation: next });
-        } catch {
-          setError("Couldn't resend the code. Try again.");
+          setError("Couldn't send a reset email. Check the address and try again.");
         }
       }}
     />
@@ -249,6 +257,124 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
         navigation.goBack();
       }}
       onBack={() => navigation.goBack()}
+      onManageSubscription={async () => {
+        const subs = await subApi.listSubscriptions();
+        const manageable = selectManageableSubscription(subs, vehicle.id);
+        if (manageable) navigation.navigate("SubscriptionDashboard", { subscriptionId: manageable.id });
+        else navigation.navigate("PlanSelection", { vehicleId: vehicle.id });
+      }}
+    />
+  );
+}
+
+function PlanSelectionContainer({ navigation, route }: any) {
+  const { vehicleId } = route.params;
+  return (
+    <PlanSelectionScreen
+      fetchPlans={subApi.listPlans}
+      onSelectPlan={(plan: Plan) => navigation.navigate("PaymentMethod", { vehicleId, plan })}
+    />
+  );
+}
+
+/** Finds the most recently issued invoice for a subscription — POST /subscriptions doesn't
+ * return the invoice it creates, and there's no `subscriptionId` query filter on GET
+ * /invoices, so the freshest matching invoice is looked up client-side right after create. */
+async function findLatestInvoiceForSubscription(subscriptionId: string) {
+  const invoices = await subApi.listInvoices();
+  const matches = invoices
+    .filter((i) => i.subscriptionId === subscriptionId)
+    .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
+  if (!matches[0]) throw new Error("Couldn't find an invoice for this subscription");
+  return matches[0];
+}
+
+function PaymentMethodContainer({ navigation, route }: any) {
+  const { vehicleId, plan } = route.params;
+  return (
+    <PaymentMethodScreen
+      plan={plan}
+      createSubscription={(method: "E_PAYMENT" | "COD") => subApi.createSubscription(vehicleId, plan.id, method)}
+      createPaymentIntent={async (sub) => {
+        const invoice = await findLatestInvoiceForSubscription(sub.id);
+        return subApi.createPaymentIntent(invoice.id);
+      }}
+      openCheckout={(url: string) => WebBrowser.openAuthSessionAsync(url, Linking.createURL("payment-result"))}
+      refreshSubscriptionStatus={(id: string) => subApi.getSubscription(id)}
+      onDone={(sub) => navigation.reset({ index: 0, routes: [{ name: "SubscriptionDashboard", params: { subscriptionId: sub.id } }] })}
+    />
+  );
+}
+
+function SubscriptionDashboardContainer({ navigation, route }: any) {
+  const { subscriptionId } = route.params;
+  return (
+    <SubscriptionDashboardScreen
+      fetchDashboard={async () => {
+        const [subscription, entitlements] = await Promise.all([
+          subApi.getSubscription(subscriptionId),
+          subApi.getEntitlements(subscriptionId),
+        ]);
+        return { subscription, entitlements };
+      }}
+      onManagePlan={() => navigation.navigate("UpgradeDowngrade", { subscriptionId })}
+      onCancel={() => navigation.navigate("Cancellation", { subscriptionId })}
+      onViewInvoices={() => navigation.navigate("Invoices")}
+    />
+  );
+}
+
+function UpgradeDowngradeContainer({ navigation, route }: any) {
+  const { subscriptionId } = route.params;
+  const [currentPlan, setCurrentPlan] = useState<{ id: string; name: string; priceCentavos: number; billingInterval: string; lockInMonths: number } | null>(null);
+
+  useEffect(() => {
+    subApi.getSubscription(subscriptionId).then((s) => setCurrentPlan(s.plan));
+  }, [subscriptionId]);
+
+  if (!currentPlan) return <Splash />;
+
+  return (
+    <UpgradeDowngradeScreen
+      currentPlan={currentPlan}
+      fetchPlans={subApi.listPlans}
+      onUpgrade={(planId: string) => subApi.upgrade(subscriptionId, planId)}
+      onDowngrade={(planId: string) => subApi.downgrade(subscriptionId, planId)}
+      onDone={() => navigation.navigate("SubscriptionDashboard", { subscriptionId })}
+    />
+  );
+}
+
+function CancellationContainer({ navigation, route }: any) {
+  const { subscriptionId } = route.params;
+  return (
+    <CancellationScreen
+      fetchQuote={() => subApi.cancellationQuote(subscriptionId)}
+      onCancel={(acceptEtf: boolean) => subApi.cancel(subscriptionId, acceptEtf)}
+      onDone={() => navigation.navigate("SubscriptionDashboard", { subscriptionId })}
+    />
+  );
+}
+
+function InvoicesContainer({ navigation }: any) {
+  return (
+    <InvoicesScreen
+      fetchInvoices={subApi.listInvoices}
+      onSelectInvoice={(invoice) => navigation.navigate("InvoiceDetail", { invoice })}
+    />
+  );
+}
+
+function InvoiceDetailContainer({ navigation, route }: any) {
+  const { invoice } = route.params;
+  return (
+    <InvoiceDetailScreen
+      invoice={invoice}
+      onDownloadReceipt={async () => {
+        const { url } = await subApi.getInvoicePdf(invoice.id);
+        await WebBrowser.openBrowserAsync(url);
+      }}
+      onBack={() => navigation.goBack()}
     />
   );
 }
@@ -305,6 +431,13 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
         {(props) => <VehicleDetailContainer {...props} refreshVehicles={refreshVehicles} />}
       </Stack.Screen>
       <Stack.Screen name="Privacy" component={PrivacyContainer} />
+      <Stack.Screen name="PlanSelection" component={PlanSelectionContainer} />
+      <Stack.Screen name="PaymentMethod" component={PaymentMethodContainer} />
+      <Stack.Screen name="SubscriptionDashboard" component={SubscriptionDashboardContainer} />
+      <Stack.Screen name="UpgradeDowngrade" component={UpgradeDowngradeContainer} />
+      <Stack.Screen name="Cancellation" component={CancellationContainer} />
+      <Stack.Screen name="Invoices" component={InvoicesContainer} />
+      <Stack.Screen name="InvoiceDetail" component={InvoiceDetailContainer} />
     </Stack.Navigator>
   );
 }
@@ -334,11 +467,8 @@ export function RootNavigator() {
             <Stack.Screen name="Onboarding">
               {(props) => <OnboardingContainer {...props} setBootState={setState} />}
             </Stack.Screen>
-            <Stack.Screen name="PhoneEntry">
-              {(props) => <PhoneEntryContainer {...props} setBootState={setState} />}
-            </Stack.Screen>
-            <Stack.Screen name="Otp">
-              {(props) => <OtpContainer {...props} setBootState={setState} />}
+            <Stack.Screen name="EmailAuth">
+              {(props) => <EmailAuthContainer {...props} setBootState={setState} />}
             </Stack.Screen>
             <Stack.Screen name="Consent">
               {(props) => <ConsentContainer {...props} setBootState={setState} />}

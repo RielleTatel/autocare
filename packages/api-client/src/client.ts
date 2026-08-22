@@ -10,13 +10,13 @@ export interface ApiClientOptions {
 }
 export function createApiClient(opts: ApiClientOptions) {
   const f = opts.fetchImpl ?? fetch;
-  async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async function call<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
     const token = await opts.getToken();
     let res: Response;
     try {
       res = await f(`${opts.baseUrl}/api/v1${path}`, {
         method,
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extraHeaders },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (e) {
@@ -28,7 +28,7 @@ export function createApiClient(opts: ApiClientOptions) {
   }
   return {
     get: <T>(p: string) => call<T>("GET", p),
-    post: <T>(p: string, b?: unknown) => call<T>("POST", p, b),
+    post: <T>(p: string, b?: unknown, headers?: Record<string, string>) => call<T>("POST", p, b, headers),
     patch: <T>(p: string, b?: unknown) => call<T>("PATCH", p, b),
     del: <T>(p: string) => call<T>("DELETE", p),
     createSession: () => call<import("@autocare/contracts").SessionResponse>("POST", "/auth/session"),

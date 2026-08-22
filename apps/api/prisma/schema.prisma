@@ -64,6 +64,7 @@ model User {
   org                    Organization?   @relation(fields: [orgId], references: [id])
   erasureRequestedAt     DateTime?       @map("erasure_requested_at")
   dataRequests           DataRequest[]
+  subscriptions          Subscription[]
 
   @@map("users")
 }
@@ -102,6 +103,7 @@ model Vehicle {
   orgOwner          Organization?     @relation(fields: [orgOwnerId], references: [id])
   photoUrls         String[]          @default([]) @map("photo_urls")
   orCrUrls          String[]          @default([]) @map("or_cr_urls")
+  subscriptions     Subscription[]
 
   @@index([ownerUserId, status])
   @@map("vehicles")
@@ -157,4 +159,222 @@ model OdometerReading {
   justification String?
 
   @@map("odometer_readings")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Subscription & billing (Data Model §8.3-8.5)
+// ---------------------------------------------------------------------------
+
+enum EntitlementType {
+  INSPECTION
+  PICKUP
+  ROADSIDE
+  OIL_CHANGE
+  TIRE_ROTATION
+}
+
+enum BillingInterval {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  GRACE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  GCASH
+  MAYA
+  CARD
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// Must exactly match the 8 invoice-lifecycle states (Ruling BIGSTATE).
+enum InvoiceStatus {
+  INVOICE_ISSUED
+  AWAITING_AUTO_CHARGE
+  AWAITING_CASH
+  RETRYING
+  GRACE
+  PAID
+  PAST_DUE
+  SUSPENDED
+}
+
+enum SubscriptionPaymentMethod {
+  E_PAYMENT
+  COD
+}
+
+model Plan {
+  id              String            @id @default(uuid()) @db.Uuid
+  code            String
+  name            String
+  priceCentavos   BigInt            @map("price_centavos")
+  billingInterval BillingInterval   @map("billing_interval")
+  lockInMonths    Int               @map("lock_in_months")
+  isActive        Boolean           @default(true) @map("is_active")
+  version         Int               @default(1)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  entitlements    PlanEntitlement[]
+  subscriptions   Subscription[]
+
+  @@index([code])
+  @@map("plans")
+}
+
+model PlanEntitlement {
+  id                   String          @id @default(uuid()) @db.Uuid
+  planId               String          @map("plan_id") @db.Uuid
+  plan                 Plan            @relation(fields: [planId], references: [id])
+  entitlementType      EntitlementType @map("entitlement_type")
+  quantityPerCycle     Int             @map("quantity_per_cycle")
+  overagePriceCentavos BigInt          @map("overage_price_centavos")
+
+  @@map("plan_entitlements")
+}
+
+// NOTE: migration `20260821112628_subscription_one_active_per_vehicle` adds a partial
+// unique index `subscriptions_one_active_per_vehicle` ON subscriptions(vehicle_id) WHERE
+// status = 'ACTIVE', enforcing "one ACTIVE subscription per vehicle" (FR-017/BR-08) as a
+// DB-level backstop to the check-then-act guard in SubscriptionsService.create. Prisma's
+// schema DSL has no syntax for partial/filtered unique indexes, so it is intentionally NOT
+// declared here — the migration history is the sole source of truth for it. Do not
+// `prisma migrate reset`/regenerate migrations in a way that drops that migration file.
+model Subscription {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  vehicleId          String                    @map("vehicle_id") @db.Uuid
+  vehicle            Vehicle                   @relation(fields: [vehicleId], references: [id])
+  planId             String                    @map("plan_id") @db.Uuid
+  plan               Plan                      @relation(fields: [planId], references: [id])
+  userId             String                    @map("user_id") @db.Uuid
+  user               User                      @relation(fields: [userId], references: [id])
+  status             SubscriptionStatus        @default(ACTIVE)
+  startedAt          DateTime                  @map("started_at")
+  lockInEndsAt       DateTime                  @map("lock_in_ends_at")
+  currentPeriodStart DateTime                  @map("current_period_start")
+  currentPeriodEnd   DateTime                  @map("current_period_end")
+  paymentMethod      SubscriptionPaymentMethod @map("payment_method")
+  cancelRequestedAt  DateTime?                 @map("cancel_requested_at")
+  pendingPlanId      String?                   @map("pending_plan_id") @db.Uuid
+  entitlementUsages  EntitlementUsage[]
+  invoices           Invoice[]
+
+  @@map("subscriptions")
+}
+
+model EntitlementUsage {
+  id              String          @id @default(uuid()) @db.Uuid
+  subscriptionId  String          @map("subscription_id") @db.Uuid
+  subscription    Subscription    @relation(fields: [subscriptionId], references: [id])
+  entitlementType EntitlementType @map("entitlement_type")
+  periodStart     DateTime        @map("period_start")
+  usedQty         Int             @default(0) @map("used_qty")
+  sourceRef       String?         @map("source_ref")
+
+  @@unique([subscriptionId, periodStart, entitlementType])
+  @@map("entitlement_usage")
+}
+
+model Invoice {
+  id             String        @id @default(uuid()) @db.Uuid
+  subscriptionId String?       @map("subscription_id") @db.Uuid
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  workOrderId    String?       @map("work_order_id") @db.Uuid
+  number         String        @unique
+  totalCentavos  BigInt        @map("total_centavos")
+  status         InvoiceStatus
+  dueDate        DateTime      @map("due_date")
+  issuedAt       DateTime      @default(now()) @map("issued_at")
+  chargeAttempts Int           @default(0) @map("charge_attempts")
+  firstFailedAt  DateTime?     @map("first_failed_at")
+  pdfObjectPath  String?       @map("pdf_object_path")
+  items          InvoiceItem[]
+  payments       Payment[]
+
+  @@index([status, dueDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                String  @id @default(uuid()) @db.Uuid
+  invoiceId         String  @map("invoice_id") @db.Uuid
+  invoice           Invoice @relation(fields: [invoiceId], references: [id])
+  description       String
+  qty               Int
+  unitPriceCentavos BigInt  @map("unit_price_centavos")
+  taxCentavos       BigInt  @default(0) @map("tax_centavos")
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  invoiceId         String        @map("invoice_id") @db.Uuid
+  invoice           Invoice       @relation(fields: [invoiceId], references: [id])
+  method            PaymentMethod
+  amountCentavos    BigInt        @map("amount_centavos")
+  status            PaymentStatus @default(PENDING)
+  pspReference      String?       @map("psp_reference")
+  collectedByUserId String?       @map("collected_by_user_id") @db.Uuid
+  shiftId           String?       @map("shift_id") @db.Uuid
+  cashShift         CashShift?    @relation(fields: [shiftId], references: [id])
+  clientUuid        String        @unique @map("client_uuid")
+  supersedesId      String?       @unique @map("supersedes_id") @db.Uuid
+  supersedes        Payment?      @relation("PaymentSupersedes", fields: [supersedesId], references: [id])
+  supersededBy      Payment?      @relation("PaymentSupersedes")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  @@index([collectedByUserId, shiftId])
+  @@map("payments")
+}
+
+model CashShift {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  openedAt         DateTime  @default(now()) @map("opened_at")
+  closedAt         DateTime? @map("closed_at")
+  expectedCentavos BigInt    @default(0) @map("expected_centavos")
+  countedCentavos  BigInt?   @map("counted_centavos")
+  varianceCentavos BigInt?   @map("variance_centavos")
+  payments         Payment[]
+
+  @@map("cash_shifts")
+}
+
+model PspWebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    String
+  eventId     String    @map("event_id")
+  rawPayload  Json      @map("raw_payload")
+  processedAt DateTime? @map("processed_at")
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([provider, eventId])
+  @@map("psp_webhook_events")
+}
+
+model IdempotencyKey {
+  key          String   @id
+  endpoint     String
+  responseHash String   @map("response_hash")
+  // Not in the original Task 1 shape — added by Task 4 so a replay can return the
+  // *exact* original response, not just verify a hash of it. See idempotency.interceptor.ts.
+  responseBody Json?    @map("response_body")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("idempotency_keys")
 }

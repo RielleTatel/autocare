@@ -7,6 +7,14 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { VehiclesModule } from "./modules/vehicles/vehicles.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
+import { PlansModule } from "./modules/plans/plans.module";
+import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
+import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
+import { PaymentsModule } from "./modules/payments/payments.module";
+import { CashModule } from "./modules/cash/cash.module";
+import { BillingModule } from "./modules/billing/billing.module";
+import { InvoicesModule } from "./modules/invoices/invoices.module";
+import { ClockModule } from "./common/clock/clock.module";
 import { PoliciesModule } from "./common/policies/policies.module";
 import { EnvelopeInterceptor } from "./common/interceptors/envelope.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
@@ -16,11 +24,19 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
   imports: [
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 100 }]),
     PrismaModule,
+    ClockModule,
     AuthModule,
     UsersModule,
     VehiclesModule,
     UploadsModule,
+    PlansModule,
+    SubscriptionsModule,
+    EntitlementsModule,
     PoliciesModule,
+    PaymentsModule,
+    CashModule,
+    BillingModule,
+    InvoicesModule,
   ],
   controllers: [HealthController],
   providers: [
