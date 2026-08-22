@@ -15,11 +15,12 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ph.autocare.member",
+      "bundleIdentifier": "com.mao.autocare",
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "ph.autocare.member",
+      "package": "com.mao.autocare",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
