@@ -75,6 +75,7 @@ export class ScoringIntegrationService implements InspectionScoringHook {
       await tx.recommendation.create({
         data: {
           healthScoreId: score.id,
+          vehicleId: inspection.vehicleId,
           pointCode: r.pointCode,
           label: point.label,
           severity: status,

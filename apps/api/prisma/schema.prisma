@@ -112,6 +112,8 @@ model Vehicle {
   inspections       Inspection[]
   healthScores      HealthScore[]
   certificates      Certificate[]
+  workOrders        WorkOrder[]
+  recommendations   Recommendation[]
 
   @@index([ownerUserId, status])
   @@map("vehicles")
@@ -301,6 +303,7 @@ model Invoice {
   subscriptionId String?       @map("subscription_id") @db.Uuid
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
   workOrderId    String?       @map("work_order_id") @db.Uuid
+  workOrder      WorkOrder?    @relation(fields: [workOrderId], references: [id])
   number         String        @unique
   totalCentavos  BigInt        @map("total_centavos")
   status         InvoiceStatus
@@ -722,18 +725,36 @@ model CategoryScore {
 }
 
 model Recommendation {
-  id                    String      @id @default(uuid()) @db.Uuid
-  healthScoreId         String      @map("health_score_id") @db.Uuid
-  healthScore           HealthScore @relation(fields: [healthScoreId], references: [id])
-  pointCode             String      @map("point_code")
+  id                    String               @id @default(uuid()) @db.Uuid
+  healthScoreId         String               @map("health_score_id") @db.Uuid
+  healthScore           HealthScore          @relation(fields: [healthScoreId], references: [id])
+  vehicleId             String               @map("vehicle_id") @db.Uuid
+  vehicle               Vehicle              @relation(fields: [vehicleId], references: [id])
+  pointCode             String               @map("point_code")
   label                 String
   severity              PointStatus
   recommendation        String
-  estimatedCostCentavos BigInt?     @map("estimated_cost_centavos")
-  createdAt             DateTime    @default(now()) @map("created_at")
+  estimatedCostCentavos BigInt?              @map("estimated_cost_centavos")
+  // Lifecycle across inspections (FR-069): unresolved recs re-link to a new
+  // inspection's finding and bump resurfacedCount instead of duplicating.
+  status                RecommendationStatus @default(OPEN)
+  resurfacedCount       Int                  @default(0) @map("resurfaced_count")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at")
+  workOrderItems        WorkOrderItem[]
 
   @@index([healthScoreId])
+  @@index([vehicleId, status])
   @@map("recommendations")
+}
+
+// Admin-editable key/value settings (BR-07 work-order approval threshold, etc.).
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("system_config")
 }
 
 model Certificate {
@@ -767,4 +788,126 @@ model SyncOutboxReceipt {
 
   @@index([userId, createdAt])
   @@map("sync_outbox_receipts")
+}
+
+// ===== Phase 5 — Work Orders & Parts =====
+
+enum WorkOrderStatus {
+  DRAFT
+  AWAITING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  QC
+  READY
+  CLOSED
+  CANCELLED
+}
+
+enum WorkOrderItemType {
+  PART
+  LABOR
+}
+
+enum ItemApprovalStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  DEFERRED
+}
+
+enum RecommendationStatus {
+  OPEN
+  QUOTED
+  APPROVED
+  DECLINED
+  DEFERRED
+  RESOLVED
+}
+
+enum WasteType {
+  USED_OIL
+  BATTERY
+  FILTER
+  TIRE
+  COOLANT
+}
+
+model Part {
+  sku            String          @id
+  name           String
+  category       String
+  costCentavos   BigInt          @map("cost_centavos")
+  priceCentavos  BigInt          @map("price_centavos")
+  stockQty       Int             @default(0) @map("stock_qty")
+  reorderLevel   Int             @default(0) @map("reorder_level")
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  workOrderItems WorkOrderItem[]
+
+  @@index([category])
+  @@map("parts")
+}
+
+model WorkOrder {
+  id                String          @id @default(uuid()) @db.Uuid
+  number            String          @unique
+  vehicleId         String          @map("vehicle_id") @db.Uuid
+  vehicle           Vehicle         @relation(fields: [vehicleId], references: [id])
+  appointmentId     String?         @map("appointment_id") @db.Uuid
+  status            WorkOrderStatus @default(DRAFT)
+  customerComplaint String?         @map("customer_complaint")
+  technicianSummary String?         @map("technician_summary")
+  advisorUserId     String          @map("advisor_user_id") @db.Uuid
+  inspectionId      String?         @map("inspection_id") @db.Uuid
+  stockOverride     Boolean         @default(false) @map("stock_override")
+  stockOverrideReason String?       @map("stock_override_reason")
+  openedAt          DateTime        @default(now()) @map("opened_at")
+  closedAt          DateTime?       @map("closed_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  items             WorkOrderItem[]
+  wasteRecords      WasteRecord[]
+  invoices          Invoice[]
+
+  @@index([vehicleId, status])
+  @@index([status])
+  @@map("work_orders")
+}
+
+model WorkOrderItem {
+  id                String             @id @default(uuid()) @db.Uuid
+  workOrderId       String             @map("work_order_id") @db.Uuid
+  workOrder         WorkOrder          @relation(fields: [workOrderId], references: [id])
+  type              WorkOrderItemType
+  partSku           String?            @map("part_sku")
+  part              Part?              @relation(fields: [partSku], references: [sku])
+  description       String
+  qty               Int                @default(1)
+  unitPriceCentavos BigInt             @map("unit_price_centavos")
+  discountCentavos  BigInt             @default(0) @map("discount_centavos")
+  approvalStatus    ItemApprovalStatus @default(PENDING) @map("approval_status")
+  approvedAt        DateTime?          @map("approved_at")
+  recommendationId  String?            @map("recommendation_id") @db.Uuid
+  recommendation    Recommendation?    @relation(fields: [recommendationId], references: [id])
+  done              Boolean            @default(false)
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  @@index([workOrderId])
+  @@map("work_order_items")
+}
+
+model WasteRecord {
+  id          String    @id @default(uuid()) @db.Uuid
+  clientUuid  String?   @unique @map("client_uuid")
+  workOrderId String    @map("work_order_id") @db.Uuid
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  wasteType   WasteType @map("waste_type")
+  quantity    Float
+  unit        String
+  haulerName  String?   @map("hauler_name")
+  manifestNo  String?   @map("manifest_no")
+  disposedAt  DateTime? @map("disposed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([workOrderId])
+  @@map("waste_records")
 }
