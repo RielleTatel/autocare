@@ -67,6 +67,7 @@ model User {
   dataRequests           DataRequest[]
   subscriptions          Subscription[]
   shifts                 StaffShift[]
+  inspections            Inspection[]
 
   @@map("users")
 }
@@ -108,6 +109,9 @@ model Vehicle {
   subscriptions     Subscription[]
   appointments      Appointment[]
   serviceReminders  ServiceReminder[]
+  inspections       Inspection[]
+  healthScores      HealthScore[]
+  certificates      Certificate[]
 
   @@index([ownerUserId, status])
   @@map("vehicles")
@@ -509,4 +513,258 @@ model ServiceReminder {
 
   @@unique([vehicleId, serviceTypeId])
   @@map("service_reminders")
+}
+
+// ===== Phase 4 — Inspection & Vehicle Health Score =====
+
+enum PointStatus {
+  GOOD
+  MONITOR
+  ATTENTION
+  CRITICAL
+  NOT_APPLICABLE
+}
+
+enum PointInputType {
+  STATUS
+  MEASURED
+}
+
+enum ThresholdDirection {
+  HIGHER_BETTER
+  LOWER_BETTER
+}
+
+enum ChecklistStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum VhsBand {
+  EXCELLENT
+  GOOD
+  FAIR
+  NEEDS_ATTENTION
+  CRITICAL
+}
+
+enum ScoreConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ScoreOverride {
+  NONE
+  SAFETY_CRITICAL
+  SAFETY_ATTENTION
+}
+
+enum CertificateVisibility {
+  PRIVATE
+  LINK
+  REVOKED
+}
+
+enum SyncReceiptStatus {
+  APPLIED
+  DUPLICATE
+  REJECTED
+}
+
+// Published versions are immutable (FR-101): the checklists service only ever
+// mutates DRAFT rows; publish flips status and deactivates the previous active.
+model ChecklistVersion {
+  id            String              @id @default(uuid()) @db.Uuid
+  versionLabel  String              @unique @map("version_label")
+  weightVersion String              @map("weight_version")
+  status        ChecklistStatus     @default(DRAFT)
+  isActive      Boolean             @default(false) @map("is_active")
+  publishedAt   DateTime?           @map("published_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  categories    ChecklistCategory[]
+  inspections   Inspection[]
+  healthScores  HealthScore[]
+
+  @@index([isActive])
+  @@map("checklist_versions")
+}
+
+model ChecklistCategory {
+  id                 String           @id @default(uuid()) @db.Uuid
+  checklistVersionId String           @map("checklist_version_id") @db.Uuid
+  checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
+  code               String
+  label              String
+  labelFil           String?          @map("label_fil")
+  // Category weights across a version must sum to 100 — enforced by the
+  // checklists service on publish + a CI seed e2e (a deferred DB trigger would
+  // couple migrations to app-level config semantics for no extra safety).
+  weight             Float
+  sortOrder          Int              @default(0) @map("sort_order")
+  points             ChecklistPoint[]
+
+  @@unique([checklistVersionId, code])
+  @@map("checklist_categories")
+}
+
+model ChecklistPoint {
+  id                     String              @id @default(uuid()) @db.Uuid
+  categoryId             String              @map("category_id") @db.Uuid
+  category               ChecklistCategory   @relation(fields: [categoryId], references: [id])
+  code                   String
+  label                  String
+  labelFil               String?             @map("label_fil")
+  weightInCategory       Float               @map("weight_in_category")
+  isSafetyCritical       Boolean             @default(false) @map("is_safety_critical")
+  inputType              PointInputType      @map("input_type")
+  unit                   String?
+  thresholdDirection     ThresholdDirection? @map("threshold_direction")
+  thresholdGood          Float?              @map("threshold_good")
+  thresholdMonitor       Float?              @map("threshold_monitor")
+  thresholdAttention     Float?              @map("threshold_attention")
+  recommendation         String
+  // One plain-language sentence per status (FR-115 tap-to-explain, §11.6a).
+  // Versions with the checklist, so published explanations are immutable.
+  templates              Json?
+  requiresPhotoOnAdverse Boolean             @default(false) @map("requires_photo_on_adverse")
+  notApplicableWhen      String?             @map("not_applicable_when")
+  sortOrder              Int                 @default(0) @map("sort_order")
+  results                InspectionResult[]
+
+  @@unique([categoryId, code])
+  @@map("checklist_points")
+}
+
+// Append-only (NFR-054): corrections create a new row via supersedesId.
+model Inspection {
+  id                 String             @id @default(uuid()) @db.Uuid
+  clientUuid         String             @unique @map("client_uuid")
+  vehicleId          String             @map("vehicle_id") @db.Uuid
+  vehicle            Vehicle            @relation(fields: [vehicleId], references: [id])
+  appointmentId      String?            @map("appointment_id") @db.Uuid
+  mechanicId         String             @map("mechanic_id") @db.Uuid
+  mechanic           User               @relation(fields: [mechanicId], references: [id])
+  checklistVersionId String             @map("checklist_version_id") @db.Uuid
+  checklistVersion   ChecklistVersion   @relation(fields: [checklistVersionId], references: [id])
+  odometerKm         Int?               @map("odometer_km")
+  startedAt          DateTime?          @map("started_at")
+  submittedAt        DateTime?          @map("submitted_at")
+  notes              String?
+  supersedesId       String?            @unique @map("supersedes_id") @db.Uuid
+  supersedes         Inspection?        @relation("InspectionSupersedes", fields: [supersedesId], references: [id])
+  supersededBy       Inspection?        @relation("InspectionSupersedes")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  results            InspectionResult[]
+  healthScore        HealthScore?
+
+  @@index([vehicleId, createdAt])
+  @@map("inspections")
+}
+
+model InspectionResult {
+  id            String         @id @default(uuid()) @db.Uuid
+  inspectionId  String         @map("inspection_id") @db.Uuid
+  inspection    Inspection     @relation(fields: [inspectionId], references: [id])
+  pointId       String         @map("point_id") @db.Uuid
+  point         ChecklistPoint @relation(fields: [pointId], references: [id])
+  pointCode     String         @map("point_code")
+  status        PointStatus?
+  measuredValue Float?         @map("measured_value")
+  notes         String?
+  photoUrls     String[]       @default([]) @map("photo_urls")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  @@unique([inspectionId, pointCode])
+  @@map("inspection_results")
+}
+
+model HealthScore {
+  id                 String           @id @default(uuid()) @db.Uuid
+  inspectionId       String           @unique @map("inspection_id") @db.Uuid
+  inspection         Inspection       @relation(fields: [inspectionId], references: [id])
+  vehicleId          String           @map("vehicle_id") @db.Uuid
+  vehicle            Vehicle          @relation(fields: [vehicleId], references: [id])
+  score              Int
+  rawScore           Float            @map("raw_score")
+  band               VhsBand
+  confidence         ScoreConfidence
+  overrideApplied    ScoreOverride    @default(NONE) @map("override_applied")
+  checklistVersionId String           @map("checklist_version_id") @db.Uuid
+  checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
+  weightVersion      String           @map("weight_version")
+  topDetractors      Json             @default("[]") @map("top_detractors")
+  isStale            Boolean          @default(false) @map("is_stale")
+  computedAt         DateTime         @default(now()) @map("computed_at")
+  categoryScores     CategoryScore[]
+  recommendations    Recommendation[]
+  certificates       Certificate[]
+
+  @@index([vehicleId, computedAt])
+  @@index([isStale, computedAt])
+  @@map("health_scores")
+}
+
+model CategoryScore {
+  id               String      @id @default(uuid()) @db.Uuid
+  healthScoreId    String      @map("health_score_id") @db.Uuid
+  healthScore      HealthScore @relation(fields: [healthScoreId], references: [id])
+  categoryCode     String      @map("category_code")
+  label            String
+  weight           Float
+  score            Float
+  applicablePoints Int         @map("applicable_points")
+  sortOrder        Int         @default(0) @map("sort_order")
+
+  @@unique([healthScoreId, categoryCode])
+  @@map("category_scores")
+}
+
+model Recommendation {
+  id                    String      @id @default(uuid()) @db.Uuid
+  healthScoreId         String      @map("health_score_id") @db.Uuid
+  healthScore           HealthScore @relation(fields: [healthScoreId], references: [id])
+  pointCode             String      @map("point_code")
+  label                 String
+  severity              PointStatus
+  recommendation        String
+  estimatedCostCentavos BigInt?     @map("estimated_cost_centavos")
+  createdAt             DateTime    @default(now()) @map("created_at")
+
+  @@index([healthScoreId])
+  @@map("recommendations")
+}
+
+model Certificate {
+  id               String                @id @default(uuid()) @db.Uuid
+  vehicleId        String                @map("vehicle_id") @db.Uuid
+  vehicle          Vehicle               @relation(fields: [vehicleId], references: [id])
+  healthScoreId    String                @map("health_score_id") @db.Uuid
+  healthScore      HealthScore           @relation(fields: [healthScoreId], references: [id])
+  publicToken      String                @unique @map("public_token")
+  verificationCode String                @unique @map("verification_code")
+  visibility       CertificateVisibility @default(PRIVATE)
+  pdfUrl           String?               @map("pdf_url")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  revokedAt        DateTime?             @map("revoked_at")
+
+  @@index([vehicleId])
+  @@map("certificates")
+}
+
+// Idempotency ledger for POST /sync/batch: one receipt per client-generated
+// outbox entry; replays return the stored receipt without re-applying.
+model SyncOutboxReceipt {
+  id         String            @id @default(uuid()) @db.Uuid
+  clientUuid String            @unique @map("client_uuid")
+  userId     String            @map("user_id") @db.Uuid
+  entityType String            @map("entity_type")
+  op         String
+  status     SyncReceiptStatus
+  errorCode  String?           @map("error_code")
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("sync_outbox_receipts")
 }

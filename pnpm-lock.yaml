@@ -20,6 +20,9 @@ importers:
       '@autocare/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@autocare/scoring':
+        specifier: workspace:*
+        version: link:../../packages/scoring
       '@casl/ability':
         specifier: ^6.7.0
         version: 6.8.1

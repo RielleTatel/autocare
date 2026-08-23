@@ -9,6 +9,7 @@ module.exports = {
   transform: { "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.json" }] },
   moduleNameMapper: {
     "^@autocare/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
+    "^@autocare/scoring$": "<rootDir>/../../packages/scoring/src/index.ts",
   },
   testEnvironment: "node",
   // The dev/test database is hosted Supabase (remote): per-query network latency makes multi-step
