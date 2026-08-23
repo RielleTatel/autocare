@@ -24,5 +24,10 @@ export class SchedulingScheduler implements OnModuleInit {
       { pattern: "0 8 * * *", tz: MANILA_TZ },
       { name: "serviceDue" },
     );
+    await this.queue.upsertJobScheduler(
+      "capacity.utilisationAlarm",
+      { pattern: "0 6 * * *", tz: MANILA_TZ },
+      { name: "utilisationAlarm" },
+    );
   }
 }

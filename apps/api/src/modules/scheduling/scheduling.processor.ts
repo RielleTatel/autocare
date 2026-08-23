@@ -4,6 +4,7 @@ import { Inject } from "@nestjs/common";
 import { CLOCK, Clock } from "../../common/clock/clock";
 import { AppointmentsService } from "./appointments.service";
 import { RemindersService } from "./reminders.service";
+import { UtilisationService } from "./utilisation.service";
 
 /**
  * Thin BullMQ dispatcher for the "scheduling" queue — job logic lives in the services (injected
@@ -14,6 +15,7 @@ export class SchedulingProcessor extends WorkerHost {
   constructor(
     private appointments: AppointmentsService,
     private reminders: RemindersService,
+    private utilisation: UtilisationService,
     @Inject(CLOCK) private clock: Clock,
   ) {
     super();
@@ -26,6 +28,9 @@ export class SchedulingProcessor extends WorkerHost {
         return;
       case "serviceDue":
         await this.reminders.serviceDue(this.clock.now());
+        return;
+      case "utilisationAlarm":
+        await this.utilisation.utilisationAlarm(this.clock.now());
         return;
       default:
         return;

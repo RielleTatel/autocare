@@ -43,3 +43,6 @@ export const createServiceType = (input: { code: string; name: string; standardD
 
 export const upsertOperatingHours = (input: { weekday?: string; dateOverride?: string; openTime?: string; closeTime?: string; walkInBufferPct: number }) =>
   call<unknown>("scheduling/operating-hours", { method: "PUT", body: JSON.stringify(input) });
+
+export type DayUtilisation = { date: string; booked: number; available: number; ratio: number };
+export const getUtilisation = (windowDays = 14) => call<DayUtilisation[]>(`admin/capacity/utilisation?window=${windowDays}d`);
