@@ -37,6 +37,11 @@ export class WorkOrdersController {
     return this.workOrders.get(u, id);
   }
 
+  @Get("vehicles/:vehicleId/work-orders")
+  listForVehicle(@CurrentUser() u: AbilityUser, @Param("vehicleId") vehicleId: string) {
+    return this.workOrders.listForVehicle(u, vehicleId);
+  }
+
   @Post("work-orders/:id/items")
   addItem(@CurrentUser() u: AbilityUser, @Param("id") id: string, @Body(new ZodValidationPipe(addWorkOrderItemSchema)) dto: AddWorkOrderItemInput) {
     return this.workOrders.addItem(u, id, dto);

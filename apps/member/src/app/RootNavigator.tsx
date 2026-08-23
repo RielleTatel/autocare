@@ -39,10 +39,15 @@ import { HealthScoreScreen } from "../features/health-score/HealthScoreScreen";
 import { CategoryBreakdownScreen } from "../features/health-score/CategoryBreakdownScreen";
 import { ScoreHistoryScreen } from "../features/health-score/ScoreHistoryScreen";
 import { ShareCertificateScreen } from "../features/health-score/ShareCertificateScreen";
+import { makeWorkOrderApi, type WorkOrder as MemberWorkOrder, type RecommendationRow } from "../features/work-orders/workOrderApi";
+import { ApprovalRequestScreen } from "../features/work-orders/ApprovalRequestScreen";
+import { RecommendationsListScreen } from "../features/work-orders/RecommendationsListScreen";
+import { ServiceHistoryScreen } from "../features/work-orders/ServiceHistoryScreen";
 
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
 const healthScoreApi = makeHealthScoreApi(api);
+const workOrderApi = makeWorkOrderApi(api);
 
 const Stack = createNativeStackNavigator();
 
@@ -389,6 +394,47 @@ function ScoreHistoryContainer({ route }: any) {
   return <ScoreHistoryScreen history={history} />;
 }
 
+function ApprovalRequestContainer({ navigation, route }: any) {
+  const { workOrderId } = route.params;
+  const [wo, setWo] = useState<MemberWorkOrder | null>(null);
+  useEffect(() => {
+    workOrderApi.getWorkOrder(workOrderId).then(setWo).catch(() => undefined);
+  }, [workOrderId]);
+  if (!wo) return <Splash />;
+  return (
+    <ApprovalRequestScreen
+      workOrder={wo}
+      onSubmit={async (decisions) => {
+        await workOrderApi.decide(workOrderId, decisions);
+        navigation.goBack();
+      }}
+    />
+  );
+}
+
+function RecommendationsContainer({ navigation, route }: any) {
+  const { vehicleId } = route.params;
+  const [recs, setRecs] = useState<RecommendationRow[]>([]);
+  useEffect(() => {
+    workOrderApi.getRecommendations(vehicleId).then(setRecs).catch(() => undefined);
+  }, [vehicleId]);
+  return (
+    <RecommendationsListScreen
+      recommendations={recs}
+      onBookService={() => navigation.navigate("Booking", { vehicleId })}
+    />
+  );
+}
+
+function ServiceHistoryContainer({ route }: any) {
+  const { vehicleId } = route.params;
+  const [wos, setWos] = useState<MemberWorkOrder[]>([]);
+  useEffect(() => {
+    workOrderApi.listForVehicle(vehicleId).then(setWos).catch(() => undefined);
+  }, [vehicleId]);
+  return <ServiceHistoryScreen workOrders={wos} />;
+}
+
 function ShareCertificateContainer({ route }: any) {
   const { vehicleId, healthScoreId } = route.params;
   return (
@@ -576,6 +622,9 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="CategoryBreakdown" component={CategoryBreakdownContainer} />
       <Stack.Screen name="ScoreHistory" component={ScoreHistoryContainer} />
       <Stack.Screen name="ShareCertificate" component={ShareCertificateContainer} />
+      <Stack.Screen name="ApprovalRequest" component={ApprovalRequestContainer} />
+      <Stack.Screen name="Recommendations" component={RecommendationsContainer} />
+      <Stack.Screen name="ServiceHistory2" component={ServiceHistoryContainer} />
     </Stack.Navigator>
   );
 }

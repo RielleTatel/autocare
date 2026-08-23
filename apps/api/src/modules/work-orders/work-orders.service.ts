@@ -84,6 +84,23 @@ export class WorkOrdersService {
     });
   }
 
+  /** Work orders for a vehicle (member reads own; staff read any). Used by the
+   *  member M-17 service history and to locate a pending-approval work order. */
+  async listForVehicle(u: AbilityUser, vehicleId: string) {
+    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    if (!vehicle) throw new DomainError("WORK_ORDER_NOT_FOUND", "vehicle not found", 404);
+    if (!STAFF_ROLES.has(u.role)) {
+      const owns = vehicle.ownerUserId === u.id || (u.orgId != null && vehicle.orgOwnerId === u.orgId);
+      if (!owns) throw new DomainError("FORBIDDEN_ROLE", "not your vehicle", 403);
+    }
+    const wos = await this.prisma.workOrder.findMany({
+      where: { vehicleId },
+      orderBy: { openedAt: "desc" },
+      include: { items: { include: { part: true, recommendation: true } }, wasteRecords: true, vehicle: true },
+    });
+    return wos.map((w) => this.present(w));
+  }
+
   async get(u: AbilityUser, id: string) {
     // Members may read their own vehicle's work orders (for the approval flow).
     const wo = await this.prisma.workOrder.findUnique({
