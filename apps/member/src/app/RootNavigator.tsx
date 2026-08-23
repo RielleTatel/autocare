@@ -38,6 +38,7 @@ import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint } fr
 import { HealthScoreScreen } from "../features/health-score/HealthScoreScreen";
 import { CategoryBreakdownScreen } from "../features/health-score/CategoryBreakdownScreen";
 import { ScoreHistoryScreen } from "../features/health-score/ScoreHistoryScreen";
+import { ShareCertificateScreen } from "../features/health-score/ShareCertificateScreen";
 
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
@@ -383,6 +384,16 @@ function ScoreHistoryContainer({ route }: any) {
   return <ScoreHistoryScreen history={history} />;
 }
 
+function ShareCertificateContainer({ route }: any) {
+  const { vehicleId, healthScoreId } = route.params;
+  return (
+    <ShareCertificateScreen
+      createCertificate={() => healthScoreApi.createCertificate(vehicleId, healthScoreId)}
+      setVisibility={(certId, visibility) => healthScoreApi.setCertificateVisibility(certId, visibility)}
+    />
+  );
+}
+
 function PlanSelectionContainer({ navigation, route }: any) {
   const { vehicleId } = route.params;
   return (
@@ -559,6 +570,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="HealthScore" component={HealthScoreContainer} />
       <Stack.Screen name="CategoryBreakdown" component={CategoryBreakdownContainer} />
       <Stack.Screen name="ScoreHistory" component={ScoreHistoryContainer} />
+      <Stack.Screen name="ShareCertificate" component={ShareCertificateContainer} />
     </Stack.Navigator>
   );
 }

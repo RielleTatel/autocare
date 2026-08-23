@@ -13,5 +13,7 @@ export const errorCodes = [
   "SUBSCRIPTION_ALREADY_CANCELLED", "SUBSCRIPTION_NOT_ACTIVE",
   // Phase 4 — checklist versioning (FR-101): published versions are immutable; publish validates.
   "CHECKLIST_IMMUTABLE", "CHECKLIST_INVALID",
+  // Phase 4 — certificates: public token not shareable / not found.
+  "CERTIFICATE_NOT_SHAREABLE", "CERTIFICATE_NOT_FOUND",
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];

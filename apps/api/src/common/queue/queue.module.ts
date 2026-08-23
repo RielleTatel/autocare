@@ -22,6 +22,9 @@ import { BullModule } from "@nestjs/bullmq";
     // "inspections" backs Phase 4's scores.markStale daily flip (BR-05) and Task 9's
     // certificates.generatePdf. Logic lives in modules/inspections + modules/certificates.
     BullModule.registerQueue({ name: "inspections" }),
+    // "certificates" backs certificates.generatePdf (Task 9) — renders + stores the VHS
+    // certificate PDF. Separate queue so it doesn't share a worker with inspections.markStale.
+    BullModule.registerQueue({ name: "certificates" }),
   ],
   exports: [BullModule],
 })

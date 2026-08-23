@@ -71,6 +71,9 @@ export type InspectionDetail = {
   results: InspectionResultDetail[];
 };
 
+export type CertificateVisibility = "PRIVATE" | "LINK" | "REVOKED";
+export type CreatedCertificate = { id: string; publicToken: string; verificationCode: string; url: string };
+
 /** Typed health-score calls on the shared `api` client, mirroring bookingApi. */
 export function makeHealthScoreApi(api: ApiClient) {
   return {
@@ -78,6 +81,10 @@ export function makeHealthScoreApi(api: ApiClient) {
     getHistory: (vehicleId: string) => api.get<HealthScoreHistoryPoint[]>(`/vehicles/${vehicleId}/health-score/history`),
     getInspection: (vehicleId: string, inspectionId: string) =>
       api.get<InspectionDetail>(`/vehicles/${vehicleId}/inspections/${inspectionId}`),
+    createCertificate: (vehicleId: string, healthScoreId?: string) =>
+      api.post<CreatedCertificate>(`/vehicles/${vehicleId}/certificates`, healthScoreId ? { healthScoreId } : {}),
+    setCertificateVisibility: (certId: string, visibility: CertificateVisibility) =>
+      api.patch<{ id: string; visibility: CertificateVisibility }>(`/certificates/${certId}/visibility`, { visibility }),
   };
 }
 export type HealthScoreApi = ReturnType<typeof makeHealthScoreApi>;
