@@ -7,9 +7,10 @@ import { InspectionsScheduler } from "./inspections.scheduler";
 import { InspectionsProcessor } from "./inspections.processor";
 import { ScoreEvents } from "./score-events";
 import { ScoringIntegrationService } from "./scoring-integration.service";
+import { WorkOrdersModule } from "../work-orders/work-orders.module";
 
 @Module({
-  imports: [QueueModule],
+  imports: [QueueModule, WorkOrdersModule],
   controllers: [InspectionsController],
   providers: [
     InspectionsService,

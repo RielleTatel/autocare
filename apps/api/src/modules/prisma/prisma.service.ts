@@ -3,8 +3,11 @@ import { PrismaClient } from "@prisma/client";
 
 /** Score tables are append-only (NFR-054): corrections create new rows via
  *  supersedes; there is no UPDATE path. The one sanctioned mutation is the
- *  BR-05 staleness flag, which is display state, never arithmetic. */
-const APPEND_ONLY_MODELS = new Set(["HealthScore", "CategoryScore", "Recommendation", "InspectionResult"]);
+ *  BR-05 staleness flag, which is display state, never arithmetic.
+ *  NOTE: Recommendation is deliberately NOT here — NFR-054 names only the
+ *  inspection/score tables, and recommendations carry a Phase-5 lifecycle
+ *  (OPEN→QUOTED→APPROVED/DECLINED/DEFERRED→RESOLVED, resurfacedCount). */
+const APPEND_ONLY_MODELS = new Set(["HealthScore", "CategoryScore", "InspectionResult"]);
 const HEALTH_SCORE_MUTABLE_FIELDS = new Set(["isStale"]);
 
 @Injectable()

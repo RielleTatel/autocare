@@ -5,6 +5,7 @@ import { toChecklistConfig } from "../checklists/config-mapper";
 import { InspectionScoringHook } from "../sync/handlers/inspection.handler";
 import { SyncTx } from "../sync/sync.types";
 import { ScoreEvents } from "./score-events";
+import { RecommendationsService } from "../work-orders/recommendations.service";
 
 const ADVERSE: EnginePointStatus[] = ["MONITOR", "ATTENTION", "CRITICAL"];
 
@@ -14,7 +15,7 @@ const ADVERSE: EnginePointStatus[] = ["MONITOR", "ATTENTION", "CRITICAL"];
  *  active" — so historical recomputes reproduce stored scores (NFR-055). */
 @Injectable()
 export class ScoringIntegrationService implements InspectionScoringHook {
-  constructor(private events: ScoreEvents) {}
+  constructor(private events: ScoreEvents, private recommendations: RecommendationsService) {}
 
   async onSubmitted(tx: SyncTx, inspectionId: string): Promise<void> {
     const inspection = await tx.inspection.findUniqueOrThrow({
@@ -49,20 +50,18 @@ export class ScoringIntegrationService implements InspectionScoringHook {
         topDetractors: out.topDetractors as unknown as object,
       },
     });
-    let order = 0;
-    for (const c of out.categoryScores) {
-      await tx.categoryScore.create({
-        data: {
-          healthScoreId: score.id,
-          categoryCode: c.categoryCode,
-          label: c.label,
-          weight: c.weight,
-          score: c.score,
-          applicablePoints: c.applicablePoints,
-          sortOrder: order++,
-        },
-      });
-    }
+    // Batch the category scores in one round trip (see inspection.handler note).
+    await tx.categoryScore.createMany({
+      data: out.categoryScores.map((c, order) => ({
+        healthScoreId: score.id,
+        categoryCode: c.categoryCode,
+        label: c.label,
+        weight: c.weight,
+        score: c.score,
+        applicablePoints: c.applicablePoints,
+        sortOrder: order,
+      })),
+    });
 
     // One recommendation per detracting result; estimatedCostCentavos stays
     // null until Phase 5 quoting.
@@ -72,6 +71,17 @@ export class ScoringIntegrationService implements InspectionScoringHook {
       if (!point) continue;
       const status = resolveStatus(point.inputType, r.status, r.measuredValue, point);
       if (!status || !ADVERSE.includes(status)) continue;
+      // FR-069: an unresolved recommendation for this vehicle+point resurfaces
+      // (re-links to the new score, bumps resurfacedCount) instead of duplicating.
+      const resurfaced = await this.recommendations.resurfaceOrSkip(tx, {
+        vehicleId: inspection.vehicleId,
+        pointCode: r.pointCode,
+        healthScoreId: score.id,
+        label: point.label,
+        severity: status,
+        recommendation: point.recommendation,
+      });
+      if (resurfaced) continue;
       await tx.recommendation.create({
         data: {
           healthScoreId: score.id,

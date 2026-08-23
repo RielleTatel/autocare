@@ -54,20 +54,24 @@ export class InspectionSyncHandler implements SyncEntityHandler {
         notes: p.notes ?? null,
       },
     });
-    for (const r of p.results) {
-      const point = byCode.get(r.pointCode);
-      if (!point) continue; // unknown codes are ignored, mirroring the engine
-      await tx.inspectionResult.create({
-        data: {
+    // Batch-insert all results in a single round trip. Doing 50 sequential
+    // creates inside one interactive transaction blows past Prisma's 5s
+    // transaction timeout on a high-latency remote DB (the tx closes mid-loop).
+    const rows = p.results
+      .map((r) => {
+        const point = byCode.get(r.pointCode);
+        if (!point) return null; // unknown codes ignored, mirroring the engine
+        return {
           inspectionId: inspection.id,
           pointId: point.id,
           pointCode: r.pointCode,
           status: r.status ?? null,
           measuredValue: r.measuredValue ?? null,
           notes: r.notes ?? null,
-        },
-      });
-    }
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    if (rows.length) await tx.inspectionResult.createMany({ data: rows });
   }
 
   private async submit(tx: SyncTx, item: SyncItemInput): Promise<void> {

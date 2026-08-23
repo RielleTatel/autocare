@@ -19,6 +19,7 @@ import { ChecklistsModule } from "./modules/checklists/checklists.module";
 import { SyncModule } from "./modules/sync/sync.module";
 import { InspectionsModule } from "./modules/inspections/inspections.module";
 import { CertificatesModule } from "./modules/certificates/certificates.module";
+import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { ClockModule } from "./common/clock/clock.module";
 import { RedisModule } from "./common/redis/redis.module";
 import { PoliciesModule } from "./common/policies/policies.module";
@@ -49,6 +50,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     SyncModule,
     InspectionsModule,
     CertificatesModule,
+    WorkOrdersModule,
   ],
   controllers: [HealthController],
   providers: [

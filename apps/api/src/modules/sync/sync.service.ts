@@ -45,7 +45,10 @@ export class SyncService {
           const receipt = { userId: u.id, entityType: item.entityType, op: item.op, status: "APPLIED" as const, errorCode: null };
           if (existing) await tx.syncOutboxReceipt.update({ where: { clientUuid: item.clientUuid }, data: receipt });
           else await tx.syncOutboxReceipt.create({ data: { clientUuid: item.clientUuid, ...receipt } });
-        });
+          // A submit triggers the whole scoring pipeline (score + 10 category
+          // scores + N recommendations) inside this tx; the default 5s interactive
+          // timeout is too tight against a high-latency remote DB.
+        }, { timeout: 20_000, maxWait: 10_000 });
         results.push({ clientUuid: item.clientUuid, status: "APPLIED" });
       } catch (err) {
         const code = err instanceof DomainError ? err.code : "INTERNAL";
