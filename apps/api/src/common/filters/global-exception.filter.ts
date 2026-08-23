@@ -8,13 +8,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let status = 500,
       code = "INTERNAL",
       message = "Something went wrong";
+    let details: Record<string, unknown> | undefined;
     if (err instanceof DomainError) {
       ({ httpStatus: status, code, message } = err);
+      details = err.details;
     } else if (err instanceof HttpException) {
       status = err.getStatus();
       code = status === 404 ? "NOT_FOUND" : "HTTP_ERROR";
       message = err.message;
     }
-    res.status(status).json({ success: false, data: null, meta: null, error: { code, message } });
+    res
+      .status(status)
+      .json({ success: false, data: null, meta: null, error: { code, message, ...(details ? { details } : {}) } });
   }
 }

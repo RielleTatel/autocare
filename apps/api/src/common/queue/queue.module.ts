@@ -16,6 +16,9 @@ import { BullModule } from "@nestjs/bullmq";
     // GET /invoices/:id/pdf itself generates synchronously (see InvoicesService.pdfUrl); this
     // queue exists for callers that want the render queued instead (e.g. a future email job).
     BullModule.registerQueue({ name: "invoices" }),
+    // "scheduling" backs Phase 3 jobs (SchedulingScheduler): scheduling.flagNoShows (nightly) and
+    // reminders.serviceDue (daily 08:00). Logic lives in AppointmentsService / RemindersService.
+    BullModule.registerQueue({ name: "scheduling" }),
   ],
   exports: [BullModule],
 })

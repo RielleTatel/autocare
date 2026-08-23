@@ -6,19 +6,40 @@ import { addMinutesHHMM, dateOf, hhmmOf, toIso } from "./time";
 
 const HOLD_TTL_SECONDS = 600; // FR-043: 10-minute hold
 
-export type HoldValue = { userId: string; serviceTypeId: string; endIso: string };
+export type HoldDetails = { bayId: string; startIso: string; userId: string; serviceTypeId: string; endIso: string };
 export type ActiveHold = { bayId: string; start: string; end: string; date: string }; // start/end HH:mm
 
 /** Redis key for a hold on a specific bay+start instant. */
 const holdKey = (bayId: string, startIso: string) => `hold:${bayId}:${startIso}`;
 
-/** Opaque hold id handed back to clients and later converted into an appointment. */
-const holdId = (bayId: string, startIso: string) => `${bayId}|${startIso}`;
+// Value is a pipe-delimited `userId|serviceTypeId|endIso`. Pipe-delimited (not JSON) so the atomic
+// claim script can ownership-check with a cheap prefix comparison. userId/serviceTypeId are uuids
+// and endIso has no pipes, so a 3-way split is unambiguous.
+const encodeValue = (userId: string, serviceTypeId: string, endIso: string) => `${userId}|${serviceTypeId}|${endIso}`;
+const decodeValue = (raw: string): { userId: string; serviceTypeId: string; endIso: string } => {
+  const [userId, serviceTypeId, endIso] = raw.split("|");
+  return { userId, serviceTypeId, endIso };
+};
+
+/** Opaque hold id handed to clients and later converted into an appointment. */
+const holdIdOf = (bayId: string, startIso: string) => `${bayId}|${startIso}`;
 const parseHoldId = (id: string): { bayId: string; startIso: string } => {
   const sep = id.indexOf("|");
   if (sep < 0) throw new DomainError("SLOT_UNAVAILABLE", "malformed hold id", 400);
   return { bayId: id.slice(0, sep), startIso: id.slice(sep + 1) };
 };
+
+// Atomically GET+DEL a hold only if the caller owns it (value starts with `userId|`). Returns the
+// value on success, false if the key is missing OR owned by someone else (hold left intact then).
+// This is the booking mutex: two racing bookings on one hold — only one DEL wins.
+const CLAIM_LUA = `
+local v = redis.call('GET', KEYS[1])
+if not v then return false end
+if string.sub(v, 1, string.len(ARGV[1])) == ARGV[1] then
+  redis.call('DEL', KEYS[1])
+  return v
+end
+return false`;
 
 @Injectable()
 export class HoldsService {
@@ -39,17 +60,15 @@ export class HoldsService {
     if (!st) throw new DomainError("SLOT_UNAVAILABLE", "unknown service type", 400);
 
     const endIso = toIso(dateOf(startIso), addMinutesHHMM(hhmmOf(startIso), st.standardDurationMin));
-    const value: HoldValue = { userId, serviceTypeId, endIso };
-
     const reply = await this.redis.client.set(
       holdKey(bayId, startIso),
-      JSON.stringify(value),
+      encodeValue(userId, serviceTypeId, endIso),
       "EX",
       HOLD_TTL_SECONDS,
       "NX",
     );
     if (reply === null) throw new DomainError("SLOT_UNAVAILABLE", "slot already held", 409);
-    return { holdId: holdId(bayId, startIso) };
+    return { holdId: holdIdOf(bayId, startIso) };
   }
 
   /** Releases a hold the caller owns. No-op if it already expired. */
@@ -58,29 +77,32 @@ export class HoldsService {
     const key = holdKey(bayId, startIso);
     const raw = await this.redis.client.get(key);
     if (raw === null) return { released: false };
-    const val = JSON.parse(raw) as HoldValue;
-    if (val.userId !== userId) throw new DomainError("FORBIDDEN_ROLE", "not your hold", 403);
+    if (decodeValue(raw).userId !== userId) throw new DomainError("FORBIDDEN_ROLE", "not your hold", 403);
     await this.redis.client.del(key);
     return { released: true };
   }
 
   /**
-   * Reads a hold's stored details without deleting it — used by the booking transaction to confirm
-   * the hold still exists, belongs to the caller, and to recover its end time / service type.
+   * Atomically claims (consumes) a hold the caller owns — the booking mutex. Throws
+   * SLOT_UNAVAILABLE if the hold is gone (expired or already booked) or owned by someone else.
    */
-  async peek(id: string, userId: string): Promise<{ bayId: string; startIso: string } & HoldValue> {
+  async claim(id: string, userId: string): Promise<HoldDetails> {
     const { bayId, startIso } = parseHoldId(id);
-    const raw = await this.redis.client.get(holdKey(bayId, startIso));
-    if (raw === null) throw new DomainError("SLOT_UNAVAILABLE", "hold expired", 409);
-    const val = JSON.parse(raw) as HoldValue;
-    if (val.userId !== userId) throw new DomainError("FORBIDDEN_ROLE", "not your hold", 403);
-    return { bayId, startIso, ...val };
+    const raw = (await this.redis.client.eval(CLAIM_LUA, 1, holdKey(bayId, startIso), `${userId}|`)) as string | null;
+    if (raw === null || raw === undefined) throw new DomainError("SLOT_UNAVAILABLE", "hold expired or already used", 409);
+    const { serviceTypeId, endIso } = decodeValue(raw);
+    return { bayId, startIso, userId, serviceTypeId, endIso };
   }
 
-  /** Deletes a hold key by id (called after a successful booking conversion). */
-  async consume(id: string): Promise<void> {
-    const { bayId, startIso } = parseHoldId(id);
-    await this.redis.client.del(holdKey(bayId, startIso));
+  /** Re-creates a hold (compensation) if a booking that already claimed it later rolls back. */
+  async restore(details: HoldDetails): Promise<void> {
+    await this.redis.client.set(
+      holdKey(details.bayId, details.startIso),
+      encodeValue(details.userId, details.serviceTypeId, details.endIso),
+      "EX",
+      HOLD_TTL_SECONDS,
+      "NX",
+    );
   }
 
   /**
@@ -107,8 +129,7 @@ export class HoldsService {
         if (!wanted.has(date)) return;
         const raw = values[idx];
         if (raw === null) return;
-        const val = JSON.parse(raw) as HoldValue;
-        out.push({ bayId, start: hhmmOf(startIso), end: hhmmOf(val.endIso), date });
+        out.push({ bayId, start: hhmmOf(startIso), end: hhmmOf(decodeValue(raw).endIso), date });
       });
     } while (cursor !== "0");
     return out;
