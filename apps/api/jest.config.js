@@ -3,7 +3,9 @@ module.exports = {
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: ".",
   testRegex: ".*\\.(e2e-)?spec\\.ts$",
-  setupFiles: ["reflect-metadata", "<rootDir>/test/setup-env.ts"],
+  // bigint-serializer patches BigInt.prototype.toJSON — main.ts loads it in production; load it
+  // here too so e2e responses serialize BigInt money fields the same way (else raw BigInt → 500).
+  setupFiles: ["reflect-metadata", "<rootDir>/test/setup-env.ts", "<rootDir>/src/common/bigint-serializer.ts"],
   transform: { "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.json" }] },
   moduleNameMapper: {
     "^@autocare/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
