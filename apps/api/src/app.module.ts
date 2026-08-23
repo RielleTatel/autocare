@@ -14,7 +14,9 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { CashModule } from "./modules/cash/cash.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
+import { SchedulingModule } from "./modules/scheduling/scheduling.module";
 import { ClockModule } from "./common/clock/clock.module";
+import { RedisModule } from "./common/redis/redis.module";
 import { PoliciesModule } from "./common/policies/policies.module";
 import { EnvelopeInterceptor } from "./common/interceptors/envelope.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
@@ -25,6 +27,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 100 }]),
     PrismaModule,
     ClockModule,
+    RedisModule,
     AuthModule,
     UsersModule,
     VehiclesModule,
@@ -37,6 +40,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     CashModule,
     BillingModule,
     InvoicesModule,
+    SchedulingModule,
   ],
   controllers: [HealthController],
   providers: [
