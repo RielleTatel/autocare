@@ -1,0 +1,51 @@
+{
+  "name": "17b-band-89_5-rounds-90",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "G1",
+            "label": "G1",
+            "weightInCategory": 58,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix G1"
+          },
+          {
+            "code": "M1",
+            "label": "M1",
+            "weightInCategory": 42,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix M1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "G1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "M1",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "sub = (58 + 31.5)/100*100 = 89.5 → Math.round → 90 → EXCELLENT (band from rounded final).",
+  "expected": {
+    "score": 90,
+    "rawScore": 89.5,
+    "band": "EXCELLENT",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

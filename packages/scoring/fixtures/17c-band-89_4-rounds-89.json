@@ -1,0 +1,51 @@
+{
+  "name": "17c-band-89_4-rounds-89",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "G1",
+            "label": "G1",
+            "weightInCategory": 57.6,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix G1"
+          },
+          {
+            "code": "M1",
+            "label": "M1",
+            "weightInCategory": 42.4,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix M1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "G1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "M1",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "sub = (57.6 + 31.8)/100*100 = 89.4 → score 89 → GOOD.",
+  "expected": {
+    "score": 89,
+    "rawScore": 89.4,
+    "band": "GOOD",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

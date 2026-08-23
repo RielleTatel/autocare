@@ -1,0 +1,119 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`reproducibility (NFR-055) > output shape of the worked example is pinned (snapshot) 1`] = `
+"{
+  "score": 69,
+  "rawScore": 84.488,
+  "band": "FAIR",
+  "confidence": "HIGH",
+  "stars": 3,
+  "categoryScores": [
+    {
+      "categoryCode": "ENGINE",
+      "label": "Engine & Drivetrain",
+      "weight": 18,
+      "score": 92,
+      "applicablePoints": 2,
+      "stars": 5
+    },
+    {
+      "categoryCode": "BRAKES",
+      "label": "Brakes",
+      "weight": 16,
+      "score": 75.8,
+      "applicablePoints": 5,
+      "stars": 4
+    },
+    {
+      "categoryCode": "TYRES",
+      "label": "Tyres & Wheels",
+      "weight": 14,
+      "score": 70,
+      "applicablePoints": 2,
+      "stars": 3
+    },
+    {
+      "categoryCode": "BATTERY",
+      "label": "Battery & Electrical",
+      "weight": 11,
+      "score": 100,
+      "applicablePoints": 1,
+      "stars": 5
+    },
+    {
+      "categoryCode": "FLUIDS",
+      "label": "Fluids",
+      "weight": 11,
+      "score": 85,
+      "applicablePoints": 2,
+      "stars": 4
+    },
+    {
+      "categoryCode": "SUSP",
+      "label": "Suspension & Steering",
+      "weight": 9,
+      "score": 90,
+      "applicablePoints": 2,
+      "stars": 5
+    },
+    {
+      "categoryCode": "LIGHTS",
+      "label": "Lights & Visibility",
+      "weight": 7,
+      "score": 75,
+      "applicablePoints": 1,
+      "stars": 4
+    },
+    {
+      "categoryCode": "EMISSIONS",
+      "label": "Emissions Systems",
+      "weight": 5,
+      "score": 88,
+      "applicablePoints": 2,
+      "stars": 4
+    },
+    {
+      "categoryCode": "SENSORS",
+      "label": "Sensors & Electronics",
+      "weight": 5,
+      "score": 82,
+      "applicablePoints": 2,
+      "stars": 4
+    },
+    {
+      "categoryCode": "BODY",
+      "label": "Body & Undercarriage",
+      "weight": 4,
+      "score": 95,
+      "applicablePoints": 2,
+      "stars": 5
+    }
+  ],
+  "overrideApplied": "SAFETY_ATTENTION",
+  "topDetractors": [
+    {
+      "pointCode": "BRAKE_PAD_FRONT",
+      "label": "BRAKE_PAD_FRONT",
+      "status": "ATTENTION",
+      "scoreImpact": 18.37,
+      "recommendation": "Fix BRAKE_PAD_FRONT"
+    },
+    {
+      "pointCode": "TY_B",
+      "label": "TY_B",
+      "status": "ATTENTION",
+      "scoreImpact": 4.2,
+      "recommendation": "Fix TY_B"
+    },
+    {
+      "pointCode": "LI_A",
+      "label": "LI_A",
+      "status": "MONITOR",
+      "scoreImpact": 1.75,
+      "recommendation": "Fix LI_A"
+    }
+  ],
+  "checklistVersion": "test-v1",
+  "weightVersion": "test-w1"
+}"
+`;

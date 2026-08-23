@@ -1,0 +1,66 @@
+{
+  "name": "21-incomplete-excluded",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "A",
+        "label": "A",
+        "weight": 60,
+        "points": [
+          {
+            "code": "A1",
+            "label": "A1",
+            "weightInCategory": 50,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix A1"
+          },
+          {
+            "code": "A2",
+            "label": "A2",
+            "weightInCategory": 50,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix A2"
+          }
+        ]
+      },
+      {
+        "code": "B",
+        "label": "B",
+        "weight": 40,
+        "points": [
+          {
+            "code": "B1",
+            "label": "B1",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix B1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "A1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "B1",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "A2 unanswered → A sub over A1 only = 100; raw = (60*100+40*75)/100 = 90.0. Completion 2/3 = 66.7% → LOW.",
+  "expected": {
+    "score": 90,
+    "rawScore": 90,
+    "band": "EXCELLENT",
+    "confidence": "LOW",
+    "overrideApplied": "NONE"
+  }
+}

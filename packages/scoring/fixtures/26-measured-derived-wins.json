@@ -1,0 +1,47 @@
+{
+  "name": "26-measured-derived-wins",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "M1",
+            "label": "M1",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 5,
+              "monitor": 3,
+              "attention": 1.6
+            },
+            "unit": "mm",
+            "recommendation": "Fix M1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "M1",
+      "measuredValue": 6,
+      "status": "CRITICAL"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Value 6.0 present → derived GOOD wins over the (bogus) CRITICAL status in the payload.",
+  "expected": {
+    "score": 100,
+    "rawScore": 100,
+    "band": "EXCELLENT",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

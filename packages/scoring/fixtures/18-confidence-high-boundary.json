@@ -1,0 +1,263 @@
+{
+  "name": "18-confidence-high-boundary",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "P0",
+            "label": "P0",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P0"
+          },
+          {
+            "code": "P1",
+            "label": "P1",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P1"
+          },
+          {
+            "code": "P2",
+            "label": "P2",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P2"
+          },
+          {
+            "code": "P3",
+            "label": "P3",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P3"
+          },
+          {
+            "code": "P4",
+            "label": "P4",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P4"
+          },
+          {
+            "code": "P5",
+            "label": "P5",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P5"
+          },
+          {
+            "code": "P6",
+            "label": "P6",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P6"
+          },
+          {
+            "code": "P7",
+            "label": "P7",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P7"
+          },
+          {
+            "code": "P8",
+            "label": "P8",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P8"
+          },
+          {
+            "code": "P9",
+            "label": "P9",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P9"
+          },
+          {
+            "code": "P10",
+            "label": "P10",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P10"
+          },
+          {
+            "code": "P11",
+            "label": "P11",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P11"
+          },
+          {
+            "code": "P12",
+            "label": "P12",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P12"
+          },
+          {
+            "code": "P13",
+            "label": "P13",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P13"
+          },
+          {
+            "code": "P14",
+            "label": "P14",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P14"
+          },
+          {
+            "code": "P15",
+            "label": "P15",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P15"
+          },
+          {
+            "code": "P16",
+            "label": "P16",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P16"
+          },
+          {
+            "code": "P17",
+            "label": "P17",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P17"
+          },
+          {
+            "code": "P18",
+            "label": "P18",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P18"
+          },
+          {
+            "code": "P19",
+            "label": "P19",
+            "weightInCategory": 5,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P19"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "P0",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P2",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P3",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P4",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P5",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P6",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P7",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P8",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P9",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P10",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P11",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P12",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P13",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P14",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P15",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P16",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P17",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "P18",
+      "status": "GOOD"
+    }
+  ],
+  "daysSinceInspection": 30,
+  "notes": "19/20 answered = 95% complete at day 30 → HIGH (both boundaries inclusive). Unanswered point excluded → sub 100.",
+  "expected": {
+    "score": 100,
+    "rawScore": 100,
+    "band": "EXCELLENT",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

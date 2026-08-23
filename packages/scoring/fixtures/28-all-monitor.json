@@ -1,0 +1,214 @@
+{
+  "name": "28-all-monitor",
+  "results": [
+    {
+      "pointCode": "ENGINE_IDLE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ENGINE_NOISE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "DRIVE_BELTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ENGINE_LEAKS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TRANSMISSION_SHIFT",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ENGINE_MOUNTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "CLUTCH_OPERATION",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_PAD_FRONT",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_PAD_REAR",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_MOISTURE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_DISC_CONDITION",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "PARKING_BRAKE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TREAD_FL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TREAD_FR",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TREAD_RL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TREAD_RR",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TYRE_PRESSURE_DEV",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "WHEEL_CONDITION",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BATTERY_VOLTAGE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "CHARGING_OUTPUT",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TERMINALS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "WIRING_VISIBLE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ENGINE_OIL_LEVEL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "COOLANT_LEVEL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_LEVEL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ATF_CONDITION",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "PS_FLUID",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "WASHER_FLUID",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "SHOCKS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BUSHINGS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BALL_JOINTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "STEERING_LINKAGE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ALIGNMENT_PULL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "HEADLIGHTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_LIGHTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "TURN_SIGNALS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "WIPERS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "WINDSCREEN",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "HORN",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "O2_SENSOR_SWITCHING",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "CATALYST_READINESS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "EXHAUST_ABNORMALITY",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "AIRBAG_WARNING_LIGHT",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "DASH_WARNING_LIGHTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "CRUISE_CONTROL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "SENSOR_WIRING",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "RUST_UNDERCARRIAGE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BODY_PANELS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "DOORS_LOCKS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "INTERIOR",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Seed config, every point MONITOR → every sub 75.0 → raw 75.0 → GOOD band. SC MONITOR does not trigger any override.",
+  "expected": {
+    "score": 75,
+    "rawScore": 75,
+    "band": "GOOD",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

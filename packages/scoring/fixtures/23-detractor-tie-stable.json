@@ -1,0 +1,73 @@
+{
+  "name": "23-detractor-tie-stable",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "D1",
+            "label": "D1",
+            "weightInCategory": 30,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix D1"
+          },
+          {
+            "code": "D2",
+            "label": "D2",
+            "weightInCategory": 30,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix D2"
+          },
+          {
+            "code": "D3",
+            "label": "D3",
+            "weightInCategory": 40,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix D3"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "D1",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "D2",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "D3",
+      "status": "GOOD"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Equal impacts 7.5 each → stable sort keeps config order D1 before D2. sub = (22.5+22.5+40) = 85.0.",
+  "expected": {
+    "score": 85,
+    "rawScore": 85,
+    "band": "GOOD",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE",
+    "topDetractors": [
+      {
+        "pointCode": "D1",
+        "scoreImpact": 7.5
+      },
+      {
+        "pointCode": "D2",
+        "scoreImpact": 7.5
+      }
+    ]
+  }
+}

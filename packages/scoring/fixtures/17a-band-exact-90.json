@@ -1,0 +1,51 @@
+{
+  "name": "17a-band-exact-90",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "G1",
+            "label": "G1",
+            "weightInCategory": 60,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix G1"
+          },
+          {
+            "code": "M1",
+            "label": "M1",
+            "weightInCategory": 40,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix M1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "G1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "M1",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "sub = (60 + 30)/100*100 = 90.0 → score 90 → EXCELLENT (>=90).",
+  "expected": {
+    "score": 90,
+    "rawScore": 90,
+    "band": "EXCELLENT",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

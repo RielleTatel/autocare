@@ -1,0 +1,51 @@
+{
+  "name": "16-subscore-half-up-rounding",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "G1",
+            "label": "G1",
+            "weightInCategory": 65,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix G1"
+          },
+          {
+            "code": "M1",
+            "label": "M1",
+            "weightInCategory": 35,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix M1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "G1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "M1",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "sub = (65 + 35*0.75)/100*100 = 91.25 → half-up 1dp = 91.3 (banker's would give 91.2). raw 91.3 → score 91.",
+  "expected": {
+    "score": 91,
+    "rawScore": 91.3,
+    "band": "EXCELLENT",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

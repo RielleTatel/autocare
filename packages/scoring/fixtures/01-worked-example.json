@@ -1,0 +1,363 @@
+{
+  "name": "01-worked-example",
+  "config": {
+    "checklistVersion": "test-v1",
+    "weightVersion": "test-w1",
+    "categories": [
+      {
+        "code": "ENGINE",
+        "label": "Engine & Drivetrain",
+        "weight": 18,
+        "points": [
+          {
+            "code": "ENG_A",
+            "label": "ENG_A",
+            "weightInCategory": 68,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix ENG_A"
+          },
+          {
+            "code": "ENG_B",
+            "label": "ENG_B",
+            "weightInCategory": 32,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix ENG_B"
+          }
+        ]
+      },
+      {
+        "code": "BRAKES",
+        "label": "Brakes",
+        "weight": 16,
+        "points": [
+          {
+            "code": "BRAKE_PAD_FRONT",
+            "label": "BRAKE_PAD_FRONT",
+            "weightInCategory": 30,
+            "isSafetyCritical": true,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 7,
+              "monitor": 4,
+              "attention": 2
+            },
+            "unit": "mm",
+            "recommendation": "Fix BRAKE_PAD_FRONT"
+          },
+          {
+            "code": "BRAKE_PAD_REAR",
+            "label": "BRAKE_PAD_REAR",
+            "weightInCategory": 25,
+            "isSafetyCritical": true,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 7,
+              "monitor": 4,
+              "attention": 2
+            },
+            "unit": "mm",
+            "recommendation": "Fix BRAKE_PAD_REAR"
+          },
+          {
+            "code": "BRAKE_FLUID",
+            "label": "BRAKE_FLUID",
+            "weightInCategory": 20,
+            "isSafetyCritical": true,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "LOWER_BETTER",
+              "good": 2,
+              "monitor": 3,
+              "attention": 4
+            },
+            "unit": "%",
+            "recommendation": "Fix BRAKE_FLUID"
+          },
+          {
+            "code": "BRAKE_DISC",
+            "label": "BRAKE_DISC",
+            "weightInCategory": 15,
+            "isSafetyCritical": true,
+            "inputType": "STATUS",
+            "recommendation": "Fix BRAKE_DISC"
+          },
+          {
+            "code": "PARKING_BRAKE",
+            "label": "PARKING_BRAKE",
+            "weightInCategory": 10,
+            "isSafetyCritical": true,
+            "inputType": "STATUS",
+            "recommendation": "Fix PARKING_BRAKE"
+          }
+        ]
+      },
+      {
+        "code": "TYRES",
+        "label": "Tyres & Wheels",
+        "weight": 14,
+        "points": [
+          {
+            "code": "TY_A",
+            "label": "TY_A",
+            "weightInCategory": 50,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix TY_A"
+          },
+          {
+            "code": "TY_B",
+            "label": "TY_B",
+            "weightInCategory": 50,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix TY_B"
+          }
+        ]
+      },
+      {
+        "code": "BATTERY",
+        "label": "Battery & Electrical",
+        "weight": 11,
+        "points": [
+          {
+            "code": "BAT_A",
+            "label": "BAT_A",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix BAT_A"
+          }
+        ]
+      },
+      {
+        "code": "FLUIDS",
+        "label": "Fluids",
+        "weight": 11,
+        "points": [
+          {
+            "code": "FL_A",
+            "label": "FL_A",
+            "weightInCategory": 75,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix FL_A"
+          },
+          {
+            "code": "FL_B",
+            "label": "FL_B",
+            "weightInCategory": 25,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix FL_B"
+          }
+        ]
+      },
+      {
+        "code": "SUSP",
+        "label": "Suspension & Steering",
+        "weight": 9,
+        "points": [
+          {
+            "code": "SU_A",
+            "label": "SU_A",
+            "weightInCategory": 60,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix SU_A"
+          },
+          {
+            "code": "SU_B",
+            "label": "SU_B",
+            "weightInCategory": 40,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix SU_B"
+          }
+        ]
+      },
+      {
+        "code": "LIGHTS",
+        "label": "Lights & Visibility",
+        "weight": 7,
+        "points": [
+          {
+            "code": "LI_A",
+            "label": "LI_A",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix LI_A"
+          }
+        ]
+      },
+      {
+        "code": "EMISSIONS",
+        "label": "Emissions Systems",
+        "weight": 5,
+        "points": [
+          {
+            "code": "EM_A",
+            "label": "EM_A",
+            "weightInCategory": 52,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix EM_A"
+          },
+          {
+            "code": "EM_B",
+            "label": "EM_B",
+            "weightInCategory": 48,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix EM_B"
+          }
+        ]
+      },
+      {
+        "code": "SENSORS",
+        "label": "Sensors & Electronics",
+        "weight": 5,
+        "points": [
+          {
+            "code": "SEN_AIRBAG",
+            "label": "SEN_AIRBAG",
+            "weightInCategory": 28,
+            "isSafetyCritical": true,
+            "inputType": "STATUS",
+            "recommendation": "Fix SEN_AIRBAG"
+          },
+          {
+            "code": "SEN_B",
+            "label": "SEN_B",
+            "weightInCategory": 72,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix SEN_B"
+          }
+        ]
+      },
+      {
+        "code": "BODY",
+        "label": "Body & Undercarriage",
+        "weight": 4,
+        "points": [
+          {
+            "code": "BO_A",
+            "label": "BO_A",
+            "weightInCategory": 80,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix BO_A"
+          },
+          {
+            "code": "BO_B",
+            "label": "BO_B",
+            "weightInCategory": 20,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix BO_B"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "ENG_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENG_B",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BRAKE_PAD_FRONT",
+      "measuredValue": 3
+    },
+    {
+      "pointCode": "BRAKE_PAD_REAR",
+      "measuredValue": 6
+    },
+    {
+      "pointCode": "BRAKE_FLUID",
+      "measuredValue": 1.4
+    },
+    {
+      "pointCode": "BRAKE_DISC",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "PARKING_BRAKE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TY_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TY_B",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "BAT_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "FL_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "FL_B",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "SU_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "SU_B",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "LI_A",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "EM_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "EM_B",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "SEN_AIRBAG",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "SEN_B",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BO_A",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BO_B",
+      "status": "MONITOR"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Spec §11.4. Subs: ENGINE 92, BRAKES 75.8, TYRES 70, BATTERY 100, FLUIDS 85, SUSP 90, LIGHTS 75, EMISSIONS 88, SENSORS 82, BODY 95. raw = (18*92+16*75.8+14*70+11*100+11*85+9*90+7*75+5*88+5*82+4*95)/100 = 84.488. BRAKE_PAD_FRONT is safety ATTENTION → cap 69, FAIR.",
+  "expected": {
+    "score": 69,
+    "rawScore": 84.488,
+    "band": "FAIR",
+    "confidence": "HIGH",
+    "overrideApplied": "SAFETY_ATTENTION"
+  }
+}

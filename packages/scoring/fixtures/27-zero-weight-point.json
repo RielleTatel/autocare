@@ -1,0 +1,51 @@
+{
+  "name": "27-zero-weight-point",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 100,
+        "points": [
+          {
+            "code": "P1",
+            "label": "P1",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix P1"
+          },
+          {
+            "code": "Z0",
+            "label": "Z0",
+            "weightInCategory": 0,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix Z0"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "P1",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "Z0",
+      "status": "CRITICAL"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Zero-weight CRITICAL contributes nothing: sub = 100*100/100 = 100, impact 0, no NaN.",
+  "expected": {
+    "score": 100,
+    "rawScore": 100,
+    "band": "EXCELLENT",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

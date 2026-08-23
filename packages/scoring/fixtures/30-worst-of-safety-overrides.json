@@ -1,0 +1,214 @@
+{
+  "name": "30-worst-of-safety-overrides",
+  "results": [
+    {
+      "pointCode": "ENGINE_IDLE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_NOISE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "DRIVE_BELTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_LEAKS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TRANSMISSION_SHIFT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_MOUNTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "CLUTCH_OPERATION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_PAD_FRONT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_PAD_REAR",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_MOISTURE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_DISC_CONDITION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "PARKING_BRAKE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_FL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_FR",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_RL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_RR",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TYRE_PRESSURE_DEV",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WHEEL_CONDITION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BATTERY_VOLTAGE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "CHARGING_OUTPUT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TERMINALS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WIRING_VISIBLE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_OIL_LEVEL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "COOLANT_LEVEL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_LEVEL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ATF_CONDITION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "PS_FLUID",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WASHER_FLUID",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "SHOCKS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BUSHINGS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BALL_JOINTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "STEERING_LINKAGE",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "ALIGNMENT_PULL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "HEADLIGHTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_LIGHTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TURN_SIGNALS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WIPERS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WINDSCREEN",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "HORN",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "O2_SENSOR_SWITCHING",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "CATALYST_READINESS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "EXHAUST_ABNORMALITY",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "AIRBAG_WARNING_LIGHT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "DASH_WARNING_LIGHTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "CRUISE_CONTROL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "SENSOR_WIRING",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "RUST_UNDERCARRIAGE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BODY_PANELS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "DOORS_LOCKS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "INTERIOR",
+      "status": "GOOD"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Both a SC CRITICAL (headlights) and a SC ATTENTION (steering linkage): worst-of → SAFETY_CRITICAL cap 49. Subs: LIGHTS = 100-25 = 75.0; SUSP = 100-20*.6 = 88.0. raw = (10000 - 7*25 - 9*12)/100 = 97.17.",
+  "expected": {
+    "score": 49,
+    "rawScore": 97.17,
+    "band": "NEEDS_ATTENTION",
+    "confidence": "HIGH",
+    "overrideApplied": "SAFETY_CRITICAL"
+  }
+}

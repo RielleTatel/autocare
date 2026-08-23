@@ -1,0 +1,214 @@
+{
+  "name": "03-all-critical",
+  "results": [
+    {
+      "pointCode": "ENGINE_IDLE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "ENGINE_NOISE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "DRIVE_BELTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "ENGINE_LEAKS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TRANSMISSION_SHIFT",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "ENGINE_MOUNTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "CLUTCH_OPERATION",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_PAD_FRONT",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_PAD_REAR",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_MOISTURE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_DISC_CONDITION",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "PARKING_BRAKE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TREAD_FL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TREAD_FR",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TREAD_RL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TREAD_RR",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TYRE_PRESSURE_DEV",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "WHEEL_CONDITION",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BATTERY_VOLTAGE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "CHARGING_OUTPUT",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TERMINALS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "WIRING_VISIBLE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "ENGINE_OIL_LEVEL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "COOLANT_LEVEL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_LEVEL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "ATF_CONDITION",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "PS_FLUID",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "WASHER_FLUID",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "SHOCKS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BUSHINGS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BALL_JOINTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "STEERING_LINKAGE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "ALIGNMENT_PULL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "HEADLIGHTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BRAKE_LIGHTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "TURN_SIGNALS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "WIPERS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "WINDSCREEN",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "HORN",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "O2_SENSOR_SWITCHING",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "CATALYST_READINESS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "EXHAUST_ABNORMALITY",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "AIRBAG_WARNING_LIGHT",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "DASH_WARNING_LIGHTS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "CRUISE_CONTROL",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "SENSOR_WIRING",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "RUST_UNDERCARRIAGE",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "BODY_PANELS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "DOORS_LOCKS",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "INTERIOR",
+      "status": "CRITICAL"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Seed config, every point CRITICAL → every sub 0 → raw 0; SC criticals → SAFETY_CRITICAL (cap no-op at 0).",
+  "expected": {
+    "score": 0,
+    "rawScore": 0,
+    "band": "CRITICAL",
+    "confidence": "HIGH",
+    "overrideApplied": "SAFETY_CRITICAL"
+  }
+}

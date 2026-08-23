@@ -1,0 +1,176 @@
+{
+  "name": "11-threshold-voltage",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "C0",
+        "label": "C0",
+        "weight": 10,
+        "points": [
+          {
+            "code": "P0",
+            "label": "P0",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 12.6,
+              "monitor": 12.4,
+              "attention": 12
+            },
+            "unit": "V",
+            "recommendation": "Fix P0"
+          }
+        ]
+      },
+      {
+        "code": "C1",
+        "label": "C1",
+        "weight": 10,
+        "points": [
+          {
+            "code": "P1",
+            "label": "P1",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 12.6,
+              "monitor": 12.4,
+              "attention": 12
+            },
+            "unit": "V",
+            "recommendation": "Fix P1"
+          }
+        ]
+      },
+      {
+        "code": "C2",
+        "label": "C2",
+        "weight": 10,
+        "points": [
+          {
+            "code": "P2",
+            "label": "P2",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 12.6,
+              "monitor": 12.4,
+              "attention": 12
+            },
+            "unit": "V",
+            "recommendation": "Fix P2"
+          }
+        ]
+      },
+      {
+        "code": "C3",
+        "label": "C3",
+        "weight": 10,
+        "points": [
+          {
+            "code": "P3",
+            "label": "P3",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 12.6,
+              "monitor": 12.4,
+              "attention": 12
+            },
+            "unit": "V",
+            "recommendation": "Fix P3"
+          }
+        ]
+      },
+      {
+        "code": "C4",
+        "label": "C4",
+        "weight": 10,
+        "points": [
+          {
+            "code": "P4",
+            "label": "P4",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 12.6,
+              "monitor": 12.4,
+              "attention": 12
+            },
+            "unit": "V",
+            "recommendation": "Fix P4"
+          }
+        ]
+      },
+      {
+        "code": "C5",
+        "label": "C5",
+        "weight": 10,
+        "points": [
+          {
+            "code": "P5",
+            "label": "P5",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "MEASURED",
+            "thresholds": {
+              "direction": "HIGHER_BETTER",
+              "good": 12.6,
+              "monitor": 12.4,
+              "attention": 12
+            },
+            "unit": "V",
+            "recommendation": "Fix P5"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "P0",
+      "measuredValue": 12.6
+    },
+    {
+      "pointCode": "P1",
+      "measuredValue": 12.59
+    },
+    {
+      "pointCode": "P2",
+      "measuredValue": 12.4
+    },
+    {
+      "pointCode": "P3",
+      "measuredValue": 12.39
+    },
+    {
+      "pointCode": "P4",
+      "measuredValue": 12
+    },
+    {
+      "pointCode": "P5",
+      "measuredValue": 11.99
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Six single-point categories at boundary values 12.6, 12.59, 12.4, 12.39, 12, 11.99. Statuses G,M,M,A,A,C → subs 100,75,75,40,40,0; raw = mean = 55.0; no SC → no override.",
+  "expected": {
+    "score": 55,
+    "rawScore": 55,
+    "band": "NEEDS_ATTENTION",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

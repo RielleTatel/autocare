@@ -1,0 +1,214 @@
+{
+  "name": "29-mixed-real-world",
+  "results": [
+    {
+      "pointCode": "ENGINE_IDLE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "ENGINE_NOISE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "DRIVE_BELTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_LEAKS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TRANSMISSION_SHIFT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_MOUNTS",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "CLUTCH_OPERATION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_PAD_FRONT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_PAD_REAR",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_MOISTURE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_DISC_CONDITION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "PARKING_BRAKE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_FL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_FR",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_RL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TREAD_RR",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TYRE_PRESSURE_DEV",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WHEEL_CONDITION",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "BATTERY_VOLTAGE",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "CHARGING_OUTPUT",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "TERMINALS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WIRING_VISIBLE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ENGINE_OIL_LEVEL",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "COOLANT_LEVEL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_FLUID_LEVEL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ATF_CONDITION",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "PS_FLUID",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WASHER_FLUID",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "SHOCKS",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "BUSHINGS",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "BALL_JOINTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "STEERING_LINKAGE",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "ALIGNMENT_PULL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "HEADLIGHTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "BRAKE_LIGHTS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "TURN_SIGNALS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WIPERS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "WINDSCREEN",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "HORN",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "O2_SENSOR_SWITCHING",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "CATALYST_READINESS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "EXHAUST_ABNORMALITY",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "AIRBAG_WARNING_LIGHT",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "DASH_WARNING_LIGHTS",
+      "status": "MONITOR"
+    },
+    {
+      "pointCode": "CRUISE_CONTROL",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "SENSOR_WIRING",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "RUST_UNDERCARRIAGE",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "BODY_PANELS",
+      "status": "ATTENTION"
+    },
+    {
+      "pointCode": "DOORS_LOCKS",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "INTERIOR",
+      "status": "GOOD"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "Sanity fixture (R-08 review shape): adverse findings only on non-SC points → no override. Subs: ENGINE = 100-20*.25-10*.6 = 89.0; BRAKES 100; TYRES = 100-10*.25 = 97.5; BATTERY = 100-40*.25-25*.6 = 75.0; FLUIDS = 100-30*.25 = 92.5; SUSP = 100-30*.6-20*.6 = 70.0; LIGHTS = 100-5*.25 = 98.75→98.8; EMISSIONS = 100-40*.6-25*.25 = 69.75→69.8; SENSORS = 100-30*.25 = 92.5; BODY = 100-40*.6-30*.6 = 58.0. raw = (18*89+16*100+14*97.5+11*75+11*92.5+9*70+7*98.8+5*69.8+5*92.5+4*58)/100 = 87.746.",
+  "expected": {
+    "score": 88,
+    "rawScore": 87.746,
+    "band": "GOOD",
+    "confidence": "HIGH",
+    "overrideApplied": "NONE"
+  }
+}

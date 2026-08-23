@@ -1,0 +1,70 @@
+{
+  "name": "04-safety-critical-caps-49",
+  "config": {
+    "checklistVersion": "fx-v1",
+    "weightVersion": "fx-w1",
+    "categories": [
+      {
+        "code": "A",
+        "label": "A",
+        "weight": 60,
+        "points": [
+          {
+            "code": "A1",
+            "label": "A1",
+            "weightInCategory": 10,
+            "isSafetyCritical": true,
+            "inputType": "STATUS",
+            "recommendation": "Fix A1"
+          },
+          {
+            "code": "A2",
+            "label": "A2",
+            "weightInCategory": 90,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix A2"
+          }
+        ]
+      },
+      {
+        "code": "B",
+        "label": "B",
+        "weight": 40,
+        "points": [
+          {
+            "code": "B1",
+            "label": "B1",
+            "weightInCategory": 100,
+            "isSafetyCritical": false,
+            "inputType": "STATUS",
+            "recommendation": "Fix B1"
+          }
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "pointCode": "A1",
+      "status": "CRITICAL"
+    },
+    {
+      "pointCode": "A2",
+      "status": "GOOD"
+    },
+    {
+      "pointCode": "B1",
+      "status": "GOOD"
+    }
+  ],
+  "daysSinceInspection": 0,
+  "notes": "A sub = (10*0 + 90*1)/100*100 = 90.0; B = 100. raw = (60*90+40*100)/100 = 94.0. SC CRITICAL → cap 49.",
+  "expected": {
+    "score": 49,
+    "rawScore": 94,
+    "band": "NEEDS_ATTENTION",
+    "confidence": "HIGH",
+    "overrideApplied": "SAFETY_CRITICAL"
+  }
+}
