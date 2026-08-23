@@ -65,4 +65,7 @@ export const setStatus = (id: string, status: WorkOrderStatus, extra?: { technic
 export const markDone = (id: string, itemId: string, done: boolean) =>
   call<WorkOrder>(`work-orders/${id}/items/${itemId}/done`, { method: "PATCH", body: JSON.stringify({ done }) });
 
+export const addWaste = (id: string, input: { wasteType: string; quantity: number; unit: string; haulerName?: string; manifestNo?: string }) =>
+  call<WorkOrder>(`work-orders/${id}/waste`, { method: "POST", body: JSON.stringify(input) });
+
 export const peso = (centavos: number) => `₱${(centavos / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  addItem, getRecommendations, getWorkOrder, markDone, peso, requestApproval, searchParts, setStatus,
+  addItem, addWaste, getRecommendations, getWorkOrder, markDone, peso, requestApproval, searchParts, setStatus,
   type PartRow, type RecommendationRow, type WorkOrder, type WorkOrderStatus,
 } from "../../../../lib/work-orders/api";
 import { quoteTotals } from "../../../../lib/work-orders/totals";
@@ -78,6 +78,9 @@ export default function WorkOrderPage() {
 
           <aside className="flex flex-col gap-4">
             <TotalsPanel totals={totals} />
+            {wo.status !== "CLOSED" && wo.status !== "CANCELLED" && (
+              <WastePanel wo={wo} onAdd={(w) => guard(() => addWaste(id, w))} />
+            )}
             {editable && recs.length > 0 && (
               <RecommendationsTray recs={recs} onConvert={(r) => guard(() =>
                 addItem(id, { type: "PART", description: r.label, qty: 1, unitPriceCentavos: Math.round((r.estimatedCostCentavos ?? 0)), recommendationId: r.id }))} />
@@ -247,6 +250,40 @@ function AddItemForm({ workOrderId, onAdded, onError }: { workOrderId: string; o
         <input aria-label="Quantity" type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} className="h-9 w-16 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
         <button type="button" onClick={submit} disabled={type === "PART" ? !selected : description.trim() === ""} className="h-9 px-3 rounded-sm bg-primary text-white text-sm font-medium disabled:opacity-50 ml-auto">Add</button>
       </div>
+    </div>
+  );
+}
+
+const WASTE_UNITS: Record<string, string> = { USED_OIL: "L", COOLANT: "L", BATTERY: "pcs", FILTER: "pcs", TIRE: "pcs" };
+
+function WastePanel({ wo, onAdd }: { wo: WorkOrder; onAdd: (input: { wasteType: string; quantity: number; unit: string; haulerName?: string; manifestNo?: string }) => void }) {
+  const [wasteType, setWasteType] = useState("USED_OIL");
+  const [quantity, setQuantity] = useState("");
+  const [hauler, setHauler] = useState("");
+  const [manifest, setManifest] = useState("");
+  const unit = WASTE_UNITS[wasteType];
+
+  return (
+    <div className="rounded-md border border-line bg-surface p-4 flex flex-col gap-2">
+      <h2 className="font-display text-lg text-ink">Hazardous waste (W-09)</h2>
+      {wo.wasteRecords.map((w) => (
+        <div key={w.id} className="text-sm text-ink flex justify-between border-b border-line pb-1">
+          <span>{w.wasteType.replace("_", " ")} — {w.quantity} {w.unit}</span>
+          {w.manifestNo && <span className="text-ink-muted font-mono text-xs">{w.manifestNo}</span>}
+        </div>
+      ))}
+      <select aria-label="Waste type" value={wasteType} onChange={(e) => setWasteType(e.target.value)} className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm">
+        {Object.keys(WASTE_UNITS).map((k) => <option key={k} value={k}>{k.replace("_", " ")}</option>)}
+      </select>
+      <div className="flex gap-2 items-center">
+        <input aria-label="Waste quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Qty" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm flex-1" />
+        <span className="text-ink-muted text-sm">{unit}</span>
+      </div>
+      <input aria-label="Hauler name" value={hauler} onChange={(e) => setHauler(e.target.value)} placeholder="Hauler (optional)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
+      <input aria-label="Manifest number" value={manifest} onChange={(e) => setManifest(e.target.value)} placeholder="Manifest # (optional)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
+      <button type="button" disabled={quantity.trim() === "" || Number(quantity) <= 0} onClick={() => { onAdd({ wasteType, quantity: Number(quantity), unit, haulerName: hauler || undefined, manifestNo: manifest || undefined }); setQuantity(""); setHauler(""); setManifest(""); }} className="h-9 rounded-sm bg-primary text-white text-sm font-medium disabled:opacity-50">
+        Record waste
+      </button>
     </div>
   );
 }
