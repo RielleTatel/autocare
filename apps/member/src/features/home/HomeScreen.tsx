@@ -1,19 +1,24 @@
+import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { Vehicle } from "@autocare/contracts";
 
-export function HomeScreen({ firstName, vehicle, onAddVehicle, onUpdateOdometer, onBookService }: {
+export function HomeScreen({ firstName, vehicle, onAddVehicle, onUpdateOdometer, onBookService, attentionSlot }: {
   firstName: string;
   vehicle: Vehicle | null;
   onAddVehicle: () => void;
   onUpdateOdometer: () => void;
   onBookService?: () => void;
+  /** M-10 attention summary card, injected by the container. */
+  attentionSlot?: ReactNode;
 }) {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.chassis, padding: theme.spacing.lg }}>
       <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>
         Magandang araw, {firstName}
       </Text>
+
+      {attentionSlot ? <View style={{ marginTop: theme.spacing.lg }}>{attentionSlot}</View> : null}
 
       {vehicle ? (
         <View style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, padding: theme.spacing.md,

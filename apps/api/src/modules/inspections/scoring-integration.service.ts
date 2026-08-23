@@ -6,6 +6,7 @@ import { InspectionScoringHook } from "../sync/handlers/inspection.handler";
 import { SyncTx } from "../sync/sync.types";
 import { ScoreEvents } from "./score-events";
 import { RecommendationsService } from "../work-orders/recommendations.service";
+import { WorkOrderEvents } from "../work-orders/work-order-events";
 
 const ADVERSE: EnginePointStatus[] = ["MONITOR", "ATTENTION", "CRITICAL"];
 
@@ -15,7 +16,7 @@ const ADVERSE: EnginePointStatus[] = ["MONITOR", "ATTENTION", "CRITICAL"];
  *  active" — so historical recomputes reproduce stored scores (NFR-055). */
 @Injectable()
 export class ScoringIntegrationService implements InspectionScoringHook {
-  constructor(private events: ScoreEvents, private recommendations: RecommendationsService) {}
+  constructor(private events: ScoreEvents, private recommendations: RecommendationsService, private workOrderEvents: WorkOrderEvents) {}
 
   async onSubmitted(tx: SyncTx, inspectionId: string): Promise<void> {
     const inspection = await tx.inspection.findUniqueOrThrow({
@@ -95,6 +96,10 @@ export class ScoringIntegrationService implements InspectionScoringHook {
     }
 
     this.events.emitScoreReady({ vehicleId: inspection.vehicleId, score: out.score, band: out.band });
+    // FR-112: a submitted inspection changes the attention dashboard (new
+    // component findings + recommendations). One signal per submission.
+    const owner = await tx.vehicle.findUnique({ where: { id: inspection.vehicleId }, select: { ownerUserId: true } });
+    this.workOrderEvents.emitAttentionChanged(owner?.ownerUserId ?? undefined);
   }
 }
 

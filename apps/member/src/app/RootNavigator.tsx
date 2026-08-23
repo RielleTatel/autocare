@@ -43,11 +43,15 @@ import { makeWorkOrderApi, type WorkOrder as MemberWorkOrder, type Recommendatio
 import { ApprovalRequestScreen } from "../features/work-orders/ApprovalRequestScreen";
 import { RecommendationsListScreen } from "../features/work-orders/RecommendationsListScreen";
 import { ServiceHistoryScreen } from "../features/work-orders/ServiceHistoryScreen";
+import { makeAttentionApi, type AttentionItem } from "../features/attention/attentionApi";
+import { AttentionCard } from "../features/attention/AttentionCard";
+import { AttentionListScreen } from "../features/attention/AttentionListScreen";
 
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
 const healthScoreApi = makeHealthScoreApi(api);
 const workOrderApi = makeWorkOrderApi(api);
+const attentionApi = makeAttentionApi(api);
 
 const Stack = createNativeStackNavigator();
 
@@ -165,20 +169,69 @@ function useReady() {
   return ctx;
 }
 
+/** Resolves an attention item's deep link to one registered screen (FR-111). */
+function resolveAttentionDeepLink(nav: any, item: AttentionItem): void {
+  const { screen, params } = item.deepLink;
+  nav.navigate(screen, params);
+}
+
 /** Home tab container: needs the vehicle list (for the primary card) and stack nav to reach AddVehicle/Detail. */
 function HomeTabContainer({ navigation }: any) {
   const { vehicles, firstName } = useReady();
+  const [attention, setAttention] = useState<AttentionItem[]>([]);
+  const parent = navigation.getParent();
+
+  const loadAttention = useCallback(() => {
+    attentionApi.mine().then(setAttention).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", loadAttention);
+    loadAttention();
+    return unsub;
+  }, [navigation, loadAttention]);
+
   return (
     <HomeScreen
       firstName={firstName}
       vehicle={vehicles[0] ?? null}
-      onAddVehicle={() => navigation.getParent()?.navigate("AddVehicle")}
+      onAddVehicle={() => parent?.navigate("AddVehicle")}
       onUpdateOdometer={() =>
         vehicles[0]
-          ? navigation.getParent()?.navigate("VehicleDetail", { vehicle: vehicles[0] })
-          : navigation.getParent()?.navigate("AddVehicle")
+          ? parent?.navigate("VehicleDetail", { vehicle: vehicles[0] })
+          : parent?.navigate("AddVehicle")
       }
-      onBookService={vehicles[0] ? () => navigation.getParent()?.navigate("Bookings") : undefined}
+      onBookService={vehicles[0] ? () => parent?.navigate("Bookings") : undefined}
+      attentionSlot={
+        <AttentionCard
+          items={attention}
+          onSeeAll={() => parent?.navigate("Attention")}
+          onPressItem={(item) => resolveAttentionDeepLink(parent, item)}
+        />
+      }
+    />
+  );
+}
+
+function AttentionContainer({ navigation }: any) {
+  const [items, setItems] = useState<AttentionItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setItems(await attentionApi.mine());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+  useEffect(() => {
+    load().catch(() => undefined);
+  }, [load]);
+  return (
+    <AttentionListScreen
+      items={items}
+      refreshing={refreshing}
+      onRefresh={() => load().catch(() => undefined)}
+      onPressItem={(item) => resolveAttentionDeepLink(navigation, item)}
     />
   );
 }
@@ -625,6 +678,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="ApprovalRequest" component={ApprovalRequestContainer} />
       <Stack.Screen name="Recommendations" component={RecommendationsContainer} />
       <Stack.Screen name="ServiceHistory2" component={ServiceHistoryContainer} />
+      <Stack.Screen name="Attention" component={AttentionContainer} />
     </Stack.Navigator>
   );
 }
