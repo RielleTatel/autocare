@@ -9,3 +9,4 @@ export * from "./payments";
 export * from "./cash";
 export * from "./invoices";
 export * from "./scheduling";
+export * from "./checklists";

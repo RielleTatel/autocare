@@ -26,9 +26,12 @@ export default function AdminPage() {
       <div className="max-w-3xl mx-auto flex flex-col gap-5">
         <header className="flex items-center justify-between">
           <h1 className="font-display text-2xl text-ink">Admin dashboard</h1>
-          <button type="button" onClick={signOut} className="h-9 px-3 rounded-sm border border-line text-ink text-sm font-medium">
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            <a href="/admin/checklists" className="text-primary text-sm font-medium">Checklists</a>
+            <button type="button" onClick={signOut} className="h-9 px-3 rounded-sm border border-line text-ink text-sm font-medium">
+              Sign out
+            </button>
+          </div>
         </header>
         {err && <p className="text-danger text-sm">{err}</p>}
         <UtilisationWidget days={util} />

@@ -15,6 +15,7 @@ import { CashModule } from "./modules/cash/cash.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { SchedulingModule } from "./modules/scheduling/scheduling.module";
+import { ChecklistsModule } from "./modules/checklists/checklists.module";
 import { ClockModule } from "./common/clock/clock.module";
 import { RedisModule } from "./common/redis/redis.module";
 import { PoliciesModule } from "./common/policies/policies.module";
@@ -41,6 +42,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     BillingModule,
     InvoicesModule,
     SchedulingModule,
+    ChecklistsModule,
   ],
   controllers: [HealthController],
   providers: [

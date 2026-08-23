@@ -11,5 +11,7 @@ export const errorCodes = [
   "INVOICE_ALREADY_PAID",
   // Final whole-branch review — double-submit guards for money-adjacent subscription actions:
   "SUBSCRIPTION_ALREADY_CANCELLED", "SUBSCRIPTION_NOT_ACTIVE",
+  // Phase 4 — checklist versioning (FR-101): published versions are immutable; publish validates.
+  "CHECKLIST_IMMUTABLE", "CHECKLIST_INVALID",
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];
