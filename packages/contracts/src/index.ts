@@ -12,3 +12,4 @@ export * from "./scheduling";
 export * from "./checklists";
 export * from "./sync";
 export * from "./certificates";
+export * from "./work-orders";

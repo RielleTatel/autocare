@@ -15,5 +15,9 @@ export const errorCodes = [
   "CHECKLIST_IMMUTABLE", "CHECKLIST_INVALID",
   // Phase 4 — certificates: public token not shareable / not found.
   "CERTIFICATE_NOT_SHAREABLE", "CERTIFICATE_NOT_FOUND",
+  // Phase 5 — work orders & parts (FR-070→FR-074, BR-07).
+  "ILLEGAL_TRANSITION", "UNDECIDED_LINES", "APPROVED_WORK_INCOMPLETE",
+  "SUMMARY_REQUIRED", "WASTE_REQUIRED", "STOCK_INSUFFICIENT",
+  "WORK_ORDER_IMMUTABLE", "WORK_ORDER_NOT_FOUND", "ITEM_NOT_FOUND",
 ] as const;
 export type ErrorCode = (typeof errorCodes)[number];

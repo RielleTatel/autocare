@@ -21,6 +21,10 @@ describe("contracts", () => {
     expect(errorCodes).toContain("CHECKLIST_IMMUTABLE");
     expect(errorCodes).toContain("CHECKLIST_INVALID");
     expect(errorCodes).toContain("CERTIFICATE_NOT_FOUND");
-    expect(errorCodes.length).toBe(36);
+    // Phase 5 additions:
+    expect(errorCodes).toContain("ILLEGAL_TRANSITION");
+    expect(errorCodes).toContain("WASTE_REQUIRED");
+    expect(errorCodes).toContain("STOCK_INSUFFICIENT");
+    expect(errorCodes.length).toBe(45);
   });
 });
