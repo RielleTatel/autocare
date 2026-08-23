@@ -31,8 +31,12 @@ import { UpgradeDowngradeScreen } from "../features/subscription/UpgradeDowngrad
 import { CancellationScreen } from "../features/subscription/CancellationScreen";
 import { InvoicesScreen } from "../features/subscription/InvoicesScreen";
 import { InvoiceDetailScreen } from "../features/subscription/InvoiceDetailScreen";
+import { makeBookingApi } from "../features/booking/bookingApi";
+import { BookingContainer } from "../features/booking/BookingContainer";
+import { BookingsListScreen } from "../features/booking/BookingsListScreen";
 
 const subApi = makeSubscriptionApi(api);
+const bookingApi = makeBookingApi(api);
 
 const Stack = createNativeStackNavigator();
 
@@ -163,6 +167,66 @@ function HomeTabContainer({ navigation }: any) {
           ? navigation.getParent()?.navigate("VehicleDetail", { vehicle: vehicles[0] })
           : navigation.getParent()?.navigate("AddVehicle")
       }
+      onBookService={vehicles[0] ? () => navigation.getParent()?.navigate("Bookings") : undefined}
+    />
+  );
+}
+
+/** Resolves the member's vehicle + active subscription, then runs the booking flow (M-19→M-22). */
+function BookingFlowContainer({ navigation }: any) {
+  const { vehicles } = useReady();
+  const vehicle = vehicles[0] ?? null;
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!vehicle) {
+      setReady(true);
+      return;
+    }
+    subApi
+      .listSubscriptions()
+      .then((subs) => setSubscriptionId(selectManageableSubscription(subs, vehicle.id)?.id ?? null))
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, [vehicle]);
+
+  if (!vehicle || !ready) return <Splash />;
+  return (
+    <BookingContainer
+      api={bookingApi}
+      vehicleId={vehicle.id}
+      subscriptionId={subscriptionId}
+      onBooked={() => navigation.navigate("Bookings")}
+    />
+  );
+}
+
+/** M-23 — the member's bookings list with cancel + "book new". */
+function BookingsContainer({ navigation }: any) {
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [serviceNames, setServiceNames] = useState<Record<string, string>>({});
+
+  const refresh = useCallback(async () => {
+    const [appts, types] = await Promise.all([bookingApi.listAppointments(), bookingApi.listServiceTypes()]);
+    setAppointments(appts);
+    setServiceNames(Object.fromEntries(types.map((t) => [t.id, t.name])));
+  }, []);
+
+  useEffect(() => {
+    refresh().catch(() => {});
+  }, [refresh]);
+
+  return (
+    <BookingsListScreen
+      appointments={appointments}
+      serviceNames={serviceNames}
+      now={new Date()}
+      onCancel={async (id: string) => {
+        await bookingApi.cancel(id).catch(() => {});
+        await refresh().catch(() => {});
+      }}
+      onBookNew={() => navigation.navigate("Booking")}
     />
   );
 }
@@ -438,6 +502,8 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="Cancellation" component={CancellationContainer} />
       <Stack.Screen name="Invoices" component={InvoicesContainer} />
       <Stack.Screen name="InvoiceDetail" component={InvoiceDetailContainer} />
+      <Stack.Screen name="Booking" component={BookingFlowContainer} />
+      <Stack.Screen name="Bookings" component={BookingsContainer} />
     </Stack.Navigator>
   );
 }

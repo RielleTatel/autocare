@@ -2,11 +2,12 @@ import { Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { Vehicle } from "@autocare/contracts";
 
-export function HomeScreen({ firstName, vehicle, onAddVehicle, onUpdateOdometer }: {
+export function HomeScreen({ firstName, vehicle, onAddVehicle, onUpdateOdometer, onBookService }: {
   firstName: string;
   vehicle: Vehicle | null;
   onAddVehicle: () => void;
   onUpdateOdometer: () => void;
+  onBookService?: () => void;
 }) {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.chassis, padding: theme.spacing.lg }}>
@@ -43,6 +44,14 @@ export function HomeScreen({ firstName, vehicle, onAddVehicle, onUpdateOdometer 
           <Text style={[theme.text("body"), { color: theme.colors.primary, fontWeight: "600" }]}>Update odometer</Text>
         </Pressable>
       </View>
+
+      {vehicle && onBookService && (
+        <Pressable testID="quick-book-service" onPress={onBookService}
+          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, backgroundColor: theme.colors.primaryDeep,
+            alignItems: "center", justifyContent: "center", marginTop: theme.spacing.sm }}>
+          <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Book a service</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
