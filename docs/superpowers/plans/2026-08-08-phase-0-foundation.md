@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ Database superseded 2026-08-23:** the tasks below provision Postgres via **Docker Compose**, which is how Phase 0 was built and is preserved here as executed history. The current database of record is **hosted Supabase Postgres** (`apps/api/.env` `DATABASE_URL`) — see the roadmap's 2026-08-23 note and `docs/checkpoints/2026-08-23-secure-store-crash-and-supabase-db-migration.md`. Redis remains local Docker. Do not follow the Docker Postgres steps below as current guidance.
+
 **Goal:** Stand up the AutoCare+ monorepo with design tokens, local infra, a NestJS API skeleton (envelope, errors, config, health), the core Prisma schema, the Firebase→session auth spine (risk R-01), Next.js and two Expo app shells, and CI.
 
 **Architecture:** pnpm + Turborepo monorepo. `apps/api` (NestJS 10, Prisma, Postgres, Redis), `apps/web` (Next.js 14 App Router + Tailwind), `apps/member` and `apps/field` (Expo SDK 51+, TypeScript). Shared `packages/`: `design-tokens`, `contracts` (Zod), `api-client`, `config`. The API is the only database client; clients authenticate with Firebase ID tokens exchanged at `POST /api/v1/auth/session`.
@@ -969,7 +971,7 @@ export const theme = {
 };
 ```
 
-`App.tsx`: NavigationContainer → native stack with `LoginScreen`. `LoginScreen`: `colors.chassis` background, "AutoCare+" in display type + `primaryDeep`, phone-number field, 48pt-high primary button "Continue" (non-functional until Phase 1 OTP), footnote "By continuing you agree to our Terms and Privacy Policy."
+`App.tsx`: NavigationContainer → native stack with `LoginScreen`. `LoginScreen`: `colors.chassis` background, "AutoCare+" in display type + `primaryDeep`, email + password fields, 48pt-high primary button "Continue" (non-functional until Phase 1 auth), footnote "By continuing you agree to our Terms and Privacy Policy."
 
 `src/shared/api.ts`:
 ```typescript

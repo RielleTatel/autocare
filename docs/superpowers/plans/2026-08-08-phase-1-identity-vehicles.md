@@ -2,20 +2,22 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A member can register with phone OTP or Google, accept the DPA consent, manage their profile, and put vehicles on file with validated plates and photos — end-to-end on iOS + API; staff can sign in on web and in the field app.
+> **⚠️ Database superseded 2026-08-23:** manual-verification steps below reference a local API over Docker Compose Postgres (as executed at the time). The current database of record is **hosted Supabase Postgres** — see the roadmap's 2026-08-23 note and `docs/checkpoints/2026-08-23-secure-store-crash-and-supabase-db-migration.md`.
+
+**Goal:** A member can register with email/password or Google, accept the DPA consent, manage their profile, and put vehicles on file with validated plates and photos — end-to-end on iOS + API; staff can sign in on web and in the field app.
 
 **Architecture:** Everything builds on Phase 0's spine: Firebase ID tokens exchanged at `POST /api/v1/auth/session`, envelope responses, `DomainError` with machine codes, shared Zod contracts consumed by all clients. Phase 1 adds three API layers that every later phase reuses — the consent guard (FR-012), the CASL ability factory (FR-007), and the append-only `audit_log` — plus the vehicles domain, DPA request jobs on BullMQ, signed-URL uploads behind a `StoragePort`, and the member onboarding flow on iOS.
 
 **Tech Stack:** Adds to Phase 0's: `@casl/ability` 6, `@nestjs/bullmq` + `bullmq`, `@nestjs/throttler`, `@react-native-firebase/app`+`auth` (Expo dev client), `@react-native-google-signin/google-signin`, `expo-image-picker`, `expo-local-authentication`, `firebase` (web SDK), `jose` (cookie encryption), `@playwright/test`.
 
 **Covers:** M1 (FR-001→FR-015). Screens M-01→M-07, M-11, M-12 (shell), M-34, M-35; F-01; W-01.
-**Coverage note:** FR-008/FR-009 (fleet manager corporate accounts, driver assignment) are satisfied here at the **data + authorization layer only** (`Organization` model, org-owned vehicles, FLEET_MANAGER abilities); the fleet UX (M-37, CSV import) is Phase 7 per the roadmap. FR-001's "mobile number + password" and FR-010's password reset are fulfilled by Firebase Phone Auth (OTP sign-in *is* possession-based auth; Firebase owns credential recovery) — the API never sees passwords or OTPs.
+**Coverage note:** FR-008/FR-009 (fleet manager corporate accounts, driver assignment) are satisfied here at the **data + authorization layer only** (`Organization` model, org-owned vehicles, FLEET_MANAGER abilities); the fleet UX (M-37, CSV import) is Phase 7 per the roadmap. FR-001's "email + password" and FR-010's password reset are fulfilled by **Firebase Email/Password Auth** — Firebase owns credential storage, the verification email, and the reset link; the API never sees a password. Phone/SMS OTP is out of scope for v1.0 (Architecture §7.3a): it is a Blaze-tier billed feature and put a paid SMS vendor in the registration critical path. `mobile` is still collected at registration as a contact detail for roadside dispatch and FR-091 SMS fallback.
 
-**Prerequisites:** Phase 0 complete (auth spine, Prisma core, app shells, CI green). Firebase project has **Phone** and **Google** providers enabled, plus at least one **email/password staff account** for web/field login. Firebase Storage bucket exists.
+**Prerequisites:** Phase 0 complete (auth spine, Prisma core, app shells, CI green). Firebase project has **Email/Password** and **Google** providers enabled (no Blaze upgrade required — Phone is not used), with the verification and password-reset email templates configured, plus at least one **staff account** for web/field login. A **private Supabase Storage bucket** exists in the same Supabase project as the database, and the API env carries the service-role key.
 
 ## Global Constraints (additional to Phase 0's)
 
-- OTP delivery, expiry (10 min), and retry are Firebase Phone Auth's responsibility (FR-002); the API never sees passwords or OTPs.
+- Credential storage, the verification email (FR-002), and the password-reset link (FR-010) are Firebase Email/Password Auth's responsibility; the API never sees a password. Email verification is enforced server-side by reading the `email_verified` claim on the decoded token, never by trusting the client.
 - Auth endpoints rate-limited 5/min per caller via `@nestjs/throttler`; global default 100/min (NFR-023).
 - Consent is blocking: a MEMBER or FLEET_MANAGER without a current-version consent record gets `CONSENT_REQUIRED` (403) on every non-auth endpoint (FR-012). Staff roles are exempt (they consent via employment).
 - Plate validation: PH LTO patterns — cars `^[A-Z]{3}\s?\d{3,4}$`, motorcycles `^\d{3}\s?[A-Z]{3}$`; stored normalized (no space, uppercase). Duplicate → 409 `PLATE_ALREADY_REGISTERED` (FR-005).
@@ -1282,13 +1284,15 @@ git commit -m "feat(api): vehicles module — CRUD, archive, monotonic odometer 
 ### Task 7: Photo upload path — signed URLs behind StoragePort (FR-006)
 
 **Files:**
-- Create: `apps/api/src/modules/uploads/uploads.module.ts`, `uploads.controller.ts`, `apps/api/src/common/storage/firebase-storage.adapter.ts`
-- Modify: `apps/api/src/config/env.ts` (+`FIREBASE_STORAGE_BUCKET`), `.env.example`, CI env, `apps/api/src/modules/users/users.module.ts` (storage provider becomes env-switched)
+- Create: `apps/api/src/modules/uploads/uploads.module.ts`, `uploads.controller.ts`, `apps/api/src/common/storage/supabase-storage.adapter.ts`
+- Modify: `apps/api/src/config/env.ts` (+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`), `.env.example`, CI env, `apps/api/src/modules/users/users.module.ts` (storage provider becomes env-switched)
 - Test: `apps/api/src/modules/uploads/uploads.controller.spec.ts`
 
 **Interfaces:**
-- Consumes: `STORAGE_PORT`/`StoragePort` (Task 5), `VehiclesService.findForUser` (Task 6), `FirebaseService` (Phase 0 — admin app is already initialized).
-- Produces: `POST /uploads/signed-url` body `{ vehicleId: string, contentType: "image/jpeg" | "image/png", kind: "PHOTO" | "ORCR" }` → `{ uploadUrl, publicUrl, expiresAt }`, object path `vehicles/{vehicleId}/{uuid}.{jpg|png}`; `FirebaseStorageAdapter` bound when `NODE_ENV` ≠ `test`. Client flow: get URL → PUT the bytes (≤ 5 MB, enforced client-side and by storage rules) → `PATCH /vehicles/:id` with the new `photoUrls`/`orCrUrls`.
+- Consumes: `STORAGE_PORT`/`StoragePort` (Task 5), `VehiclesService.findForUser` (Task 6). No Firebase coupling — storage is now Supabase, reached with the service-role key that lives only in the API env (Architecture §7.3 rule 2).
+- Produces: `POST /uploads/signed-url` body `{ vehicleId: string, contentType: "image/jpeg" | "image/png", kind: "PHOTO" | "ORCR" }` → `{ uploadUrl, path, expiresAt }`, object path `vehicles/{vehicleId}/{uuid}.{jpg|png}`; `SupabaseStorageAdapter` bound when `NODE_ENV` ≠ `test`. Client flow: get URL → PUT the bytes (≤ 5 MB, enforced client-side and by a bucket file-size limit) → `PATCH /vehicles/:id` with the new `photoPaths`/`orCrPaths`.
+
+> **Note — no public URLs.** The bucket is private, so the adapter returns an object *path*, not a durable public link. Rendering a stored image means calling `createDownloadUrl(path, ttl)` through `POST /uploads/download-url`, which runs the same CASL check as a database read (Architecture §7.3 rule 6). Persist paths in `photoPaths`/`orCrPaths`; never persist a signed URL — it expires.
 
 - [ ] **Step 1: Write the failing controller unit test**
 
@@ -1351,53 +1355,73 @@ export class UploadsController {
 ```
 Note: the unit test constructs the controller directly, so validate inside too — call `signedUrlSchema.parse(body)` as the first line (the pipe already did it on the HTTP path; double-parsing is harmless and keeps the unit test honest).
 
-`src/common/storage/firebase-storage.adapter.ts`:
+`src/common/storage/supabase-storage.adapter.ts`:
 ```typescript
 import { Injectable } from "@nestjs/common";
-import * as admin from "firebase-admin";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { StoragePort } from "./storage.port";
+import { loadEnv } from "../../config/env";
 
-const UPLOAD_TTL_MS = 15 * 60_000;
+const UPLOAD_TTL_S = 15 * 60;
 
 @Injectable()
-export class FirebaseStorageAdapter implements StoragePort {
-  private bucket() { return admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET); }
+export class SupabaseStorageAdapter implements StoragePort {
+  private client: SupabaseClient;
+  private bucketName: string;
+
+  constructor() {
+    const env = loadEnv();
+    // Service-role key — server-side only. Never ship this to a client bundle.
+    this.client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    this.bucketName = env.SUPABASE_STORAGE_BUCKET;
+  }
+  private bucket() { return this.client.storage.from(this.bucketName); }
 
   async putObject(path: string, data: Buffer, contentType: string) {
-    await this.bucket().file(path).save(data, { contentType });
-    return { publicUrl: `https://storage.googleapis.com/${this.bucket().name}/${path}` };
+    const { error } = await this.bucket().upload(path, data, { contentType, upsert: false });
+    if (error) throw error;
+    return { path };
   }
-  async createUploadUrl(path: string, contentType: string) {
-    const expires = Date.now() + UPLOAD_TTL_MS;
-    const [uploadUrl] = await this.bucket().file(path).getSignedUrl({ version: "v4", action: "write", expires, contentType });
-    return { uploadUrl, publicUrl: `https://storage.googleapis.com/${this.bucket().name}/${path}`, expiresAt: new Date(expires).toISOString() };
+  async createUploadUrl(path: string, _contentType: string) {
+    const { data, error } = await this.bucket().createSignedUploadUrl(path);
+    if (error) throw error;
+    return {
+      uploadUrl: data.signedUrl,
+      path,
+      expiresAt: new Date(Date.now() + UPLOAD_TTL_S * 1000).toISOString(),
+    };
   }
   async createDownloadUrl(path: string, expiresSeconds: number) {
-    const [url] = await this.bucket().file(path).getSignedUrl({ version: "v4", action: "read", expires: Date.now() + expiresSeconds * 1000 });
-    return url;
+    const { data, error } = await this.bucket().createSignedUrl(path, expiresSeconds);
+    if (error) throw error;
+    return data.signedUrl;
   }
 }
 ```
 
+> **Why `path` and not `publicUrl`.** The Firebase adapter could return a stable `storage.googleapis.com` URL because the bucket was world-readable behind an unguessable name. A private Supabase bucket has no such URL — every read is signed and expiring. The `StoragePort` return type changes from `{ publicUrl }` to `{ path }` accordingly, and callers that used to embed a URL must call `createDownloadUrl` at render time instead.
+
 Switch the binding in `users.module.ts` (single source of truth for `STORAGE_PORT`):
 ```typescript
-{ provide: STORAGE_PORT, useClass: process.env.NODE_ENV === "test" ? FsStorageAdapter : FirebaseStorageAdapter }
+{ provide: STORAGE_PORT, useClass: process.env.NODE_ENV === "test" ? FsStorageAdapter : SupabaseStorageAdapter }
 ```
-Add `FIREBASE_STORAGE_BUCKET: z.string()` to `envSchema`; `FIREBASE_STORAGE_BUCKET=autocare-dev.appspot.com` to `.env.example`; a stub value to the CI env block. `uploads.module.ts` imports `VehiclesModule` and `UsersModule`; declare controller; import into `AppModule`.
+Add `SUPABASE_URL: z.string().url()`, `SUPABASE_SERVICE_ROLE_KEY: z.string()`, and `SUPABASE_STORAGE_BUCKET: z.string()` to `envSchema`; the matching entries to `.env.example` (`SUPABASE_STORAGE_BUCKET=autocare-media`); stub values to the CI env block. `uploads.module.ts` imports `VehiclesModule` and `UsersModule`; declare controller; import into `AppModule`.
 
 - [ ] **Step 3: Run tests to verify they pass**
 
 Run: `pnpm --filter api test -- uploads` → 2 PASS; full suite green.
 
-- [ ] **Step 4: Manual verification against real Firebase Storage**
+- [ ] **Step 4: Manual verification against real Supabase Storage**
 
-With real `.env` creds: `pnpm --filter api start:dev`, request a signed URL for a seeded vehicle (curl), then `curl -X PUT -H "Content-Type: image/jpeg" --data-binary @test.jpg "<uploadUrl>"`. Expected: 200 and the object visible in the Firebase console. Record the outcome in the PR.
+With real `.env` creds: `pnpm --filter api start:dev`, request a signed URL for a seeded vehicle (curl), then `curl -X PUT -H "Content-Type: image/jpeg" --data-binary @test.jpg "<uploadUrl>"`. Expected: 200 and the object visible in the Supabase dashboard under Storage. **Then confirm the negative case**: fetch the object's plain public URL and expect a failure — if it succeeds, the bucket is public and must be switched to private before this task is done. Record both outcomes in the PR.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add apps/api .env.example .github
-git commit -m "feat(api): signed-url uploads behind StoragePort with Firebase Storage adapter (FR-006)"
+git commit -m "feat(api): signed-url uploads behind StoragePort with Supabase Storage adapter (FR-006)"
 ```
 
 ---
@@ -1406,14 +1430,14 @@ git commit -m "feat(api): signed-url uploads behind StoragePort with Firebase St
 
 **Files:**
 - Modify: `apps/member/app.json`, `apps/member/package.json`, `apps/member/src/app/App.tsx`, `apps/member/src/shared/api.ts`
-- Create: `apps/member/src/features/auth/firebaseAuth.ts`, `session.ts`, `OnboardingScreen.tsx`, `PhoneEntryScreen.tsx`, `OtpScreen.tsx`, `ConsentScreen.tsx`, `apps/member/src/app/RootNavigator.tsx`
-- Test: `apps/member/src/features/auth/PhoneEntryScreen.test.tsx`, `OtpScreen.test.tsx`, `session.test.ts`
+- Create: `apps/member/src/features/auth/firebaseAuth.ts`, `session.ts`, `OnboardingScreen.tsx`, `SignUpScreen.tsx`, `SignInScreen.tsx`, `VerifyEmailScreen.tsx`, `ConsentScreen.tsx`, `apps/member/src/app/RootNavigator.tsx`
+- Test: `apps/member/src/features/auth/SignUpScreen.test.tsx`, `VerifyEmailScreen.test.tsx`, `session.test.ts`
 
 **Interfaces:**
 - Consumes: `theme` (Phase 0), `api` singleton, `sessionResponseSchema.consentRequired` (Task 3), `POST /auth/consent`.
-- Produces: `firebaseAuth.ts` — `sendOtp(phoneE164): Promise<{ confirm(code: string): Promise<void> }>`, `signInWithGoogle(): Promise<void>`, `currentIdToken(): Promise<string | null>`; `session.ts` — `bootstrap(): Promise<"ANONYMOUS" | "NEEDS_CONSENT" | "READY">` used by `RootNavigator` to pick the stack; SecureStore keys `firebase_id_token`, `last_active_at`. Task 9 hangs vehicle screens off the `READY` stack.
+- Produces: `firebaseAuth.ts` — `signUp(email, password): Promise<void>` (creates the account and sends the verification email), `signIn(email, password): Promise<void>`, `sendPasswordReset(email): Promise<void>` (FR-010), `reloadVerification(): Promise<boolean>`, `signInWithGoogle(): Promise<void>`, `currentIdToken(): Promise<string | null>`; `session.ts` — `bootstrap(): Promise<"ANONYMOUS" | "NEEDS_CONSENT" | "READY">` used by `RootNavigator` to pick the stack; SecureStore keys `firebase_id_token`, `last_active_at`. Task 9 hangs vehicle screens off the `READY` stack.
 
-**Key decision (confirm before starting):** `@react-native-firebase/auth` via Expo dev client (`expo prebuild`) — the Firebase JS SDK's phone auth requires a reCAPTCHA web flow that is hostile on RN. Fallback if prebuild is unacceptable: `expo-firebase-recaptcha`. On the iOS **simulator**, use Firebase console *test phone numbers* (e.g. `+63 917 000 0000` / code `123456`) — simulators receive no SMS and skip the APNs silent-push check.
+**Key decision (revised):** with phone auth dropped (Architecture §7.3a), the reCAPTCHA problem that forced `expo prebuild` disappears — **email/password works on the Firebase JS SDK inside Expo Go**, so a dev client is no longer required for auth alone. `@react-native-firebase/auth` via dev client remains an option if another native module forces prebuild later; decide on the basis of *those* modules, not this one. Verification emails land in a real inbox, so simulator/emulator testing needs no console test numbers — use a disposable address or the Firebase Auth emulator suite.
 
 - [ ] **Step 1: Install native Firebase and prebuild**
 
@@ -1450,47 +1474,70 @@ describe("classifySession", () => {
 });
 ```
 
-`src/features/auth/PhoneEntryScreen.test.tsx`:
+`src/features/auth/SignUpScreen.test.tsx`:
 ```tsx
 import { fireEvent, render } from "@testing-library/react-native";
-import { PhoneEntryScreen } from "./PhoneEntryScreen";
+import { SignUpScreen } from "./SignUpScreen";
 
-describe("PhoneEntryScreen", () => {
-  it("disables Continue until a valid PH mobile is entered", () => {
-    const { getByPlaceholderText, getByTestId } = render(<PhoneEntryScreen onSubmit={jest.fn()} onGoogle={jest.fn()} />);
+describe("SignUpScreen", () => {
+  it("disables Continue until email and password are both valid", () => {
+    const { getByPlaceholderText, getByTestId } = render(<SignUpScreen onSubmit={jest.fn()} onGoogle={jest.fn()} />);
     expect(getByTestId("continue").props.accessibilityState.disabled).toBe(true);
-    fireEvent.changeText(getByPlaceholderText("917 123 4567"), "9171234567");
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "gab@example.com");
+    expect(getByTestId("continue").props.accessibilityState.disabled).toBe(true); // password still empty
+    fireEvent.changeText(getByPlaceholderText("At least 8 characters"), "hunter2!");
     expect(getByTestId("continue").props.accessibilityState.disabled).toBe(false);
   });
-  it("submits E.164 format", () => {
+  it("rejects a malformed address without calling onSubmit", () => {
     const onSubmit = jest.fn();
-    const { getByPlaceholderText, getByTestId } = render(<PhoneEntryScreen onSubmit={onSubmit} onGoogle={jest.fn()} />);
-    fireEvent.changeText(getByPlaceholderText("917 123 4567"), "9171234567");
+    const { getByPlaceholderText, getByTestId } = render(<SignUpScreen onSubmit={onSubmit} onGoogle={jest.fn()} />);
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "gab@");
+    fireEvent.changeText(getByPlaceholderText("At least 8 characters"), "hunter2!");
     fireEvent.press(getByTestId("continue"));
-    expect(onSubmit).toHaveBeenCalledWith("+639171234567");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+  it("submits a normalised, lower-cased address", () => {
+    const onSubmit = jest.fn();
+    const { getByPlaceholderText, getByTestId } = render(<SignUpScreen onSubmit={onSubmit} onGoogle={jest.fn()} />);
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "  Gab@Example.COM ");
+    fireEvent.changeText(getByPlaceholderText("At least 8 characters"), "hunter2!");
+    fireEvent.press(getByTestId("continue"));
+    expect(onSubmit).toHaveBeenCalledWith("gab@example.com", "hunter2!");
   });
 });
 ```
 
-`src/features/auth/OtpScreen.test.tsx`:
+`src/features/auth/VerifyEmailScreen.test.tsx`:
 ```tsx
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { OtpScreen } from "./OtpScreen";
+import { VerifyEmailScreen } from "./VerifyEmailScreen";
 
-describe("OtpScreen", () => {
+describe("VerifyEmailScreen", () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
   it("resend is locked for 60 s then enabled", () => {
-    const { getByTestId } = render(<OtpScreen phone="+639171234567" onConfirm={jest.fn()} onResend={jest.fn()} />);
+    const { getByTestId } = render(<VerifyEmailScreen email="gab@example.com" onResend={jest.fn()} onRecheck={jest.fn()} />);
     expect(getByTestId("resend").props.accessibilityState.disabled).toBe(true);
     act(() => jest.advanceTimersByTime(60_000));
     expect(getByTestId("resend").props.accessibilityState.disabled).toBe(false);
   });
-  it("submits when 6 digits entered", () => {
-    const onConfirm = jest.fn();
-    const { getByTestId } = render(<OtpScreen phone="+639171234567" onConfirm={onConfirm} onResend={jest.fn()} />);
-    fireEvent.changeText(getByTestId("otp-input"), "123456");
-    expect(onConfirm).toHaveBeenCalledWith("123456");
+  it("caps resends at 3, then offers support (UC-001 alt 4a)", () => {
+    const onResend = jest.fn();
+    const { getByTestId, queryByTestId } = render(<VerifyEmailScreen email="gab@example.com" onResend={onResend} onRecheck={jest.fn()} />);
+    for (let i = 0; i < 3; i++) {
+      act(() => jest.advanceTimersByTime(60_000));
+      fireEvent.press(getByTestId("resend"));
+    }
+    act(() => jest.advanceTimersByTime(60_000));
+    expect(onResend).toHaveBeenCalledTimes(3);
+    expect(getByTestId("resend").props.accessibilityState.disabled).toBe(true);
+    expect(queryByTestId("contact-support")).not.toBeNull();
+  });
+  it("recheck polls verification state", () => {
+    const onRecheck = jest.fn();
+    const { getByTestId } = render(<VerifyEmailScreen email="gab@example.com" onResend={jest.fn()} onRecheck={onRecheck} />);
+    fireEvent.press(getByTestId("recheck"));
+    expect(onRecheck).toHaveBeenCalled();
   });
 });
 ```
@@ -1515,11 +1562,35 @@ async function persistToken() {
   }
 }
 
-export async function sendOtp(phoneE164: string) {
-  const confirmation = await auth().signInWithPhoneNumber(phoneE164);
-  return {
-    confirm: async (code: string) => { await confirmation.confirm(code); await persistToken(); },
-  };
+export async function signUp(email: string, password: string) {
+  const cred = await auth().createUserWithEmailAndPassword(email, password);
+  await cred.user.sendEmailVerification();
+  await persistToken();
+}
+
+export async function signIn(email: string, password: string) {
+  await auth().signInWithEmailAndPassword(email, password);
+  await persistToken();
+}
+
+export async function sendPasswordReset(email: string) {
+  await auth().sendPasswordResetEmail(email); // FR-010
+}
+
+export async function resendVerification() {
+  await auth().currentUser?.sendEmailVerification();
+}
+
+/** Returns true once Firebase reports the address verified. Forces a token
+ *  refresh so the API sees a fresh `email_verified` claim, not a cached one. */
+export async function reloadVerification(): Promise<boolean> {
+  const user = auth().currentUser;
+  if (!user) return false;
+  await user.reload();
+  if (!user.emailVerified) return false;
+  await user.getIdToken(true);
+  await persistToken();
+  return true;
 }
 
 export async function signInWithGoogle() {
@@ -1573,32 +1644,39 @@ export async function bootstrap(): Promise<BootState> {
 }
 ```
 
-`PhoneEntryScreen.tsx` (M-02) — presentational, logic injected so tests need no Firebase:
+`SignUpScreen.tsx` (M-02) — presentational, logic injected so tests need no Firebase:
 ```tsx
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { theme } from "../../theme";
 
-const PH_MOBILE = /^9\d{9}$/; // local part after +63
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD = 8;
 
-export function PhoneEntryScreen({ onSubmit, onGoogle }: { onSubmit: (e164: string) => void; onGoogle: () => void }) {
-  const [digits, setDigits] = useState("");
-  const valid = PH_MOBILE.test(digits);
+export function SignUpScreen({ onSubmit, onGoogle }:
+  { onSubmit: (email: string, password: string) => void; onGoogle: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const normalised = email.trim().toLowerCase();
+  const valid = EMAIL.test(normalised) && password.length >= MIN_PASSWORD;
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.chassis, padding: theme.spacing.lg, justifyContent: "center" }}>
-      <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Your mobile number</Text>
+      <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Create your account</Text>
       <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginBottom: theme.spacing.md }]}>
-        We'll text a 6-digit code to verify it's you.
+        We'll email you a link to confirm it's you.
       </Text>
-      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: theme.colors.surface,
-                     borderRadius: theme.radii.sm, borderWidth: 1, borderColor: theme.colors.line }}>
-        <Text style={[theme.text("body"), { paddingHorizontal: theme.spacing.sm, color: theme.colors.ink }]}>+63</Text>
-        <TextInput placeholder="917 123 4567" keyboardType="number-pad" maxLength={10}
-          value={digits} onChangeText={(t) => setDigits(t.replace(/\D/g, ""))}
-          style={[theme.text("body"), { flex: 1, height: theme.minTarget }]} testID="phone-input" />
-      </View>
+      <TextInput placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none"
+        autoComplete="email" textContentType="emailAddress" value={email} onChangeText={setEmail}
+        style={[theme.text("body"), { height: theme.minTarget, backgroundColor: theme.colors.surface,
+          borderRadius: theme.radii.sm, borderWidth: 1, borderColor: theme.colors.line,
+          paddingHorizontal: theme.spacing.sm }]} testID="email-input" />
+      <TextInput placeholder="At least 8 characters" secureTextEntry autoCapitalize="none"
+        autoComplete="new-password" textContentType="newPassword" value={password} onChangeText={setPassword}
+        style={[theme.text("body"), { height: theme.minTarget, backgroundColor: theme.colors.surface,
+          borderRadius: theme.radii.sm, borderWidth: 1, borderColor: theme.colors.line,
+          paddingHorizontal: theme.spacing.sm, marginTop: theme.spacing.sm }]} testID="password-input" />
       <Pressable testID="continue" disabled={!valid} accessibilityState={{ disabled: !valid }}
-        onPress={() => onSubmit(`+63${digits}`)}
+        onPress={() => { if (valid) onSubmit(normalised, password); }}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.md,
                  backgroundColor: valid ? theme.colors.primary : theme.colors.line,
                  alignItems: "center", justifyContent: "center" }}>
@@ -1613,53 +1691,64 @@ export function PhoneEntryScreen({ onSubmit, onGoogle }: { onSubmit: (e164: stri
 }
 ```
 
-`OtpScreen.tsx` (M-03):
+Note the `if (valid)` guard inside `onPress` as well as the `disabled` prop — RTL's `fireEvent.press` fires regardless of `disabled`, and the "rejects a malformed address" test depends on the guard.
+
+`SignInScreen.tsx` (M-02b) — the returning-member counterpart: same two fields with `autoComplete="current-password"`, a primary "Sign in" button wired to `signIn`, a "Forgot password?" link calling `sendPasswordReset(email)` (FR-010) that always shows the same "check your inbox" confirmation whether or not the address exists — never reveal account existence — and a link across to `SignUpScreen`.
+
+`VerifyEmailScreen.tsx` (M-03):
 ```tsx
 import { useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
 
-export function OtpScreen({ phone, onConfirm, onResend }:
-  { phone: string; onConfirm: (code: string) => void; onResend: () => void }) {
-  const [code, setCode] = useState("");
+const MAX_RESENDS = 3;
+
+export function VerifyEmailScreen({ email, onResend, onRecheck }:
+  { email: string; onResend: () => void; onRecheck: () => void }) {
   const [secondsLeft, setSecondsLeft] = useState(60);
+  const [resends, setResends] = useState(0);
   useEffect(() => {
     if (secondsLeft === 0) return;
     const t = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearInterval(t);
   }, [secondsLeft === 0]);
-  const handleChange = (t: string) => {
-    const digits = t.replace(/\D/g, "").slice(0, 6);
-    setCode(digits);
-    if (digits.length === 6) onConfirm(digits);
-  };
+  const exhausted = resends >= MAX_RESENDS;
+  const resendDisabled = secondsLeft > 0 || exhausted;
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.chassis, padding: theme.spacing.lg, justifyContent: "center" }}>
-      <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Enter the code</Text>
-      <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginBottom: theme.spacing.md }]}>Sent to {phone}</Text>
-      <TextInput testID="otp-input" keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp"
-        value={code} onChangeText={handleChange}
-        style={[theme.text("score"), { fontFamily: "IBMPlexMono_500Medium", fontSize: 32, letterSpacing: 8,
-          backgroundColor: theme.colors.surface, borderRadius: theme.radii.sm, height: theme.minTarget + 8,
-          textAlign: "center", borderWidth: 1, borderColor: theme.colors.line }]} />
-      <Pressable testID="resend" disabled={secondsLeft > 0} accessibilityState={{ disabled: secondsLeft > 0 }}
-        onPress={() => { onResend(); setSecondsLeft(60); }}
+      <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Check your inbox</Text>
+      <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginBottom: theme.spacing.md }]}>
+        We sent a confirmation link to {email}. Tap it, then come back here.
+      </Text>
+      <Pressable testID="recheck" onPress={onRecheck}
+        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, backgroundColor: theme.colors.primary,
+                 alignItems: "center", justifyContent: "center" }}>
+        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>I've confirmed it</Text>
+      </Pressable>
+      <Pressable testID="resend" disabled={resendDisabled} accessibilityState={{ disabled: resendDisabled }}
+        onPress={() => { if (resendDisabled) return; onResend(); setResends((n) => n + 1); setSecondsLeft(60); }}
         style={{ height: theme.minTarget, alignItems: "center", justifyContent: "center", marginTop: theme.spacing.sm }}>
-        <Text style={[theme.text("body"), { color: secondsLeft > 0 ? theme.colors.inkMuted : theme.colors.primary }]}>
-          {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}
+        <Text style={[theme.text("body"), { color: resendDisabled ? theme.colors.inkMuted : theme.colors.primary }]}>
+          {exhausted ? "Resend limit reached" : secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend email"}
         </Text>
       </Pressable>
+      {exhausted && (
+        <Text testID="contact-support" style={[theme.text("caption"), { color: theme.colors.inkMuted, textAlign: "center", marginTop: theme.spacing.sm }]}>
+          Still nothing? Check spam, or contact support.
+        </Text>
+      )}
     </View>
   );
 }
 ```
-`textContentType="oneTimeCode"` gives iOS keyboard OTP auto-fill (the "auto-read where possible").
 
-`OnboardingScreen.tsx` (M-01): horizontal `FlatList` with `pagingEnabled`, 3 cards — ("Your car, always cared for", "Scheduled maintenance, pickup & delivery, roadside help — one subscription."), ("Know your car's health", "Every inspection produces a 0–100 Vehicle Health Score you can track and share."), ("Built for Zamboanga", "Local workshop, certified mechanics, service at your door.") — each card `bg-surface` rounded-md with display-type heading in `primaryDeep`; page dots; persistent "Get started" primary button (height `theme.minTarget`) that navigates to PhoneEntry.
+There is no deep-link handler to build: Firebase's verification link opens in the browser and marks the address verified server-side. The app finds out by polling — `onRecheck` calls `reloadVerification()`, which forces a token refresh so the API sees a fresh `email_verified` claim rather than a cached one.
+
+`OnboardingScreen.tsx` (M-01): horizontal `FlatList` with `pagingEnabled`, 3 cards — ("Your car, always cared for", "Scheduled maintenance, pickup & delivery, roadside help — one subscription."), ("Know your car's health", "Every inspection produces a 0–100 Vehicle Health Score you can track and share."), ("Built for Zamboanga", "Local workshop, certified mechanics, service at your door.") — each card `bg-surface` rounded-md with display-type heading in `primaryDeep`; page dots; persistent "Get started" primary button (height `theme.minTarget`) that navigates to SignUp.
 
 `ConsentScreen.tsx` (M-04): `ScrollView` of the privacy policy text (bundle `src/features/auth/privacy-policy.md` as a TS string constant `PRIVACY_POLICY` with the anonymize-not-delete clause stated plainly per Data Model §8.6); version label `Policy version {POLICY_VERSION}` in mono type from `process.env.EXPO_PUBLIC_POLICY_VERSION` (must match the API's `POLICY_VERSION`); "I agree" primary button pinned below, which calls `api.post("/auth/consent", { policyVersion })`, then `onConsented()`.
 
-`RootNavigator.tsx`: on mount run `bootstrap()`; while pending show splash (chassis background, "AutoCare+" display type). `ANONYMOUS` → stack [Onboarding, PhoneEntry, Otp, Consent]; `NEEDS_CONSENT` → [Consent]; `READY` → Home stack (Task 9). Container screens wire the presentational screens to `sendOtp`/`confirm`/`signInWithGoogle`; after Firebase sign-in succeeds call `api.createSession()` and route by `consentRequired`. `App.tsx` renders `RootNavigator`.
+`RootNavigator.tsx`: on mount run `bootstrap()`; while pending show splash (chassis background, "AutoCare+" display type). `ANONYMOUS` → stack [Onboarding, SignUp, SignIn, VerifyEmail, Consent]; `NEEDS_CONSENT` → [Consent]; `READY` → Home stack (Task 9). Container screens wire the presentational screens to `signUp`/`signIn`/`resendVerification`/`reloadVerification`/`signInWithGoogle`; after Firebase sign-in succeeds call `api.createSession()`, then route: unverified email → VerifyEmail, else by `consentRequired`. Google sign-in arrives pre-verified and skips VerifyEmail entirely. `App.tsx` renders `RootNavigator`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1667,13 +1756,13 @@ Run: `pnpm --filter member test` → all PASS (Phase 0 theme tests included). Mo
 
 - [ ] **Step 5: Manual e2e on iOS simulator**
 
-With the local API running (`docker compose up -d`, `pnpm --filter api start:dev`) and a Firebase **test phone number** configured: `pnpm --filter member exec expo run:ios`. Walk: onboarding → phone `+639170000000` → code `123456` → consent scroll + agree → (lands on Task 9's home once built; for now expect the READY placeholder). Then force-quit and relaunch → splash goes straight past login (token persisted). Also verify Google sign-in with a real Google account. Record both in the PR.
+With the local API running (`docker compose up -d`, `pnpm --filter api start:dev`) and a disposable inbox to hand: `pnpm --filter member exec expo start`. Walk: onboarding → sign up with that address → open the verification email and tap the link → back in the app tap "I've confirmed it" → consent scroll + agree → (lands on Task 9's home once built; for now expect the READY placeholder). Then force-quit and relaunch → splash goes straight past login (token persisted). Also verify: Google sign-in with a real Google account skips the verify step; "Forgot password?" delivers a reset email and the new password works. Record each in the PR.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add apps/member
-git commit -m "feat(member): phone OTP + Google sign-in, DPA consent flow, session bootstrap (M-01..M-04)"
+git commit -m "feat(member): email/password + Google sign-in, email verification, DPA consent flow, session bootstrap (M-01..M-04)"
 ```
 
 ---
@@ -1798,7 +1887,7 @@ Run: `pnpm --filter member test` → PASS.
 
 - [ ] **Step 4: Manual e2e — the phase's exit criterion**
 
-Fresh simulator install → onboarding → OTP (test number) → consent → AddVehicle (`ABA 1234`, try `1234ABC` first to see the inline error) → photos from the simulator library → Home shows the vehicle → detail → odometer update → regression path shows justification prompt. Record a screen recording for the PR.
+Fresh simulator install → onboarding → sign up + email verification → consent → AddVehicle (`ABA 1234`, try `1234ABC` first to see the inline error) → photos from the simulator library → Home shows the vehicle → detail → odometer update → regression path shows justification prompt. Record a screen recording for the PR.
 
 - [ ] **Step 5: Commit**
 
@@ -2195,13 +2284,13 @@ git commit -m "feat: auth throttling (5/min) + biometric unlock and 30-day expir
 - Google sign-in works on iOS; staff login works on web with role-gated routing (Playwright green) and in the field app.
 - CASL matrix and consent guard covered by unit/e2e tests; `pnpm turbo run typecheck lint test` green locally and in CI.
 - FR-001→FR-015 traceable to passing tests — update the RTM notes; mark FR-008/FR-009 as "data + authz layer (Phase 1), fleet UX Phase 7".
-- Risks R-01 (re-verified with phone OTP + Google) and R-12 (web session) recorded as closed in PR descriptions.
+- Risks R-01 (re-verified with email/password + Google) and R-12 (web session) recorded as closed in PR descriptions.
 
 ## Requirements traceability
 
 | FR | Where proven |
 |---|---|
-| FR-001, FR-002, FR-010 | Task 8 (Firebase OTP + Google; manual e2e Step 5) |
+| FR-001, FR-002, FR-010 | Task 8 (Firebase email/password + Google; verification + reset emails; manual e2e Step 5) |
 | FR-003, FR-004 | Task 6 e2e create; Task 9 AddVehicle |
 | FR-005 | Task 2 plate tests; Task 6 duplicate-409 e2e |
 | FR-006 | Task 7 signed-url tests; Task 9 photos flow |
