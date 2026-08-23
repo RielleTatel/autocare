@@ -17,6 +17,10 @@ describe("contracts", () => {
     expect(errorCodes).toContain("ODOMETER_REGRESSION");
     expect(errorCodes).toContain("NO_OPEN_SHIFT");
     expect(errorCodes).toContain("INVOICE_ALREADY_PAID");
-    expect(errorCodes.length).toBe(32);
+    // Phase 4 additions:
+    expect(errorCodes).toContain("CHECKLIST_IMMUTABLE");
+    expect(errorCodes).toContain("CHECKLIST_INVALID");
+    expect(errorCodes).toContain("CERTIFICATE_NOT_FOUND");
+    expect(errorCodes.length).toBe(36);
   });
 });
