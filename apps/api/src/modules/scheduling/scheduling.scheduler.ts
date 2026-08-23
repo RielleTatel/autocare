@@ -19,6 +19,10 @@ export class SchedulingScheduler implements OnModuleInit {
       { pattern: "0 5 * * *", tz: MANILA_TZ },
       { name: "flagNoShows" },
     );
-    // reminders.serviceDue (08:00) is registered in Task 5 alongside RemindersService.
+    await this.queue.upsertJobScheduler(
+      "reminders.serviceDue",
+      { pattern: "0 8 * * *", tz: MANILA_TZ },
+      { name: "serviceDue" },
+    );
   }
 }

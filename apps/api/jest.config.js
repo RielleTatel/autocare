@@ -9,4 +9,7 @@ module.exports = {
     "^@autocare/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
   },
   testEnvironment: "node",
+  // The dev/test database is hosted Supabase (remote): per-query network latency makes multi-step
+  // real-DB e2e flows exceed jest's 5s default. 30s gives headroom without masking real hangs.
+  testTimeout: 30_000,
 };

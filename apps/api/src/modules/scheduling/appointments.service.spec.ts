@@ -10,9 +10,6 @@ import { AbilityUser } from "../../common/policies/ability.factory";
  * Real DB (shared test Postgres via apps/api/.env), fake clock, stubbed HoldsService — the 24h
  * reschedule/cancel rules and no-show flagging are time-driven and don't need live Redis.
  */
-// Remote Supabase latency + several sequential writes per test exceed the default 5s budget.
-jest.setTimeout(30000);
-
 describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
   const TAG = `apptsvc-${randomUUID().slice(0, 8)}`;
   const NOW = new Date("2027-05-01T02:00:00.000Z");

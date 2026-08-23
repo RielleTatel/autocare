@@ -6,10 +6,6 @@ import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
 import { RedisService } from "../src/common/redis/redis.service";
 
-// Remote Supabase adds network latency per query; these HTTP flows chain several round-trips, so
-// the default 5s per-test budget is too tight (CI runs against local Docker where it's fine).
-jest.setTimeout(30000);
-
 const TAG = `appt-${randomUUID().slice(0, 8)}`;
 const POLICY = "2026-08-privacy-v1";
 const DATE = "2027-03-01"; // far-future dateOverride, distinct from other suites
