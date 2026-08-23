@@ -5,6 +5,7 @@ module.exports = {
     "^@autocare/design-tokens$": "<rootDir>/../../packages/design-tokens/src/index.ts",
     "^@autocare/api-client$": "<rootDir>/../../packages/api-client/src/index.ts",
     "^@autocare/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
+    "^@autocare/scoring$": "<rootDir>/../../packages/scoring/src/index.ts",
   },
   // pnpm stores deps under node_modules/.pnpm/<name>@<ver>; transform any RN/Expo
   // package (which ship untranspiled ESM) wherever it appears in that store.

@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS photos_pending (
   state TEXT NOT NULL DEFAULT 'PENDING'
 );
 CREATE INDEX IF NOT EXISTS idx_photos_owner ON photos_pending(owner_client_uuid, state);
+CREATE TABLE IF NOT EXISTS kv (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

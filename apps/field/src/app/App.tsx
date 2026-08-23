@@ -8,6 +8,9 @@ import { StaffLoginScreen } from "../features/auth/StaffLoginScreen";
 import { StaffHomeScreen } from "../features/home/StaffHomeScreen";
 import { signInStaff } from "../features/auth/staffAuth";
 import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSession";
+import { InspectionFlow } from "../features/inspection/InspectionFlow";
+import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
+import { startSyncListener } from "../shared/sync";
 
 const Stack = createNativeStackNavigator();
 
@@ -42,6 +45,7 @@ export default function App() {
 
   useEffect(() => {
     bootstrapStaff().then(setBoot);
+    startSyncListener();
   }, []);
 
   return (
@@ -52,7 +56,20 @@ export default function App() {
       ) : boot.state === "READY" ? (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Home">
-            {() => <StaffHomeScreen name={boot.name} role={boot.role} />}
+            {({ navigation }) => (
+              <StaffHomeScreen
+                name={boot.name}
+                role={boot.role}
+                onStartInspection={() => navigation.navigate("Inspection")}
+                onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Inspection">
+            {({ navigation }) => <InspectionFlow onDone={() => navigation.navigate("Home")} />}
+          </Stack.Screen>
+          <Stack.Screen name="SyncQueue">
+            {() => <SyncQueueScreen />}
           </Stack.Screen>
         </Stack.Navigator>
       ) : (
