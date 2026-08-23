@@ -1,0 +1,15 @@
+{
+  "name": "@autocare/scoring",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": { "build": "tsc -p tsconfig.build.json", "test": "vitest run", "typecheck": "tsc --noEmit" },
+  "devDependencies": {
+    "@autocare/config": "workspace:*",
+    "@autocare/design-tokens": "workspace:*",
+    "@vitest/coverage-v8": "^2.0.0",
+    "vitest": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}
