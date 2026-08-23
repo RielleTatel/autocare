@@ -23,6 +23,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ci-stub-service-role-key
       SUPABASE_STORAGE_BUCKET: autocare
       POLICY_VERSION: 2026-08-privacy-v1
+      SESSION_SECRET: ci-stub-session-secret-32-characters-min
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
