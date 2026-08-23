@@ -19,6 +19,9 @@ import { BullModule } from "@nestjs/bullmq";
     // "scheduling" backs Phase 3 jobs (SchedulingScheduler): scheduling.flagNoShows (nightly) and
     // reminders.serviceDue (daily 08:00). Logic lives in AppointmentsService / RemindersService.
     BullModule.registerQueue({ name: "scheduling" }),
+    // "inspections" backs Phase 4's scores.markStale daily flip (BR-05) and Task 9's
+    // certificates.generatePdf. Logic lives in modules/inspections + modules/certificates.
+    BullModule.registerQueue({ name: "inspections" }),
   ],
   exports: [BullModule],
 })

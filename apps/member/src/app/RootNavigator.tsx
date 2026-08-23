@@ -34,9 +34,14 @@ import { InvoiceDetailScreen } from "../features/subscription/InvoiceDetailScree
 import { makeBookingApi } from "../features/booking/bookingApi";
 import { BookingContainer } from "../features/booking/BookingContainer";
 import { BookingsListScreen } from "../features/booking/BookingsListScreen";
+import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint } from "../features/health-score/healthScoreApi";
+import { HealthScoreScreen } from "../features/health-score/HealthScoreScreen";
+import { CategoryBreakdownScreen } from "../features/health-score/CategoryBreakdownScreen";
+import { ScoreHistoryScreen } from "../features/health-score/ScoreHistoryScreen";
 
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
+const healthScoreApi = makeHealthScoreApi(api);
 
 const Stack = createNativeStackNavigator();
 
@@ -327,8 +332,55 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
         if (manageable) navigation.navigate("SubscriptionDashboard", { subscriptionId: manageable.id });
         else navigation.navigate("PlanSelection", { vehicleId: vehicle.id });
       }}
+      onViewHealthScore={() => navigation.navigate("HealthScore", { vehicleId: vehicle.id })}
     />
   );
+}
+
+function HealthScoreContainer({ navigation, route }: any) {
+  const { vehicleId } = route.params;
+  const [score, setScore] = useState<HealthScore | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    healthScoreApi.getScore(vehicleId).then(setScore).catch((e) => setError(e instanceof Error ? e.message : "No score yet"));
+  }, [vehicleId]);
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", padding: theme.spacing.lg }}>
+        <Text style={[theme.text("body"), { color: theme.colors.inkMuted, textAlign: "center" }]}>{error}</Text>
+      </View>
+    );
+  }
+  if (!score) return <Splash />;
+  return (
+    <HealthScoreScreen
+      score={score}
+      onOpenBreakdown={() => navigation.navigate("CategoryBreakdown", { vehicleId })}
+      onOpenHistory={() => navigation.navigate("ScoreHistory", { vehicleId })}
+      onShare={() => navigation.navigate("ShareCertificate", { vehicleId, healthScoreId: score.id })}
+    />
+  );
+}
+
+function CategoryBreakdownContainer({ route }: any) {
+  const { vehicleId } = route.params;
+  const [score, setScore] = useState<HealthScore | null>(null);
+  useEffect(() => {
+    healthScoreApi.getScore(vehicleId).then(setScore).catch(() => undefined);
+  }, [vehicleId]);
+  if (!score) return <Splash />;
+  return <CategoryBreakdownScreen score={score} />;
+}
+
+function ScoreHistoryContainer({ route }: any) {
+  const { vehicleId } = route.params;
+  const [history, setHistory] = useState<HealthScoreHistoryPoint[]>([]);
+  useEffect(() => {
+    healthScoreApi.getHistory(vehicleId).then(setHistory).catch(() => undefined);
+  }, [vehicleId]);
+  return <ScoreHistoryScreen history={history} />;
 }
 
 function PlanSelectionContainer({ navigation, route }: any) {
@@ -504,6 +556,9 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="InvoiceDetail" component={InvoiceDetailContainer} />
       <Stack.Screen name="Booking" component={BookingFlowContainer} />
       <Stack.Screen name="Bookings" component={BookingsContainer} />
+      <Stack.Screen name="HealthScore" component={HealthScoreContainer} />
+      <Stack.Screen name="CategoryBreakdown" component={CategoryBreakdownContainer} />
+      <Stack.Screen name="ScoreHistory" component={ScoreHistoryContainer} />
     </Stack.Navigator>
   );
 }

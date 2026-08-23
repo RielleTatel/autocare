@@ -14,13 +14,14 @@ function SpecRow({ label, value, mono }: { label: string; value: string; mono?: 
   );
 }
 
-export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onArchived, onBack, onManageSubscription }: {
+export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onArchived, onBack, onManageSubscription, onViewHealthScore }: {
   vehicle: Vehicle;
   onUpdateOdometer: (km: number, justification?: string) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
   onArchived: () => void;
   onBack?: () => void;
   onManageSubscription?: () => void;
+  onViewHealthScore?: () => void;
 }) {
   const [editingOdo, setEditingOdo] = useState(false);
   const [odoValue, setOdoValue] = useState(String(vehicle.currentOdometerKm));
@@ -155,13 +156,22 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
           </Text>
         ) : null}
 
-        <View style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, padding: theme.spacing.md,
-          marginTop: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.line }}>
-          <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Health Score</Text>
-          <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginTop: theme.spacing.xs }]}>
-            Coming with your first inspection
-          </Text>
-        </View>
+        {onViewHealthScore ? (
+          <Pressable testID="view-health-score" onPress={onViewHealthScore}
+            style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, padding: theme.spacing.md,
+              marginTop: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.line, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Health Score</Text>
+            <Text style={[theme.text("h2"), { color: theme.colors.primary }]}>View →</Text>
+          </Pressable>
+        ) : (
+          <View style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, padding: theme.spacing.md,
+            marginTop: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.line }}>
+            <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Health Score</Text>
+            <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginTop: theme.spacing.xs }]}>
+              Coming with your first inspection
+            </Text>
+          </View>
+        )}
 
         {onManageSubscription ? (
           <Pressable testID="manage-subscription" onPress={onManageSubscription}

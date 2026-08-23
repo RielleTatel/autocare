@@ -5,6 +5,7 @@ module.exports = {
     "^@autocare/design-tokens$": "<rootDir>/../../packages/design-tokens/src/index.ts",
     "^@autocare/api-client$": "<rootDir>/../../packages/api-client/src/index.ts",
     "^@autocare/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
+    "^@autocare/scoring$": "<rootDir>/../../packages/scoring/src/index.ts",
     // Never load real @react-native-firebase/* or google-signin native modules
     // in unit tests — anything importing "./firebaseAuth" gets the manual mock.
     "^\\./firebaseAuth$": "<rootDir>/src/features/auth/__mocks__/firebaseAuth.ts",

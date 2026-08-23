@@ -8,9 +8,17 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "plugins": [
+      "expo-secure-store",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
-      ["expo-build-properties", { "ios": { "useFrameworks": "static" } }],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
       "@react-native-google-signin/google-signin"
     ],
     "ios": {
@@ -31,6 +39,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "92ff90f3-aa78-469b-a7b1-eea5eef23646"
+      }
     }
   }
 }
