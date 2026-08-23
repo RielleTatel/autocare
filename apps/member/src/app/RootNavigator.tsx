@@ -34,7 +34,7 @@ import { InvoiceDetailScreen } from "../features/subscription/InvoiceDetailScree
 import { makeBookingApi } from "../features/booking/bookingApi";
 import { BookingContainer } from "../features/booking/BookingContainer";
 import { BookingsListScreen } from "../features/booking/BookingsListScreen";
-import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint } from "../features/health-score/healthScoreApi";
+import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint, type InspectionResultDetail } from "../features/health-score/healthScoreApi";
 import { HealthScoreScreen } from "../features/health-score/HealthScoreScreen";
 import { CategoryBreakdownScreen } from "../features/health-score/CategoryBreakdownScreen";
 import { ScoreHistoryScreen } from "../features/health-score/ScoreHistoryScreen";
@@ -368,11 +368,16 @@ function HealthScoreContainer({ navigation, route }: any) {
 function CategoryBreakdownContainer({ route }: any) {
   const { vehicleId } = route.params;
   const [score, setScore] = useState<HealthScore | null>(null);
+  const [results, setResults] = useState<InspectionResultDetail[]>([]);
   useEffect(() => {
-    healthScoreApi.getScore(vehicleId).then(setScore).catch(() => undefined);
+    healthScoreApi.getScore(vehicleId).then(async (s) => {
+      setScore(s);
+      const detail = await healthScoreApi.getInspection(vehicleId, s.inspectionId).catch(() => null);
+      if (detail) setResults(detail.results);
+    }).catch(() => undefined);
   }, [vehicleId]);
   if (!score) return <Splash />;
-  return <CategoryBreakdownScreen score={score} />;
+  return <CategoryBreakdownScreen score={score} results={results} />;
 }
 
 function ScoreHistoryContainer({ route }: any) {

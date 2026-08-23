@@ -80,7 +80,7 @@ export class InspectionsService {
     await this.assertCanReadVehicle(u, vehicleId);
     const inspection = await this.prisma.inspection.findFirst({
       where: { id: inspectionId, vehicleId },
-      include: { results: { include: { point: true } } },
+      include: { results: { include: { point: { include: { category: true } } } } },
     });
     if (!inspection) throw new DomainError("INSPECTION_INCOMPLETE", "inspection not found", 404);
     return {
@@ -92,6 +92,7 @@ export class InspectionsService {
         label: r.point.label,
         labelFil: r.point.labelFil,
         categoryId: r.point.categoryId,
+        categoryCode: r.point.category.code,
         status: r.status,
         measuredValue: r.measuredValue,
         unit: r.point.unit,

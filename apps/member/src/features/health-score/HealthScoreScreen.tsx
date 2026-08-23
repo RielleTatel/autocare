@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { ScoreGauge } from "./ScoreGauge";
+import { StarRating } from "./StarRating";
 import type { HealthScore } from "./healthScoreApi";
 
 const OVERRIDE_COPY: Record<string, string> = {
@@ -33,8 +34,10 @@ export function HealthScoreScreen({
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.lg }}>
-      <View style={{ alignItems: "center", paddingTop: t.spacing.md }}>
+      <View style={{ alignItems: "center", paddingTop: t.spacing.md, gap: t.spacing.xs }}>
         <ScoreGauge score={score.score} band={score.band} confidence={score.confidence} isStale={score.isStale} daysSinceInspection={daysAgo} />
+        {/* Stars are a display transform beside the numeral, never replacing it (§11.5). */}
+        <StarRating score={score.score} band={score.band} size={26} />
       </View>
 
       {score.overrideApplied !== "NONE" && (

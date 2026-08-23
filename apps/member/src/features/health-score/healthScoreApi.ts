@@ -54,6 +54,7 @@ export type InspectionResultDetail = {
   label: string;
   labelFil: string | null;
   categoryId: string;
+  categoryCode: string;
   status: PointStatus | null;
   measuredValue: number | null;
   unit: string | null;
