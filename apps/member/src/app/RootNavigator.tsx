@@ -79,6 +79,25 @@ function OnboardingContainer({ navigation }: any) {
   return <OnboardingScreen onGetStarted={() => navigation.navigate("EmailAuth")} />;
 }
 
+/** Maps Firebase Auth error codes to friendly, user-facing copy. Falls back to
+ * a generic message for anything unmapped. */
+function registerErrorMessage(e: any): string {
+  switch (e?.code) {
+    case "auth/email-already-in-use":
+      return "That email is already registered. Try signing in instead.";
+    case "auth/invalid-email":
+      return "That doesn't look like a valid email address.";
+    case "auth/weak-password":
+      return "Please choose a stronger password (at least 6 characters).";
+    case "auth/network-request-failed":
+      return "Cannot reach the server. Check your connection and try again.";
+    case "auth/operation-not-allowed":
+      return "Email sign-up is currently unavailable. Please try again later.";
+    default:
+      return "Couldn't create your account. Please try again.";
+  }
+}
+
 function EmailAuthContainer({ navigation, setBootState }: any) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -102,8 +121,8 @@ function EmailAuthContainer({ navigation, setBootState }: any) {
         try {
           await registerWithEmail(email, password);
           await afterSignIn(navigation, setBootState);
-        } catch {
-          setError("Couldn't create your account. Try a different email.");
+        } catch (e: any) {
+          setError(registerErrorMessage(e));
         }
       }}
       onGoogle={async () => {
@@ -643,15 +662,10 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
   if (vehicles === null) return <Splash />;
 
   return (
+    <ReadyContext.Provider value={{ vehicles, refreshVehicles, firstName, setBootState }}>
     <Stack.Navigator screenOptions={{ headerShown: false }}
       initialRouteName={vehicles.length === 0 ? "AddVehicle" : "HomeTabsScreen"}>
-      <Stack.Screen name="HomeTabsScreen">
-        {() => (
-          <ReadyContext.Provider value={{ vehicles, refreshVehicles, firstName, setBootState }}>
-            <HomeTabsContainer />
-          </ReadyContext.Provider>
-        )}
-      </Stack.Screen>
+      <Stack.Screen name="HomeTabsScreen" component={HomeTabsContainer} />
       <Stack.Screen name="AddVehicle">
         {(props) => <AddVehicleContainer {...props} refreshVehicles={refreshVehicles} />}
       </Stack.Screen>
@@ -680,6 +694,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="ServiceHistory2" component={ServiceHistoryContainer} />
       <Stack.Screen name="Attention" component={AttentionContainer} />
     </Stack.Navigator>
+    </ReadyContext.Provider>
   );
 }
 
