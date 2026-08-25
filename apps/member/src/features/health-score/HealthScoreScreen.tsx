@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { ScoreGauge } from "./ScoreGauge";
 import { StarRating } from "./StarRating";
+import { Card } from "../../components/Card";
 import type { HealthScore } from "./healthScoreApi";
 
 const OVERRIDE_COPY: Record<string, string> = {
@@ -45,10 +46,11 @@ export function HealthScoreScreen({
           accessibilityRole="button"
           accessibilityLabel="Why this score"
           onPress={() => setWhyOpen((v) => !v)}
-          style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md }}
         >
-          <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Why this score? {whyOpen ? "▲" : "▼"}</Text>
-          {whyOpen && <Text style={{ ...t.text("body"), color: t.colors.inkMuted, marginTop: t.spacing.xs }}>{OVERRIDE_COPY[score.overrideApplied]}</Text>}
+          <Card>
+            <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Why this score? {whyOpen ? "▲" : "▼"}</Text>
+            {whyOpen && <Text style={{ ...t.text("body"), color: t.colors.inkMuted, marginTop: t.spacing.xs }}>{OVERRIDE_COPY[score.overrideApplied]}</Text>}
+          </Card>
         </Pressable>
       )}
 
@@ -60,7 +62,7 @@ export function HealthScoreScreen({
         {score.topDetractors.map((d) => {
           const rec = score.recommendations.find((r) => r.pointCode === d.pointCode);
           return (
-            <View key={d.pointCode} style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md, flexDirection: "row", gap: t.spacing.sm }}>
+            <Card key={d.pointCode} accent={severityColor(d.status)} style={{ flexDirection: "row", gap: t.spacing.sm }}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.xs }}>
                   <Text style={{ ...t.text("h2"), color: t.colors.ink }}>{d.label}</Text>
@@ -70,7 +72,7 @@ export function HealthScoreScreen({
                 </View>
                 <Text style={{ ...t.text("body"), color: t.colors.inkMuted, marginTop: t.spacing.xs }}>{rec?.recommendation ?? d.recommendation}</Text>
               </View>
-            </View>
+            </Card>
           );
         })}
       </View>
