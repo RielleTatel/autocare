@@ -1,0 +1,74 @@
+/* Base palette — verbatim from packages/design-tokens/src/tokens.ts.
+   "Workshop precision": cool steel neutrals, one confident blue.
+   Band fills are PROTECTED tokens (see readme) — product data, never decoration. */
+:root {
+  /* neutrals + brand */
+  --ac-ink: #16232E;
+  --ac-ink-muted: #51616F;
+  --ac-chassis: #EEF1F3;
+  --ac-surface: #FFFFFF;
+  --ac-line: #D5DBE0;
+  --ac-primary: #0E5AA7;
+  --ac-primary-deep: #0A2E4F;
+  --ac-on-primary: #FFFFFF;
+  --ac-danger: #C2372C;
+  --ac-success: #177245;
+  --ac-code-bg: #E4E9EC;
+
+  /* masthead / deep-chrome support tints (docs/design-system.html masthead) */
+  --ac-on-deep-body: #B9CCDD;
+  --ac-on-deep-meta: #7E9BB4;
+
+  /* VHS score bands — fill / on / text triplets per VHS Algorithm §11.5 */
+  --ac-band-excellent: #177245;
+  --ac-band-excellent-text: #0F5C37;
+  --ac-band-good: #5C9E31;
+  --ac-band-good-text: #3F7420;
+  --ac-band-fair: #B87E00;
+  --ac-band-fair-text: #8A5F00;
+  --ac-band-attention: #C75E1B;
+  --ac-band-attention-text: #9C4204;
+  --ac-band-critical: #B3261E;
+  --ac-band-critical-text: #8F1D17;
+  --ac-band-on: #FFFFFF;
+
+  /* attention severity aliases (features/attention/AttentionItem.tsx) */
+  --ac-sev-critical: var(--ac-band-critical);
+  --ac-sev-attention: var(--ac-band-attention);
+  --ac-sev-monitor: var(--ac-band-fair);
+  --ac-sev-info: var(--ac-primary);
+
+  /* semantic aliases — prefer these in product code */
+  --text-primary: var(--ac-ink);
+  --text-muted: var(--ac-ink-muted);
+  --text-on-primary: var(--ac-on-primary);
+  --text-link: var(--ac-primary);
+  --text-danger: var(--ac-danger);
+  --surface-app: var(--ac-chassis);
+  --surface-card: var(--ac-surface);
+  --surface-sunken: var(--ac-chassis);
+  --surface-chrome: var(--ac-primary-deep);
+  --surface-code: var(--ac-code-bg);
+  --border-hairline: var(--ac-line);
+  --border-strong: var(--ac-ink);
+  --action-primary: var(--ac-primary);
+  --action-primary-hover: #0C4E90;
+  --action-primary-press: #093C70;
+  --action-destructive: var(--ac-danger);
+  --action-disabled-bg: var(--ac-line);
+  --action-disabled-fg: var(--ac-ink-muted);
+  --focus-ring: var(--ac-primary);
+}
+
+/* Dark theme — verbatim from docs/design-system.html. Band fills do NOT change
+   in dark mode; they are the same data on every surface, including print. */
+:root[data-theme="dark"] {
+  --ac-ink: #E4EAEF;
+  --ac-ink-muted: #9AAAB6;
+  --ac-chassis: #101820;
+  --ac-surface: #1A242E;
+  --ac-line: #2C3947;
+  --ac-primary: #4C95DB;
+  --ac-primary-deep: #0A2E4F;
+  --ac-code-bg: #232F3A;
+}

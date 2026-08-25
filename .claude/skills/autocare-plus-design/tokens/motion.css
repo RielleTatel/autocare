@@ -1,0 +1,18 @@
+/* Motion communicates state change, hierarchy and navigation — nothing else.
+   Sheets slide from the bottom edge. Bars and arcs grow from their origin.
+   Nothing bounces, nothing springs, nothing loops. */
+:root {
+  --ac-duration-instant: 90ms; /* @kind other */
+  --ac-duration-fast: 140ms; /* @kind other */
+  --ac-duration-base: 220ms; /* @kind other */
+  --ac-duration-sheet: 280ms; /* @kind other */
+  --ac-ease-standard: cubic-bezier(0.2, 0, 0.2, 1); /* @kind other */
+  --ac-ease-out: cubic-bezier(0, 0, 0.2, 1); /* @kind other */
+  --ac-press-opacity: 0.82; /* @kind other */
+
+  --motion-state: var(--ac-duration-fast) var(--ac-ease-standard);
+  --motion-enter: var(--ac-duration-sheet) var(--ac-ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --ac-duration-instant: 0ms; /* @kind other */ --ac-duration-fast: 0ms; /* @kind other */ --ac-duration-base: 0ms; /* @kind other */ --ac-duration-sheet: 0ms; /* @kind other */ }
+}
