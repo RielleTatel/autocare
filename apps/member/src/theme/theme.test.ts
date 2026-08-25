@@ -11,4 +11,10 @@ describe("member theme", () => {
   it("meets member tap target minimum", () => {
     expect(theme.minTarget).toBeGreaterThanOrEqual(48);
   });
+  it("exposes elevation, motion, borders, and pill radius", () => {
+    expect(theme.elevation.card).toContain("rgba");
+    expect(theme.motion.durFast).toBe("140ms");
+    expect(theme.borders.control).toBe(1.5);
+    expect(theme.radii.pill).toBe(999);
+  });
 });
