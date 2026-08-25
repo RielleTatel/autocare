@@ -41,6 +41,26 @@ export const typeScale = {
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
+
+/** Elevation is hairlines, not shadow. Shadow appears only on the web login
+ *  card and sheets/dialogs floating over a scrim. */
+export const elevation = {
+  flat: "none",
+  card: "0 1px 2px rgba(22, 35, 46, 0.04)",
+  raised: "0 1px 3px rgba(22, 35, 46, 0.08), 0 1px 2px rgba(22, 35, 46, 0.04)",
+  sheet: "0 -8px 24px rgba(22, 35, 46, 0.16)",
+  scrim: "rgba(22, 35, 46, 0.4)",
+} as const;
+
+/** Motion communicates state change, hierarchy and navigation — nothing else. */
+export const motion = {
+  durInstant: "90ms", durFast: "140ms", durBase: "220ms", durSheet: "280ms",
+  easeStandard: "cubic-bezier(0.2, 0, 0.2, 1)", easeOut: "cubic-bezier(0, 0, 0.2, 1)",
+  pressOpacity: 0.82,
+} as const;
+
+/** Stroke widths (px). hairline card border, 1.5 control outline, 4/5 status edges. */
+export const borders = { hairline: 1, control: 1.5, accent: 4, accentRow: 5, gaugeStroke: 18 } as const;
 export const radii = { sm: 6, md: 12, pill: 999 } as const;
 export const targets = { memberMinDp: 48, fieldMinDp: 56 } as const;
 
