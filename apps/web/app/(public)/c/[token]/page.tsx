@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { fetchPublicCertificate, bandInfo, type PublicCertificate } from "../../../../lib/certificates/public";
 import { RevokedNotice } from "./revoked";
+import { Card } from "../../../../components/Card";
+import { Plate } from "../../../../components/Plate";
 
 export const revalidate = 300;
 
@@ -59,8 +61,8 @@ function Certificate({ cert }: { cert: PublicCertificate }) {
   return (
     <main className="min-h-screen bg-chassis px-4 py-8">
       <div className="max-w-lg mx-auto flex flex-col gap-5">
-        <div className="bg-surface rounded-md border border-line overflow-hidden">
-          <div className="bg-[#0A2E4F] px-6 py-4 text-center">
+        <Card pad="none" className="overflow-hidden">
+          <div className="bg-primary-deep px-6 py-4 text-center">
             <h1 className="font-display text-white text-xl font-semibold">AutoCare+ Vehicle Health Certificate</h1>
           </div>
           <div className="flex flex-col items-center px-6 py-6 gap-1">
@@ -115,13 +117,13 @@ function Certificate({ cert }: { cert: PublicCertificate }) {
               </ul>
             </div>
           )}
-        </div>
+        </Card>
 
         <p className="text-ink-muted text-xs text-center px-4">
           This certificate reflects a point-in-time inspection and is valid for 90 days.
           Verify its authenticity at <span className="font-mono">/verify</span> using the code above.
         </p>
-        <div className="bg-[#0A2E4F] rounded-md py-3 text-center">
+        <div className="bg-primary-deep rounded-md py-3 text-center">
           <p className="text-white text-sm">Powered by AutoCare+ · autocare.example/verify</p>
         </div>
       </div>
@@ -133,7 +135,7 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
   return (
     <div className="flex flex-col">
       <span className="text-ink-muted text-xs">{label}</span>
-      <span className={`text-ink ${mono ? "font-mono" : ""}`}>{value}</span>
+      {mono ? <Plate variant="plain" className="text-sm">{value}</Plate> : <span className="text-ink">{value}</span>}
     </div>
   );
 }
