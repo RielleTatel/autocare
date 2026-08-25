@@ -19,6 +19,8 @@ export function toCssVars(): string {
     line("--ac-primary-deep", colors.primaryDeep), line("--ac-on-primary", colors.onPrimary),
     line("--ac-danger", colors.danger), line("--ac-success", colors.success),
     line("--ac-code-bg", "#E4E9EC"),
+    // masthead / deep-chrome support tints
+    line("--ac-on-deep-body", "#B9CCDD"), line("--ac-on-deep-meta", "#7E9BB4"),
     // band fill + text
     ...Object.entries(vhsBands).flatMap(([k, v]) => {
       const s = k.toLowerCase().replace("_", "-");
