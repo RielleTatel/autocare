@@ -345,6 +345,9 @@ function VehiclesTabContainer({ navigation }: any) {
   return (
     <VehiclesListScreen
       fetchVehicles={refreshVehicles}
+      fetchHealth={(vehicleId: string) =>
+        healthScoreApi.getScore(vehicleId).then((s) => ({ score: s.score, band: s.band })).catch(() => null)
+      }
       onSelectVehicle={(vehicle: Vehicle) => navigation.getParent()?.navigate("VehicleDetail", { vehicle })}
       onAddVehicle={() => navigation.getParent()?.navigate("AddVehicle")}
     />

@@ -5,14 +5,17 @@ import { EntitlementSummary } from "@autocare/contracts";
 import { formatCentavos } from "./formatCentavos";
 import { entitlementFraction, entitlementLabel, lockInDaysRemaining, statusMessage, SubscriptionStatus } from "./entitlements";
 import { SubscriptionWithPlan } from "./subscriptionApi";
+import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
+import { StatusPill } from "../../components/StatusPill";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
 }
 
-const STATUS_COLOR: Record<SubscriptionStatus, string> = {
-  ACTIVE: theme.colors.primary, GRACE: theme.colors.danger, PAST_DUE: theme.colors.danger,
-  SUSPENDED: theme.colors.danger, CANCELLED: theme.colors.inkMuted,
+type Tone = "neutral" | "info" | "success" | "warn" | "danger" | "solid" | "solidDeep";
+const STATUS_TONE: Record<SubscriptionStatus, Tone> = {
+  ACTIVE: "success", GRACE: "warn", PAST_DUE: "danger", SUSPENDED: "danger", CANCELLED: "neutral",
 };
 
 function EntitlementGauge({ e }: { e: EntitlementSummary }) {
@@ -48,10 +51,12 @@ export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCa
     try { await load(); } finally { setRefreshing(false); }
   };
 
+  const t = theme;
+
   if (!data) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>Loading your subscription…</Text>
+      <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center" }}>
+        <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Loading your subscription…</Text>
       </View>
     );
   }
@@ -61,50 +66,42 @@ export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCa
   const daysLeft = lockInDaysRemaining(subscription.lockInEndsAt);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.chassis }} contentContainerStyle={{ padding: theme.spacing.lg }}
+    <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>{subscription.plan.name}</Text>
+      <Text style={[t.text("h1"), { color: t.colors.ink }]}>Account</Text>
 
-      <View testID="status-banner" style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md,
-        padding: theme.spacing.md, marginTop: theme.spacing.sm, borderWidth: 1, borderColor: STATUS_COLOR[status] }}>
-        <Text style={[theme.text("label"), { color: STATUS_COLOR[status] }]}>{status}</Text>
-        <Text style={[theme.text("body"), { color: theme.colors.ink, marginTop: theme.spacing.xs }]}>{statusMessage(status)}</Text>
-      </View>
-
-      <View style={{ marginTop: theme.spacing.lg }}>
-        <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>Next billing date</Text>
-        <Text testID="next-billing" style={[theme.text("h2"), { color: theme.colors.ink }]}>{formatDate(subscription.currentPeriodEnd)}</Text>
-      </View>
-
-      {daysLeft > 0 ? (
-        <Text testID="lockin-countdown" style={[theme.text("label"), { color: theme.colors.inkMuted, marginTop: theme.spacing.sm }]}>
-          Locked in for {daysLeft} more day{daysLeft === 1 ? "" : "s"} (until {formatDate(subscription.lockInEndsAt)})
+      {/* Plan + status card */}
+      <Card testID="status-banner" pad="lg" style={{ gap: t.spacing.xs }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={[t.text("h2"), { color: t.colors.ink }]}>{subscription.plan.name}</Text>
+          <StatusPill tone={STATUS_TONE[status]}>{status}</StatusPill>
+        </View>
+        <Text style={[t.text("label"), { color: t.colors.inkMuted, textTransform: "uppercase", letterSpacing: 0.5, marginTop: t.spacing.xs }]}>
+          Next billing date
         </Text>
-      ) : (
-        <Text testID="lockin-countdown" style={[theme.text("label"), { color: theme.colors.inkMuted, marginTop: theme.spacing.sm }]}>
-          No active lock-in — you can cancel any time
+        <Text testID="next-billing" style={[t.text("body"), { color: t.colors.ink }]}>
+          {formatDate(subscription.currentPeriodEnd)} · {formatCentavos(subscription.plan.priceCentavos)}
         </Text>
-      )}
+        <Text testID="lockin-countdown" style={[t.text("label"), { color: t.colors.inkMuted }]}>
+          {daysLeft > 0
+            ? `Locked in for ${daysLeft} more day${daysLeft === 1 ? "" : "s"} · ends ${formatDate(subscription.lockInEndsAt)}`
+            : "No active lock-in — you can cancel any time"}
+        </Text>
+        <Text style={[t.text("label"), { color: t.colors.inkMuted, marginTop: t.spacing.xs }]}>{statusMessage(status)}</Text>
+      </Card>
 
-      <Text style={[theme.text("h2"), { color: theme.colors.ink, marginTop: theme.spacing.lg }]}>This cycle's entitlements</Text>
-      {entitlements.map((e) => <EntitlementGauge key={e.entitlementType} e={e} />)}
+      {/* This cycle's entitlements */}
+      <Card pad="lg">
+        <Text style={[t.text("h2"), { color: t.colors.ink }]}>This cycle's entitlements</Text>
+        {entitlements.map((e) => <EntitlementGauge key={e.entitlementType} e={e} />)}
+      </Card>
 
-      <Text style={[theme.text("label"), { color: theme.colors.inkMuted, marginTop: theme.spacing.md }]}>
-        {formatCentavos(subscription.plan.priceCentavos)} / {subscription.plan.billingInterval.toLowerCase()}
-      </Text>
-
-      <Pressable testID="manage-plan" onPress={onManagePlan}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-          backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Upgrade or downgrade</Text>
+      <Button block testID="manage-plan" onPress={onManagePlan}>Upgrade or downgrade</Button>
+      <Pressable testID="view-invoices" onPress={onViewInvoices} style={{ height: t.minTarget, justifyContent: "center", alignItems: "center" }}>
+        <Text style={[t.text("body"), { color: t.colors.primary }]}>View invoices</Text>
       </Pressable>
-      <Pressable testID="view-invoices" onPress={onViewInvoices}
-        style={{ height: theme.minTarget, justifyContent: "center", alignItems: "center", marginTop: theme.spacing.sm }}>
-        <Text style={[theme.text("body"), { color: theme.colors.primary }]}>View invoices</Text>
-      </Pressable>
-      <Pressable testID="cancel-subscription" onPress={onCancel}
-        style={{ height: theme.minTarget, justifyContent: "center", alignItems: "center", marginTop: theme.spacing.xs }}>
-        <Text style={[theme.text("body"), { color: theme.colors.danger }]}>Cancel subscription</Text>
+      <Pressable testID="cancel-subscription" onPress={onCancel} style={{ height: t.minTarget, justifyContent: "center", alignItems: "center" }}>
+        <Text style={[t.text("body"), { color: t.colors.danger }]}>Cancel subscription</Text>
       </Pressable>
     </ScrollView>
   );

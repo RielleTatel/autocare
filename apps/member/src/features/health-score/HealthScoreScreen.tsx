@@ -4,6 +4,7 @@ import { theme } from "../../theme";
 import { ScoreGauge } from "./ScoreGauge";
 import { StarRating } from "./StarRating";
 import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
 import type { HealthScore } from "./healthScoreApi";
 
 const OVERRIDE_COPY: Record<string, string> = {
@@ -35,11 +36,14 @@ export function HealthScoreScreen({
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.lg }}>
-      <View style={{ alignItems: "center", paddingTop: t.spacing.md, gap: t.spacing.xs }}>
+      <Card pad="lg" style={{ alignItems: "center", gap: t.spacing.sm }}>
         <ScoreGauge score={score.score} band={score.band} confidence={score.confidence} isStale={score.isStale} daysSinceInspection={daysAgo} />
         {/* Stars are a display transform beside the numeral, never replacing it (§11.5). */}
         <StarRating score={score.score} band={score.band} size={26} />
-      </View>
+        <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textAlign: "center" }}>
+          {daysAgo === 0 ? "Inspected today" : `Inspected ${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`}
+        </Text>
+      </Card>
 
       {score.overrideApplied !== "NONE" && (
         <Pressable
@@ -79,34 +83,22 @@ export function HealthScoreScreen({
 
       <View style={{ gap: t.spacing.sm }}>
         {onOpenBreakdown && (
-          <Pressable accessibilityRole="button" onPress={onOpenBreakdown} style={btn(t, "primary")}>
-            <Text style={{ ...t.text("h2"), color: t.colors.onPrimary }}>See category breakdown</Text>
-          </Pressable>
+          <Button block onPress={onOpenBreakdown}>See category breakdown</Button>
         )}
-        {onOpenHistory && (
-          <Pressable accessibilityRole="button" onPress={onOpenHistory} style={btn(t, "outline")}>
-            <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Score history</Text>
-          </Pressable>
-        )}
-        {onShare && (
-          <Pressable accessibilityRole="button" onPress={onShare} style={btn(t, "outline")}>
-            <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Share certificate</Text>
-          </Pressable>
-        )}
+        <View style={{ flexDirection: "row", gap: t.spacing.sm }}>
+          {onOpenHistory && (
+            <View style={{ flex: 1 }}>
+              <Button block variant="secondary" onPress={onOpenHistory}>History</Button>
+            </View>
+          )}
+          {onShare && (
+            <View style={{ flex: 1 }}>
+              <Button block variant="secondary" onPress={onShare}>Share</Button>
+            </View>
+          )}
+        </View>
       </View>
       <View style={{ height: t.spacing.xl }} />
     </ScrollView>
   );
-}
-
-function btn(t: typeof theme, kind: "primary" | "outline") {
-  return {
-    minHeight: t.minTarget,
-    borderRadius: t.radii.md,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    backgroundColor: kind === "primary" ? t.colors.primary : t.colors.surface,
-    borderWidth: kind === "outline" ? 1 : 0,
-    borderColor: t.colors.line,
-  };
 }

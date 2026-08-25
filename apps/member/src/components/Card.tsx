@@ -6,7 +6,7 @@ const PAD = { md: theme.spacing.md, lg: theme.spacing.lg, none: 0 } as const;
 
 /** Surface container — hairline border, radius 12, no shadow (elevation is line). */
 export function Card({
-  children, pad = "md", accent, interactive, onPress, style,
+  children, pad = "md", accent, interactive, onPress, style, testID,
 }: {
   children: ReactNode;
   pad?: "md" | "lg" | "none";
@@ -16,6 +16,7 @@ export function Card({
   interactive?: boolean;
   onPress?: () => void;
   style?: ViewStyle;
+  testID?: string;
 }) {
   const boxStyle: ViewStyle = {
     backgroundColor: theme.colors.surface,
@@ -29,6 +30,7 @@ export function Card({
   if (interactive || onPress) {
     return (
       <Pressable
+        testID={testID}
         onPress={onPress}
         style={({ pressed }) => [boxStyle, pressed ? { opacity: theme.motion.pressOpacity } : null]}
       >
@@ -36,5 +38,5 @@ export function Card({
       </Pressable>
     );
   }
-  return <View style={boxStyle}>{children}</View>;
+  return <View testID={testID} style={boxStyle}>{children}</View>;
 }
