@@ -9,6 +9,8 @@ describe("Card", () => {
   });
   it("draws a left accent edge when accent is set", () => {
     render(<Card accent="var(--ac-sev-critical)">Warn</Card>);
-    expect(screen.getByText("Warn")).toHaveStyle({ borderLeft: "5px solid var(--ac-sev-critical)" });
+    // jsdom's CSSOM drops border-left shorthands containing var(); assert the
+    // inline style React wrote instead.
+    expect(screen.getByText("Warn").getAttribute("style")).toContain("border-left: 5px solid var(--ac-sev-critical)");
   });
 });
