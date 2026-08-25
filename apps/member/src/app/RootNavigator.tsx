@@ -198,7 +198,10 @@ function resolveAttentionDeepLink(nav: any, item: AttentionItem): void {
 function HomeTabContainer({ navigation }: any) {
   const { vehicles, firstName } = useReady();
   const [attention, setAttention] = useState<AttentionItem[]>([]);
+  const [planLabel, setPlanLabel] = useState<string | undefined>(undefined);
+  const [health, setHealth] = useState<{ score: number; band: HealthScore["band"] } | null>(null);
   const parent = navigation.getParent();
+  const primary = vehicles[0] ?? null;
 
   const loadAttention = useCallback(() => {
     attentionApi.mine().then(setAttention).catch(() => undefined);
@@ -209,17 +212,40 @@ function HomeTabContainer({ navigation }: any) {
     return unsub;
   }, [navigation, loadAttention]);
 
+  // Subscription line under the greeting ("Care Plus · next billing 15 Sep 2026").
+  useEffect(() => {
+    subApi.listSubscriptions().then((subs) => {
+      const active = subs.find((s) => s.status === "ACTIVE") ?? subs[0];
+      if (!active) return;
+      const date = new Date(active.currentPeriodEnd).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      setPlanLabel(`${active.plan.name} · next billing ${date}`);
+    }).catch(() => undefined);
+  }, []);
+
+  // Band + stars + score on the vehicle card, if the primary vehicle is inspected.
+  useEffect(() => {
+    setHealth(null);
+    if (!primary) return;
+    healthScoreApi.getScore(primary.id)
+      .then((s) => setHealth({ score: s.score, band: s.band }))
+      .catch(() => undefined);
+  }, [primary?.id]);
+
   return (
     <HomeScreen
       firstName={firstName}
-      vehicle={vehicles[0] ?? null}
+      vehicle={primary}
+      planLabel={planLabel}
+      health={health}
       onAddVehicle={() => parent?.navigate("AddVehicle")}
       onUpdateOdometer={() =>
-        vehicles[0]
-          ? parent?.navigate("VehicleDetail", { vehicle: vehicles[0] })
+        primary
+          ? parent?.navigate("VehicleDetail", { vehicle: primary })
           : parent?.navigate("AddVehicle")
       }
-      onBookService={vehicles[0] ? () => parent?.navigate("Bookings") : undefined}
+      onBookService={primary ? () => parent?.navigate("Bookings") : undefined}
+      onOpenHealthScore={primary ? () => parent?.navigate("VehicleDetail", { vehicle: primary }) : undefined}
+      onRoadside={() => parent?.navigate("Bookings")}
       attentionSlot={
         <AttentionCard
           items={attention}
