@@ -1,25 +1,27 @@
 "use client";
 
 import type { BoardAppointment } from "../../../lib/scheduling/api";
+import { Card } from "../../../components/Card";
+import { StatusPill } from "../../../components/StatusPill";
 
 const manilaTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false });
 
-const STATUS_STYLES: Record<string, string> = {
-  BOOKED: "bg-primary text-white",
-  CONFIRMED: "bg-primary-deep text-white",
-  IN_PROGRESS: "bg-band-good text-ink",
-  COMPLETED: "bg-success text-white",
-  CANCELLED: "bg-line text-ink-muted line-through",
-  NO_SHOW: "bg-danger text-white",
+type Tone = "neutral" | "info" | "success" | "warn" | "danger" | "solid" | "solidDeep";
+
+/** Appointment lifecycle → pill tone: BOOKED moving, CONFIRMED on-chrome,
+ *  IN_PROGRESS needs someone, COMPLETED settled, CANCELLED inert, NO_SHOW stopped. */
+const STATUS_TONE: Record<string, Tone> = {
+  BOOKED: "info",
+  CONFIRMED: "solidDeep",
+  IN_PROGRESS: "warn",
+  COMPLETED: "success",
+  CANCELLED: "neutral",
+  NO_SHOW: "danger",
 };
 
-export function StatusPill({ status }: { status: string }) {
-  return (
-    <span className={`inline-block rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${STATUS_STYLES[status] ?? "bg-line text-ink"}`}>
-      {status.replace("_", " ")}
-    </span>
-  );
+function ApptStatus({ status }: { status: string }) {
+  return <StatusPill tone={STATUS_TONE[status] ?? "neutral"}>{status.replace("_", " ")}</StatusPill>;
 }
 
 /**
@@ -48,11 +50,11 @@ export function Board({ appointments, onCancel }: { appointments: BoardAppointme
           <div className="font-mono text-ink-muted text-sm pt-2">{hour}</div>
           <div className="flex flex-col gap-2">
             {appts.map((a) => (
-              <article key={a.id} className="rounded-md border border-line bg-surface p-3 flex items-start justify-between gap-3">
+              <Card key={a.id} pad="md" className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-ink text-sm font-semibold">{a.vehiclePlateNo}</span>
-                    <StatusPill status={a.status} />
+                    <ApptStatus status={a.status} />
                     {a.requiresPickup && <span className="text-[11px] text-primary">pickup</span>}
                   </div>
                   <div className="text-ink text-sm mt-0.5">{a.serviceTypeName}</div>
@@ -70,7 +72,7 @@ export function Board({ appointments, onCancel }: { appointments: BoardAppointme
                     Cancel
                   </button>
                 )}
-              </article>
+              </Card>
             ))}
           </div>
         </section>
