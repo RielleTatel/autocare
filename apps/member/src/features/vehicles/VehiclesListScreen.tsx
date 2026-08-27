@@ -8,6 +8,7 @@ import { Button } from "../../components/Button";
 import { BandChip } from "../../components/BandChip";
 import { StarRating } from "../health-score/StarRating";
 import { Icon } from "../../components/Icon";
+import { Plate } from "../../components/Plate";
 
 /** Leading tile on each vehicle row — DS card-leading size on a chassis swatch. */
 function CarIcon() {
@@ -28,7 +29,7 @@ function VehicleRow({ vehicle, health, onPress }: {
     <Card interactive onPress={onPress} style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.md, marginBottom: t.spacing.sm }}>
       <CarIcon />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[t.text("code"), { color: t.colors.ink, letterSpacing: 2 }]}>{vehicle.plateNo}</Text>
+        <Plate variant="plain">{vehicle.plateNo}</Plate>
         <Text style={[t.text("body"), { color: t.colors.ink }]} numberOfLines={1}>{vehicle.year} {vehicle.make} {vehicle.model}</Text>
         <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{vehicle.currentOdometerKm.toLocaleString("en-US")} km</Text>
       </View>

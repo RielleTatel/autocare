@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { AttentionItemRow } from "./AttentionItem";
+import { Card } from "../../components/Card";
+import { Plate } from "../../components/Plate";
 import type { AttentionItem } from "./attentionApi";
 
 /** M-38 — full attention list, grouped by vehicle when the member has >1,
@@ -31,15 +33,17 @@ export function AttentionListScreen({
     >
       <Text style={{ ...t.text("h1"), color: t.colors.ink }}>Needs attention</Text>
       {items.length === 0 && (
-        <View testID="attention-empty" style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md }}>
+        <Card testID="attention-empty">
           <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Nothing needs attention right now</Text>
-        </View>
+        </Card>
       )}
       {groups.map((g) => (
         <View key={g.key} style={{ gap: t.spacing.sm }}>
-          {g.plate && <Text style={{ ...t.text("h2"), color: t.colors.inkMuted, fontFamily: "IBMPlexMono_500Medium" }}>{g.plate}</Text>}
+          {/* Grouped by vehicle, so the plate is the group header — the rows
+              beneath it don't repeat it. */}
+          {g.plate ? <Plate variant="plain" style={{ color: t.colors.inkMuted }}>{g.plate}</Plate> : null}
           {g.items.map((i) => (
-            <AttentionItemRow key={i.id} item={i} showPlate={!multiVehicle ? false : false} onPress={onPressItem} />
+            <AttentionItemRow key={i.id} item={i} onPress={onPressItem} />
           ))}
         </View>
       ))}

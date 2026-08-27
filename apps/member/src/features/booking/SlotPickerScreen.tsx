@@ -17,18 +17,26 @@ export function SlotPickerScreen({
   slots,
   loading,
   holdSecondsLeft,
+  heldSlotKey,
   onPick,
   onRepick,
 }: {
   slots: Slot[];
   loading?: boolean;
   holdSecondsLeft: number | null;
+  /** `${bayId}|${start}` of the slot currently under hold, so it reads as selected. */
+  heldSlotKey?: string | null;
   onPick: (s: Slot) => void;
   onRepick: () => void;
 }) {
   const expired = holdSecondsLeft === 0;
+  const locked = holdSecondsLeft !== null && !expired;
   return (
-    <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, gap: theme.spacing.md }} testID="slot-picker-screen">
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.chassis }}
+      contentContainerStyle={{ padding: theme.spacing.lg, gap: theme.spacing.md }}
+      testID="slot-picker-screen"
+    >
       <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Pick a time</Text>
 
       {holdSecondsLeft !== null && !expired && (
@@ -51,25 +59,35 @@ export function SlotPickerScreen({
       )}
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
-        {slots.map((s) => (
-          <Pressable
-            key={`${s.bayId}|${s.start}`}
-            testID={`slot-${s.start}`}
-            onPress={() => onPick(s)}
-            disabled={holdSecondsLeft !== null && !expired}
-            style={{
-              minHeight: theme.minTarget,
-              paddingHorizontal: theme.spacing.md,
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: theme.colors.line,
-              borderRadius: theme.radii.sm,
-              backgroundColor: theme.colors.surface,
-            }}
-          >
-            <Text style={[theme.text("code"), { color: theme.colors.ink }]}>{manilaTime(s.start)}</Text>
-          </Pressable>
-        ))}
+        {slots.map((s) => {
+          const key = `${s.bayId}|${s.start}`;
+          const selected = heldSlotKey === key;
+          // While a hold is live every other time is unreachable — dim them so
+          // that reads as state rather than as an unresponsive tap.
+          const dimmed = locked && !selected;
+          return (
+            <Pressable
+              key={key}
+              testID={`slot-${s.start}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected, disabled: locked }}
+              onPress={() => onPick(s)}
+              disabled={locked}
+              style={{
+                minHeight: theme.minTarget,
+                paddingHorizontal: theme.spacing.md,
+                justifyContent: "center",
+                borderWidth: selected ? theme.borders.control : 1,
+                borderColor: selected ? theme.colors.primary : theme.colors.line,
+                borderRadius: theme.radii.sm,
+                backgroundColor: theme.colors.surface,
+                opacity: dimmed ? 0.4 : 1,
+              }}
+            >
+              <Text style={[theme.text("code"), { color: theme.colors.ink }]}>{manilaTime(s.start)}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </ScrollView>
   );

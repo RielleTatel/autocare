@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
 import { SEVERITY_COLOR } from "./AttentionItem";
 import type { AttentionItem, AttentionSeverity } from "./attentionApi";
 
@@ -12,10 +13,10 @@ export function AttentionCard({ items, onSeeAll, onPressItem }: { items: Attenti
 
   if (items.length === 0) {
     return (
-      <View testID="attention-empty" style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md }}>
+      <Card testID="attention-empty">
         <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Nothing needs attention right now</Text>
         <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>Your vehicles are up to date.</Text>
-      </View>
+      </Card>
     );
   }
 
@@ -23,7 +24,7 @@ export function AttentionCard({ items, onSeeAll, onPressItem }: { items: Attenti
   const top = items[0];
 
   return (
-    <View style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md, gap: t.spacing.sm }}>
+    <Card style={{ gap: t.spacing.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={{ ...t.text("h1"), color: t.colors.ink }}>Needs attention</Text>
         <View style={{ flexDirection: "row", gap: t.spacing.xs }}>
@@ -45,6 +46,6 @@ export function AttentionCard({ items, onSeeAll, onPressItem }: { items: Attenti
           <Text style={{ ...t.text("body", 600), color: t.colors.primary }}>See all {items.length} ›</Text>
         </Pressable>
       )}
-    </View>
+    </Card>
   );
 }

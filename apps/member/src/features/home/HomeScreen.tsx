@@ -8,6 +8,7 @@ import { Card } from "../../components/Card";
 import { BandChip } from "../../components/BandChip";
 import { StarRating } from "../health-score/StarRating";
 import { Icon } from "../../components/Icon";
+import { Plate } from "../../components/Plate";
 
 const logoMark = require("../../../assets/logo-mark.png");
 
@@ -52,10 +53,7 @@ export function HomeScreen({
       {vehicle ? (
         <Card pad="md" interactive onPress={onOpenHealthScore} style={{ gap: t.spacing.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ alignSelf: "flex-start", backgroundColor: t.colors.primaryDeep, borderRadius: t.radii.sm,
-              paddingHorizontal: t.spacing.sm, paddingVertical: 4 }}>
-              <Text style={[t.text("code"), { color: t.colors.onPrimary }]}>{vehicle.plateNo}</Text>
-            </View>
+            <Plate variant="chip">{vehicle.plateNo}</Plate>
             {health ? <BandChip band={health.band} /> : null}
           </View>
 

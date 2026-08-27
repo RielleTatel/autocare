@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Plate } from "../../components/Plate";
 import type { AttentionItem as Item, AttentionSeverity } from "./attentionApi";
 
 export const SEVERITY_COLOR: Record<AttentionSeverity, string> = {
@@ -23,7 +24,7 @@ export function AttentionItemRow({ item, showPlate, onPress }: { item: Item; sho
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.xs }}>
         <Text style={{ ...t.text("h2"), color: t.colors.ink, flex: 1 }}>{item.title}</Text>
-        {showPlate && item.plate && <Text style={{ ...t.text("label"), color: t.colors.inkMuted, fontFamily: "IBMPlexMono_500Medium" }}>{item.plate}</Text>}
+        {showPlate && item.plate ? <Plate variant="plain" style={{ color: t.colors.inkMuted }}>{item.plate}</Plate> : null}
       </View>
       <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>{item.body}</Text>
       <Text style={{ ...t.text("label"), color: SEVERITY_COLOR[item.severity] }}>{SEVERITY_LABEL[item.severity]} ›</Text>

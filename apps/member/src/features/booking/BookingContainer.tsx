@@ -146,7 +146,7 @@ export function BookingContainer({
       )}
       {step === "confirm" && slot && service && (
         holdSecondsLeft === 0 ? (
-          <SlotPickerScreen slots={slots} holdSecondsLeft={0} onPick={onPickSlot} onRepick={backToSlots} />
+          <SlotPickerScreen slots={slots} holdSecondsLeft={0} heldSlotKey={`${slot.bayId}|${slot.start}`} onPick={onPickSlot} onRepick={backToSlots} />
         ) : (
           <ConfirmScreen serviceName={service.name} slotStart={slot.start} entitlementLine={entitlementLine()} submitting={submitting} onConfirm={onConfirm} />
         )

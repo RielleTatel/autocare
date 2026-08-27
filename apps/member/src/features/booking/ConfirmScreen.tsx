@@ -1,6 +1,8 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
 
 const manila = (iso: string) =>
   new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
@@ -25,7 +27,7 @@ export function ConfirmScreen({
   return (
     <View style={{ flex: 1, padding: theme.spacing.lg, gap: theme.spacing.md, backgroundColor: theme.colors.chassis }} testID="confirm-screen">
       <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Confirm booking</Text>
-      <View style={{ borderWidth: 1, borderColor: theme.colors.line, borderRadius: theme.radii.md, padding: theme.spacing.md, gap: 6, backgroundColor: theme.colors.surface }}>
+      <Card style={{ gap: 6 }}>
         <Text style={[theme.text("body"), { color: theme.colors.ink }]}>{serviceName}</Text>
         <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>{manila(slotStart)}</Text>
         {entitlementLine && (
@@ -33,22 +35,10 @@ export function ConfirmScreen({
             {entitlementLine}
           </Text>
         )}
-      </View>
-      <Pressable
-        testID="confirm"
-        onPress={onConfirm}
-        disabled={submitting}
-        accessibilityState={{ disabled: !!submitting }}
-        style={{
-          minHeight: theme.minTarget,
-          justifyContent: "center",
-          alignItems: "center",
-          borderRadius: theme.radii.md,
-          backgroundColor: submitting ? theme.colors.line : theme.colors.primary,
-        }}
-      >
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary }]}>{submitting ? "Booking…" : "Confirm"}</Text>
-      </Pressable>
+      </Card>
+      <Button block testID="confirm" disabled={submitting} onPress={onConfirm}>
+        {submitting ? "Booking…" : "Confirm"}
+      </Button>
     </View>
   );
 }
