@@ -7,6 +7,7 @@ import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { BandChip } from "../../components/BandChip";
 import { StarRating } from "../health-score/StarRating";
+import { Icon } from "../../components/Icon";
 
 const logoMark = require("../../../assets/logo-mark.png");
 
@@ -82,21 +83,21 @@ export function HomeScreen({
 
       <View style={{ gap: t.spacing.sm }}>
         {vehicle && onBookService ? (
-          <Button block variant="deep" testID="quick-book-service" onPress={onBookService}>Book a service</Button>
+          <Button block variant="deep" icon="calendar-plus" testID="quick-book-service" onPress={onBookService}>Book a service</Button>
         ) : null}
         <View style={{ flexDirection: "row", gap: t.spacing.sm }}>
           <View style={{ flex: 1 }}>
             <Button block variant="secondary" testID="quick-update-odometer" onPress={onUpdateOdometer}>Update odometer</Button>
           </View>
           <View style={{ flex: 1 }}>
-            <Button block variant="secondary" testID="quick-add-vehicle" onPress={onAddVehicle}>Add vehicle</Button>
+            <Button block variant="secondary" icon="plus" testID="quick-add-vehicle" onPress={onAddVehicle}>Add vehicle</Button>
           </View>
         </View>
       </View>
 
       {onRoadside ? (
         <Card accent={t.colors.danger} style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.md }}>
-          <Text style={{ fontSize: 24, color: t.colors.danger }}>☎</Text>
+          <Icon name="phone" size={24} color={t.colors.danger} />
           <View style={{ flex: 1 }}>
             <Text style={[t.text("h2"), { color: t.colors.ink }]}>Roadside assistance</Text>
             <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>
