@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 import { vhsBands } from "@autocare/design-tokens";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
 import type { HealthScoreHistoryPoint } from "./healthScoreApi";
 
 /** M-15 — score-vs-time line chart with odometer toggle and a shaded stale zone
@@ -57,7 +58,7 @@ export function ScoreHistoryScreen({ history }: { history: HealthScoreHistoryPoi
         ))}
       </View>
 
-      <View style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.sm }}>
+      <Card pad="none" style={{ padding: t.spacing.sm }}>
         <Svg width={W} height={H}>
           {staleX !== null && staleX < W - pad && (
             <Rect testID="stale-zone" x={staleX} y={pad} width={W - pad - staleX} height={H - 2 * pad} fill={theme.colors.inkMuted} opacity={0.12} />
@@ -70,15 +71,15 @@ export function ScoreHistoryScreen({ history }: { history: HealthScoreHistoryPoi
             <Circle key={i} cx={pt.x} cy={pt.y} r={4} fill={pt.p.isStale ? t.colors.inkMuted : vhsBands[bandFor(pt.p.score)].fill} />
           ))}
         </Svg>
-      </View>
+      </Card>
 
       <View style={{ gap: t.spacing.xs }}>
         {[...history].reverse().map((p) => (
-          <View key={p.id} style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.sm }}>
+          <Card key={p.id} pad="none" style={{ flexDirection: "row", justifyContent: "space-between", padding: t.spacing.sm }}>
             <Text style={{ ...t.text("body"), color: t.colors.ink }}>{new Date(p.computedAt).toLocaleDateString()}</Text>
             <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>{p.odometerKm != null ? `${p.odometerKm} km` : "—"}</Text>
             <Text style={{ ...t.text("h2"), color: p.isStale ? t.colors.inkMuted : vhsBands[bandFor(p.score)].text }}>{p.score}</Text>
-          </View>
+          </Card>
         ))}
       </View>
       <View style={{ height: t.spacing.xl }} />
