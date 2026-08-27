@@ -9,7 +9,7 @@ import { theme } from "../theme";
 import { bootstrap, type BootState } from "../features/auth/session";
 import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
-import { Plan, Vehicle } from "@autocare/contracts";
+import { EntitlementSummary, Plan, Vehicle } from "@autocare/contracts";
 import { OnboardingScreen } from "../features/auth/OnboardingScreen";
 import { EmailAuthScreen } from "../features/auth/EmailAuthScreen";
 import { ConsentScreen } from "../features/auth/ConsentScreen";
@@ -21,8 +21,9 @@ import { VehiclesListScreen } from "../features/vehicles/VehiclesListScreen";
 import { VehicleDetailScreen } from "../features/vehicles/VehicleDetailScreen";
 import { uploadVehiclePhoto } from "../features/vehicles/uploadPhoto";
 import { ProfileScreen } from "../features/profile/ProfileScreen";
+import { AccountScreen } from "../features/account/AccountScreen";
 import { PrivacyScreen } from "../features/profile/PrivacyScreen";
-import { makeSubscriptionApi } from "../features/subscription/subscriptionApi";
+import { makeSubscriptionApi, type SubscriptionWithPlan } from "../features/subscription/subscriptionApi";
 import { selectManageableSubscription } from "../features/subscription/subscriptionSelection";
 import { PlanSelectionScreen } from "../features/subscription/PlanSelectionScreen";
 import { PaymentMethodScreen } from "../features/subscription/PaymentMethodScreen";
@@ -335,7 +336,7 @@ function BookingsContainer({ navigation }: any) {
         await bookingApi.cancel(id).catch(() => {});
         await refresh().catch(() => {});
       }}
-      onBookNew={() => navigation.navigate("Booking")}
+      onBookNew={() => (navigation.getParent() ?? navigation).navigate("Booking")}
     />
   );
 }
@@ -354,7 +355,9 @@ function VehiclesTabContainer({ navigation }: any) {
   );
 }
 
-function ProfileTabContainer({ navigation }: any) {
+/** M-28 "Personal details" — the profile edit form, now pushed from the
+ *  Account tab rather than being the whole tab. */
+function PersonalDetailsContainer({ navigation }: any) {
   const { setBootState } = useReady();
   const [profile, setProfile] = useState<any>(null);
   useEffect(() => { api.get("/users/me").then(setProfile).catch(() => setProfile({})); }, []);
@@ -366,7 +369,65 @@ function ProfileTabContainer({ navigation }: any) {
         await signOut();
         setBootState("ANONYMOUS");
       }}
-      onPrivacy={() => navigation.getParent()?.navigate("Privacy")}
+      onPrivacy={() => navigation.navigate("Privacy")}
+    />
+  );
+}
+
+/** M-28/M-29 Account tab: identity, plan + status, inline plan switching and the
+ *  settings rows. Subscription resolution mirrors BookingFlowContainer — the
+ *  member's first vehicle carries the manageable subscription. */
+function AccountTabContainer({ navigation }: any) {
+  const { vehicles, firstName, setBootState } = useReady();
+  const vehicle = vehicles[0] ?? null;
+  const [profile, setProfile] = useState<any>(null);
+  const [subscription, setSubscription] = useState<SubscriptionWithPlan | null>(null);
+  const [entitlements, setEntitlements] = useState<EntitlementSummary[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    await Promise.all([
+      api.get("/users/me").then(setProfile).catch(() => setProfile({})),
+      subApi.listPlans().then(setPlans).catch(() => setPlans([])),
+      (async () => {
+        if (!vehicle) return;
+        const subs = await subApi.listSubscriptions().catch(() => []);
+        const sub = selectManageableSubscription(subs, vehicle.id) ?? null;
+        setSubscription(sub);
+        if (sub) setEntitlements(await subApi.getEntitlements(sub.id).catch(() => []));
+      })(),
+    ]);
+  }, [vehicle]);
+
+  useEffect(() => { load().catch(() => {}); }, [load]);
+
+  const parent = () => navigation.getParent() ?? navigation;
+
+  return (
+    <AccountScreen
+      name={profile?.name || firstName}
+      email={profile?.email}
+      subscription={subscription}
+      entitlements={entitlements}
+      plans={plans}
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        try { await load(); } finally { setRefreshing(false); }
+      }}
+      // Plan changes go through the existing upgrade/downgrade flow, which owns
+      // the proration preview and the lock-in ETF rules — the inline cards are
+      // an entry point to it, not a second way to mutate a subscription.
+      onChangePlan={() => subscription && parent().navigate("UpgradeDowngrade", { subscriptionId: subscription.id })}
+      onPersonalDetails={() => parent().navigate("PersonalDetails")}
+      onSubscriptionDetails={() => subscription && parent().navigate("SubscriptionDashboard", { subscriptionId: subscription.id })}
+      onInvoices={() => parent().navigate("Invoices")}
+      onPrivacy={() => parent().navigate("Privacy")}
+      onSignOut={async () => {
+        await signOut();
+        setBootState("ANONYMOUS");
+      }}
     />
   );
 }
@@ -378,7 +439,8 @@ function HomeTabsContainer() {
     <HomeTabs
       HomeComponent={HomeTabContainer}
       VehiclesComponent={VehiclesTabContainer}
-      ProfileComponent={ProfileTabContainer}
+      BookingsComponent={BookingsContainer}
+      AccountComponent={AccountTabContainer}
     />
   );
 }
@@ -704,6 +766,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="VehicleDetail">
         {(props) => <VehicleDetailContainer {...props} refreshVehicles={refreshVehicles} />}
       </Stack.Screen>
+      <Stack.Screen name="PersonalDetails" component={PersonalDetailsContainer} />
       <Stack.Screen name="Privacy" component={PrivacyContainer} />
       <Stack.Screen name="PlanSelection" component={PlanSelectionContainer} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodContainer} />
