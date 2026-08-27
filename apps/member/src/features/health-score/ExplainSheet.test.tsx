@@ -43,7 +43,7 @@ describe("ExplainSheet (FR-115)", () => {
   it("calls onClose from the Got it button", () => {
     const onClose = jest.fn();
     render(<ExplainSheet target={{ point: battery, status: "GOOD", measuredValue: 12.8 }} onClose={onClose} />);
-    fireEvent.press(screen.getByLabelText("Close"));
+    fireEvent.press(screen.getByLabelText("Got it"));
     expect(onClose).toHaveBeenCalled();
   });
 });

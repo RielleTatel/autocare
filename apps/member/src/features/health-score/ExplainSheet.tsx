@@ -1,7 +1,8 @@
-import { Image, Modal, Pressable, Text, View } from "react-native";
+import { Image, Text } from "react-native";
 import { renderExplanation, type ExplainPoint, type PointStatus } from "@autocare/scoring";
 import { theme } from "../../theme";
 import { StarRating } from "./StarRating";
+import { BottomSheet, MeasuredRow } from "../../components/BottomSheet";
 
 export interface ExplainTarget {
   point: ExplainPoint;
@@ -36,31 +37,19 @@ export function ExplainSheet({ target, onClose }: { target: ExplainTarget | null
   const th = target.point.thresholds;
 
   return (
-    <Modal transparent visible animationType="slide" onRequestClose={onClose}>
-      <Pressable accessibilityLabel="Close explanation" onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(22,35,46,0.4)", justifyContent: "flex-end" }}>
-        <Pressable onPress={() => undefined} style={{ backgroundColor: t.colors.surface, borderTopLeftRadius: t.radii.md, borderTopRightRadius: t.radii.md, padding: t.spacing.lg, gap: t.spacing.sm }}>
-          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: t.colors.line, alignSelf: "center" }} />
-          <Text style={{ ...t.text("h1"), color: t.colors.ink }}>{target.point.label}</Text>
-          {target.status !== "NOT_APPLICABLE" && <StarRating score={starScore} size={22} />}
-          <Text testID="explain-sentence" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{sentence}</Text>
+    <BottomSheet title={target.point.label} onClose={onClose}>
+      {target.status !== "NOT_APPLICABLE" && <StarRating score={starScore} size={22} />}
+      <Text testID="explain-sentence" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{sentence}</Text>
 
-          {target.measuredValue !== undefined && th && (
-            <View style={{ backgroundColor: t.colors.chassis, borderRadius: t.radii.sm, padding: t.spacing.sm }}>
-              <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
-                Measured {target.measuredValue}{target.point.unit ? ` ${target.point.unit}` : ""} · good {th.direction === "HIGHER_BETTER" ? "≥" : "<"} {th.good}{target.point.unit ? ` ${target.point.unit}` : ""}
-              </Text>
-            </View>
-          )}
+      {target.measuredValue !== undefined && th && (
+        <MeasuredRow>
+          Measured {target.measuredValue}{target.point.unit ? ` ${target.point.unit}` : ""} · good {th.direction === "HIGHER_BETTER" ? "\u2265" : "<"} {th.good}{target.point.unit ? ` ${target.point.unit}` : ""}
+        </MeasuredRow>
+      )}
 
-          {target.photoUrl && (
-            <Image accessibilityLabel="Finding photo" source={{ uri: target.photoUrl }} style={{ width: "100%", height: 180, borderRadius: t.radii.sm }} resizeMode="cover" />
-          )}
-
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ minHeight: t.minTarget, borderRadius: t.radii.md, backgroundColor: t.colors.primary, alignItems: "center", justifyContent: "center", marginTop: t.spacing.xs }}>
-            <Text style={{ ...t.text("h2"), color: t.colors.onPrimary }}>Got it</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      {target.photoUrl && (
+        <Image accessibilityLabel="Finding photo" source={{ uri: target.photoUrl }} style={{ width: "100%", height: 180, borderRadius: t.radii.sm }} resizeMode="cover" />
+      )}
+    </BottomSheet>
   );
 }
