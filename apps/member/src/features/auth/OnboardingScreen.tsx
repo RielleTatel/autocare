@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { Dimensions, FlatList, Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
 
 const CARDS = [
   { title: "Your car, always cared for", body: "Scheduled maintenance, pickup & delivery, roadside help — one subscription." },
@@ -22,12 +24,12 @@ export function OnboardingScreen({ onGetStarted }: { onGetStarted: () => void })
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
         renderItem={({ item }) => (
           <View style={{ width, padding: theme.spacing.lg, justifyContent: "center" }}>
-            <View style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, padding: theme.spacing.lg }}>
+            <Card pad="lg">
               <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep, marginBottom: theme.spacing.sm }]}>
                 {item.title}
               </Text>
               <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>{item.body}</Text>
-            </View>
+            </Card>
           </View>
         )}
       />
@@ -43,12 +45,9 @@ export function OnboardingScreen({ onGetStarted }: { onGetStarted: () => void })
           />
         ))}
       </View>
-      <Pressable testID="get-started" onPress={onGetStarted}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginHorizontal: theme.spacing.lg,
-                 marginBottom: theme.spacing.lg, backgroundColor: theme.colors.primary,
-                 alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Get started</Text>
-      </Pressable>
+      <Button block style={{ marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.lg }} testID="get-started" onPress={onGetStarted}>
+        Get started
+      </Button>
     </View>
   );
 }

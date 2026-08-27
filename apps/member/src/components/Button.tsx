@@ -17,7 +17,7 @@ const VARIANT: Record<Variant, Look> = {
 };
 
 export function Button({
-  children, variant = "primary", size = "member", block, disabled, onPress, testID, icon,
+  children, variant = "primary", size = "member", block, disabled, onPress, testID, icon, accessibilityLabel, style,
 }: {
   children: ReactNode;
   variant?: Variant;
@@ -28,6 +28,9 @@ export function Button({
   testID?: string;
   /** Leading glyph, sized to the DS inline step and tinted with the label. */
   icon?: IconName;
+  /** Defaults to the label text when `children` is a plain string. */
+  accessibilityLabel?: string;
+  style?: ViewStyle;
 }) {
   const v = VARIANT[variant];
   const fg = disabled ? theme.colors.inkMuted : v.fg;
@@ -46,11 +49,14 @@ export function Button({
     borderColor: v.border,
     alignSelf: block ? "stretch" : "flex-start",
     width: block ? "100%" : undefined,
+    ...style,
   };
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? (typeof children === "string" ? children : undefined)}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [base, pressed && !disabled ? { opacity: theme.motion.pressOpacity } : null]}

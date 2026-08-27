@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 import { Invoice } from "@autocare/contracts";
 import { formatCentavos } from "./formatCentavos";
 
@@ -61,13 +62,9 @@ export function InvoiceDetailScreen({ invoice, onDownloadReceipt, onBack }: {
         <Text testID="download-error" style={[theme.text("label"), { color: theme.colors.danger, marginTop: theme.spacing.md }]}>{error}</Text>
       ) : null}
 
-      <Pressable testID="download-receipt" disabled={downloading} onPress={handleDownload}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-          backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
-          {downloading ? "Opening…" : "Download / Share receipt"}
-        </Text>
-      </Pressable>
+      <Button block style={{ marginTop: theme.spacing.lg }} testID="download-receipt" disabled={downloading} onPress={handleDownload}>
+        {downloading ? "Opening…" : "Download / Share receipt"}
+      </Button>
     </ScrollView>
   );
 }

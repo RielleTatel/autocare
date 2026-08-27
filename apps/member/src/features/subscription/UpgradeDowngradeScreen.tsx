@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 import { Plan } from "@autocare/contracts";
 import { formatCentavos } from "./formatCentavos";
 import { upgradePreviewText, downgradePreviewText } from "./billingPreview";
@@ -66,11 +67,9 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
         <Text testID="change-result" style={[theme.text("body"), { color: theme.colors.ink, marginTop: theme.spacing.md }]}>
           {result.text}
         </Text>
-        <Pressable testID="change-done" onPress={onDone}
-          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-            backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Done</Text>
-        </Pressable>
+        <Button block style={{ marginTop: theme.spacing.lg }} testID="change-done" onPress={onDone}>
+        Done
+      </Button>
       </View>
     );
   }
@@ -105,13 +104,9 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
       ) : null}
 
       {selection && (
-        <Pressable testID="confirm-change" disabled={submitting} onPress={confirm}
-          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-            backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
-            {submitting ? "Applying…" : `Confirm ${selection.direction === "UPGRADE" ? "upgrade" : "downgrade"}`}
-          </Text>
-        </Pressable>
+        <Button block style={{ marginTop: theme.spacing.lg }} testID="confirm-change" disabled={submitting} onPress={confirm}>
+        {submitting ? "Applying…" : `Confirm ${selection.direction === "UPGRADE" ? "upgrade" : "downgrade"}`}
+      </Button>
       )}
     </ScrollView>
   );

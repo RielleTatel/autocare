@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { theme } from "../../theme";
+import { theme, familyForRole } from "../../theme";
+import { Button } from "../../components/Button";
 import { fuelTypes, transmissions, Vehicle } from "@autocare/contracts";
 import { ApiError } from "@autocare/api-client";
 import { emptyVehicleForm, validateVehicleForm, VehicleFormState } from "./vehicleForm";
@@ -26,7 +27,7 @@ function TextField({ name, value, onChangeText, error, placeholder, keyboardType
         placeholder={placeholder}
         keyboardType={keyboardType ?? "default"}
         autoCapitalize={autoCapitalize ?? "none"}
-        style={[theme.text("body"), mono ? { fontFamily: "IBMPlexMono_500Medium" } : null,
+        style={[theme.text("body"), mono ? { fontFamily: familyForRole("code") } : null,
           { backgroundColor: theme.colors.surface, borderRadius: theme.radii.sm, height: theme.minTarget,
             paddingHorizontal: theme.spacing.sm, borderWidth: 1, borderColor: error ? theme.colors.danger : theme.colors.line }]}
       />
@@ -158,11 +159,9 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
         </Text>
       ) : null}
 
-      <Pressable testID="submit" disabled={submitting} onPress={handleSubmit}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-          backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Add vehicle</Text>
-      </Pressable>
+      <Button block style={{ marginTop: theme.spacing.lg }} testID="submit" disabled={submitting} onPress={handleSubmit}>
+        Add vehicle
+      </Button>
     </ScrollView>
   );
 }

@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
 import { peso, type WorkOrder, type WorkOrderItem } from "./workOrderApi";
 
 type Decision = "APPROVED" | "DECLINED" | "DEFERRED";
@@ -67,16 +69,9 @@ export function ApprovalRequestScreen({
           <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Approved total</Text>
           <Text testID="approved-total" style={{ ...t.text("h2"), color: t.colors.ink }}>{peso(approvedTotal)}</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Confirm decisions"
-          accessibilityState={{ disabled: !allDecided || busy }}
-          disabled={!allDecided || busy}
-          onPress={submit}
-          style={{ minHeight: t.minTarget, borderRadius: t.radii.md, alignItems: "center", justifyContent: "center", backgroundColor: allDecided && !busy ? t.colors.primary : t.colors.line }}
-        >
-          <Text style={{ ...t.text("h2"), color: "#FFFFFF" }}>{busy ? "Sending…" : "Confirm decisions"}</Text>
-        </Pressable>
+        <Button block testID="confirm-decisions" disabled={!allDecided || busy} onPress={submit}>
+          {busy ? "Sending…" : "Confirm decisions"}
+        </Button>
       </View>
     </View>
   );
@@ -85,7 +80,7 @@ export function ApprovalRequestScreen({
 function LineCard({ item, choice, onChoose }: { item: WorkOrderItem; choice: Decision | undefined; onChoose: (d: Decision) => void }) {
   const t = theme;
   return (
-    <View style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md, gap: t.spacing.sm }}>
+    <Card style={{ gap: t.spacing.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.xs }}>
         {item.severity && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: SEVERITY_COLOR[item.severity] ?? t.colors.inkMuted }} />}
         <Text style={{ ...t.text("h2"), color: t.colors.ink, flex: 1 }}>{item.recommendationLabel ?? item.description}</Text>
@@ -113,6 +108,6 @@ function LineCard({ item, choice, onChoose }: { item: WorkOrderItem; choice: Dec
           );
         })}
       </View>
-    </View>
+    </Card>
   );
 }

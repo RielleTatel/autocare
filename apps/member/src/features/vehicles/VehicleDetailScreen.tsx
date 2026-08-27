@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
+import { Plate } from "../../components/Plate";
 import { ApiError } from "@autocare/api-client";
 import { Vehicle } from "@autocare/contracts";
 
@@ -67,10 +69,7 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
 
       <View style={{ padding: theme.spacing.lg }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <View style={{ backgroundColor: theme.colors.primaryDeep, borderRadius: theme.radii.sm,
-            paddingHorizontal: theme.spacing.sm, paddingVertical: 4 }}>
-            <Text style={[theme.text("code"), { color: theme.colors.onPrimary }]}>{vehicle.plateNo}</Text>
-          </View>
+          <Plate variant="chip">{vehicle.plateNo}</Plate>
           <Pressable testID="overflow-menu" onPress={() => setMenuOpen((o) => !o)}
             style={{ width: theme.minTarget, height: theme.minTarget, alignItems: "center", justifyContent: "center" }}>
             <Text style={[theme.text("h2"), { color: theme.colors.inkMuted }]}>{"⋯"}</Text>
@@ -174,11 +173,9 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
         )}
 
         {onManageSubscription ? (
-          <Pressable testID="manage-subscription" onPress={onManageSubscription}
-            style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-              backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-            <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Manage subscription</Text>
-          </Pressable>
+          <Button block style={{ marginTop: theme.spacing.lg }} testID="manage-subscription" onPress={onManageSubscription}>
+            Manage subscription
+          </Button>
         ) : null}
       </View>
     </ScrollView>

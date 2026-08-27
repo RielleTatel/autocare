@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 import { Plan, Subscription } from "@autocare/contracts";
 import { formatCentavos } from "./formatCentavos";
 
@@ -63,11 +64,9 @@ export function PaymentMethodScreen({ plan, createSubscription, createPaymentInt
           Your {plan.name} subscription is set up for Cash on Delivery. Pay {formatCentavos(plan.priceCentavos)} at the counter
           when our team arrives — you'll get a receipt on the spot.
         </Text>
-        <Pressable testID="cod-continue" onPress={() => onDone(codResult)}
-          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-            backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Continue</Text>
-        </Pressable>
+        <Button block style={{ marginTop: theme.spacing.lg }} testID="cod-continue" onPress={() => onDone(codResult)}>
+        Continue
+      </Button>
       </View>
     );
   }
@@ -104,22 +103,14 @@ export function PaymentMethodScreen({ plan, createSubscription, createPaymentInt
       ) : null}
 
       {method === "E_PAYMENT" && (
-        <Pressable testID="confirm-epayment" disabled={submitting} onPress={handleEPayment}
-          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-            backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
-            {submitting ? "Opening checkout…" : "Continue to payment"}
-          </Text>
-        </Pressable>
+        <Button block style={{ marginTop: theme.spacing.lg }} testID="confirm-epayment" disabled={submitting} onPress={handleEPayment}>
+        {submitting ? "Opening checkout…" : "Continue to payment"}
+      </Button>
       )}
       {method === "COD" && (
-        <Pressable testID="confirm-cod" disabled={submitting} onPress={handleCod}
-          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-            backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
-            {submitting ? "Setting up…" : "Confirm Cash on Delivery"}
-          </Text>
-        </Pressable>
+        <Button block style={{ marginTop: theme.spacing.lg }} testID="confirm-cod" disabled={submitting} onPress={handleCod}>
+        {submitting ? "Setting up…" : "Confirm Cash on Delivery"}
+      </Button>
       )}
     </ScrollView>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 import { profileUpdateSchema, ProfileUpdate } from "@autocare/contracts";
 
 export interface ProfileFormState {
@@ -74,11 +75,9 @@ export function ProfileScreen({ initialProfile, saveProfile, onSignOut, onPrivac
         </View>
       ))}
 
-      <Pressable testID="save-profile" onPress={save}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-          backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Save</Text>
-      </Pressable>
+      <Button block style={{ marginTop: theme.spacing.lg }} testID="save-profile" onPress={save}>
+        Save
+      </Button>
       {saved ? (
         <Text style={[theme.text("label"), { color: theme.colors.success, marginTop: theme.spacing.sm }]}>Saved</Text>
       ) : null}

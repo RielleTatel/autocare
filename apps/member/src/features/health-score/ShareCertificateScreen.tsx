@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Pressable, Share, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
+import { Plate } from "../../components/Plate";
 import type { CertificateVisibility, CreatedCertificate } from "./healthScoreApi";
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "https://autocare.example";
@@ -67,16 +70,17 @@ export function ShareCertificateScreen({ createCertificate, setVisibility, share
       {error && <Text style={{ ...t.text("body"), color: t.colors.danger }}>{error}</Text>}
 
       {!cert ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Generate certificate" disabled={busy} onPress={generate} style={btn(t, "primary")}>
-          <Text style={{ ...t.text("h2"), color: t.colors.onPrimary }}>Generate a shareable certificate</Text>
-        </Pressable>
+        <Button block accessibilityLabel="Generate certificate" disabled={busy} onPress={generate}>
+          Generate a shareable certificate
+        </Button>
       ) : (
         <>
-          <View style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md, gap: t.spacing.xs }}>
+          <Card style={{ gap: t.spacing.xs }}>
             <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Verification code</Text>
-            <Text style={{ ...t.text("h2"), color: t.colors.ink, fontFamily: "IBMPlexMono_500Medium" }}>{cert.verificationCode}</Text>
+            {/* A verification code is machine identity, same class as a plate. */}
+            <Plate variant="plain" style={{ fontSize: 22 }}>{cert.verificationCode}</Plate>
             {visibility === "LINK" && <Text accessibilityLabel="Share link" style={{ ...t.text("label"), color: t.colors.inkMuted }} numberOfLines={1}>{url}</Text>}
-          </View>
+          </Card>
 
           <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Visibility</Text>
           <View style={{ flexDirection: "row", gap: t.spacing.sm }}>
@@ -95,29 +99,31 @@ export function ShareCertificateScreen({ createCertificate, setVisibility, share
             ))}
           </View>
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Share link" disabled={busy} onPress={doShare} style={btn(t, "primary")}>
-            <Text style={{ ...t.text("h2"), color: t.colors.onPrimary }}>Share link</Text>
-          </Pressable>
+          <Button block icon="share-2" accessibilityLabel="Share link" disabled={busy} onPress={doShare}>
+            Share link
+          </Button>
 
           {visibility !== "REVOKED" && (
             confirmRevoke ? (
-              <View style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.danger, padding: t.spacing.md, gap: t.spacing.sm }}>
+              <Card accent={t.colors.danger} style={{ gap: t.spacing.sm }}>
                 <Text style={{ ...t.text("body"), color: t.colors.ink }}>
                   Revoking stops all shared links immediately. Anyone who opens the link will see a "no longer available" notice. Continue?
                 </Text>
                 <View style={{ flexDirection: "row", gap: t.spacing.sm }}>
-                  <Pressable accessibilityRole="button" onPress={() => setConfirmRevoke(false)} style={[btn(t, "outline"), { flex: 1 }]}>
-                    <Text style={{ ...t.text("body"), color: t.colors.ink }}>Cancel</Text>
-                  </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Confirm revoke" onPress={() => { setConfirmRevoke(false); void setVisibilityTo("REVOKED"); }} style={[btn(t, "danger"), { flex: 1 }]}>
-                    <Text style={{ ...t.text("body"), color: "#FFFFFF" }}>Revoke</Text>
-                  </Pressable>
+                  <View style={{ flex: 1 }}>
+                    <Button block variant="ghost" onPress={() => setConfirmRevoke(false)}>Cancel</Button>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button block variant="danger" accessibilityLabel="Confirm revoke" onPress={() => { setConfirmRevoke(false); void setVisibilityTo("REVOKED"); }}>
+                      Revoke
+                    </Button>
+                  </View>
                 </View>
-              </View>
+              </Card>
             ) : (
-              <Pressable accessibilityRole="button" accessibilityLabel="Revoke certificate" disabled={busy} onPress={() => setConfirmRevoke(true)} style={btn(t, "outline")}>
-                <Text style={{ ...t.text("body"), color: t.colors.danger }}>Revoke certificate</Text>
-              </Pressable>
+              <Button block variant="ghost" accessibilityLabel="Revoke certificate" disabled={busy} onPress={() => setConfirmRevoke(true)}>
+                Revoke certificate
+              </Button>
             )
           )}
           {visibility === "REVOKED" && <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>Revoked — shared links no longer work.</Text>}
@@ -125,16 +131,4 @@ export function ShareCertificateScreen({ createCertificate, setVisibility, share
       )}
     </View>
   );
-}
-
-function btn(t: typeof theme, kind: "primary" | "outline" | "danger") {
-  return {
-    minHeight: t.minTarget,
-    borderRadius: t.radii.md,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    backgroundColor: kind === "primary" ? t.colors.primary : kind === "danger" ? t.colors.danger : t.colors.surface,
-    borderWidth: kind === "outline" ? 1 : 0,
-    borderColor: t.colors.line,
-  };
 }

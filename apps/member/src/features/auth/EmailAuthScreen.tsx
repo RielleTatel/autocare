@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 6; // Firebase Auth minimum.
@@ -64,20 +65,9 @@ export function EmailAuthScreen({
         }]}
       />
 
-      <Pressable
-        testID="submit"
-        disabled={!valid}
-        accessibilityState={{ disabled: !valid }}
-        onPress={() => (isRegister ? onRegister(email, password) : onSignIn(email, password))}
-        style={{
-          height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.md,
-          backgroundColor: valid ? theme.colors.primary : theme.colors.line, alignItems: "center", justifyContent: "center",
-        }}
-      >
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
-          {isRegister ? "Create account" : "Sign in"}
-        </Text>
-      </Pressable>
+      <Button block style={{ marginTop: theme.spacing.md }} testID="submit" disabled={!valid} onPress={() => (isRegister ? onRegister(email, password) : onSignIn(email, password))}>
+        {isRegister ? "Create account" : "Sign in"}
+      </Button>
 
       <Pressable
         onPress={onGoogle}

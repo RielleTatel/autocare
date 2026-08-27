@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 
 const MAX_PHOTOS = 6;
 const MAX_ORCR = 2;
@@ -91,11 +92,9 @@ export function VehiclePhotosScreen({ vehicleId, onDone, pickImage, uploadPhoto,
 
       {busy ? <ActivityIndicator style={{ marginTop: theme.spacing.md }} /> : null}
 
-      <Pressable testID="done" disabled={busy} onPress={finish}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-          backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Done</Text>
-      </Pressable>
+      <Button block style={{ marginTop: theme.spacing.lg }} testID="done" disabled={busy} onPress={finish}>
+        Done
+      </Button>
       <Pressable testID="skip" disabled={busy} onPress={onDone}
         style={{ height: theme.minTarget, alignItems: "center", justifyContent: "center" }}>
         <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>Skip for now</Text>

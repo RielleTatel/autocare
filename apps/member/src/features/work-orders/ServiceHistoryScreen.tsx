@@ -1,5 +1,6 @@
 import { ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
 import { peso, type WorkOrder } from "./workOrderApi";
 
 /** M-17 — service history: closed work orders as the permanent record
@@ -15,7 +16,7 @@ export function ServiceHistoryScreen({ workOrders, odometerByWo }: { workOrders:
       {closed.map((w) => {
         const approved = w.items.filter((i) => i.approvalStatus === "APPROVED");
         return (
-          <View key={w.id} style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md, gap: t.spacing.xs }}>
+          <Card key={w.id} style={{ gap: t.spacing.xs }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ ...t.text("h2"), color: t.colors.ink }}>{w.closedAt ? new Date(w.closedAt).toLocaleDateString() : "—"}</Text>
               <Text style={{ ...t.text("body"), color: t.colors.inkMuted }} accessibilityLabel={`Work order ${w.number}`}>{w.number}</Text>
@@ -32,7 +33,7 @@ export function ServiceHistoryScreen({ workOrders, odometerByWo }: { workOrders:
               <Text style={{ ...t.text("h2"), color: t.colors.ink }}>{peso(w.totals.approvedCentavos)}</Text>
             </View>
             {w.technicianSummary && <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>“{w.technicianSummary}”</Text>}
-          </View>
+          </Card>
         );
       })}
     </ScrollView>

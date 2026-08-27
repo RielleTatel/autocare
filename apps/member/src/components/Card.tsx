@@ -6,7 +6,7 @@ const PAD = { md: theme.spacing.md, lg: theme.spacing.lg, none: 0 } as const;
 
 /** Surface container — hairline border, radius 12, no shadow (elevation is line). */
 export function Card({
-  children, pad = "md", accent, interactive, onPress, style, testID,
+  children, pad = "md", accent, interactive, onPress, style, testID, accessibilityLabel,
 }: {
   children: ReactNode;
   pad?: "md" | "lg" | "none";
@@ -17,6 +17,8 @@ export function Card({
   onPress?: () => void;
   style?: ViewStyle;
   testID?: string;
+  /** Announced when the card is interactive; it is a button to assistive tech. */
+  accessibilityLabel?: string;
 }) {
   const boxStyle: ViewStyle = {
     backgroundColor: theme.colors.surface,
@@ -31,6 +33,8 @@ export function Card({
     return (
       <Pressable
         testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
         onPress={onPress}
         style={({ pressed }) => [boxStyle, pressed ? { opacity: theme.motion.pressOpacity } : null]}
       >

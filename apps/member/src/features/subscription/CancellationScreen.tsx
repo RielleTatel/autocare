@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 import { CancellationQuote, Subscription } from "@autocare/contracts";
 import { etfSummaryText, requiresEtfAcceptance } from "./billingPreview";
 
@@ -39,11 +40,9 @@ export function CancellationScreen({ fetchQuote, onCancel, onDone }: {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.chassis, padding: theme.spacing.lg, justifyContent: "center" }}>
         <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Subscription cancelled</Text>
-        <Pressable testID="cancel-done" onPress={onDone}
-          style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-            backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Done</Text>
-        </Pressable>
+        <Button block style={{ marginTop: theme.spacing.lg }} testID="cancel-done" onPress={onDone}>
+        Done
+      </Button>
       </View>
     );
   }
@@ -76,14 +75,9 @@ export function CancellationScreen({ fetchQuote, onCancel, onDone }: {
             </Pressable>
           )}
 
-          <Pressable testID="confirm-cancel" disabled={!canConfirm || submitting} onPress={confirmCancel}
-            style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-              backgroundColor: canConfirm ? theme.colors.danger : theme.colors.line,
-              alignItems: "center", justifyContent: "center" }}>
-            <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
-              {submitting ? "Cancelling…" : "Confirm cancellation"}
-            </Text>
-          </Pressable>
+          <Button block style={{ marginTop: theme.spacing.lg }} testID="confirm-cancel" disabled={!canConfirm || submitting} onPress={confirmCancel}>
+        {submitting ? "Cancelling…" : "Confirm cancellation"}
+      </Button>
         </>
       ) : !error ? (
         <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginTop: theme.spacing.md }]}>Loading…</Text>

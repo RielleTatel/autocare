@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { FlatList, RefreshControl, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
+import { Plate } from "../../components/Plate";
+import { StatusPill } from "../../components/StatusPill";
 import { Invoice } from "@autocare/contracts";
 import { formatCentavos } from "./formatCentavos";
+
+/** Invoice lifecycle → the generic pill tones. Settled is success, anything the
+ *  member must act on is danger, everything mid-flight stays neutral. */
+const STATUS_TONE: Record<string, "success" | "danger" | "warn" | "neutral"> = {
+  PAID: "success",
+  GRACE: "warn",
+  RETRYING: "warn",
+  PAST_DUE: "danger",
+  SUSPENDED: "danger",
+};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
@@ -10,19 +23,22 @@ function formatDate(iso: string) {
 
 function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => void }) {
   return (
-    <Pressable testID={`invoice-${invoice.id}`} onPress={onPress}
-      style={{ backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, padding: theme.spacing.md,
-        marginBottom: theme.spacing.sm, borderWidth: 1, borderColor: theme.colors.line,
-        flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    <Card
+      testID={`invoice-${invoice.id}`}
+      interactive
+      onPress={onPress}
+      style={{ marginBottom: theme.spacing.sm, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+    >
       <View>
-        <Text style={[theme.text("code"), { color: theme.colors.ink }]}>{invoice.number}</Text>
+        {/* Invoice numbers are machine identity, same as a plate. */}
+        <Plate variant="plain">{invoice.number}</Plate>
         <Text style={[theme.text("label"), { color: theme.colors.inkMuted, marginTop: theme.spacing.xs }]}>{formatDate(invoice.issuedAt)}</Text>
       </View>
-      <View style={{ alignItems: "flex-end" }}>
+      <View style={{ alignItems: "flex-end", gap: theme.spacing.xs }}>
         <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>{formatCentavos(invoice.totalCentavos)}</Text>
-        <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>{invoice.status}</Text>
+        <StatusPill tone={STATUS_TONE[invoice.status] ?? "neutral"}>{invoice.status.replace(/_/g, " ")}</StatusPill>
       </View>
-    </Pressable>
+    </Card>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Button } from "../../components/Button";
 import { PRIVACY_POLICY } from "../auth/privacy-policy";
 
 const POLICY_VERSION = process.env.EXPO_PUBLIC_POLICY_VERSION ?? "1";
@@ -34,11 +35,9 @@ export function PrivacyScreen({ requestDataExport, requestDeletion, onSignedOut 
         {PRIVACY_POLICY}
       </Text>
 
-      <Pressable testID="download-data" onPress={downloadData}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
-          backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Download my data</Text>
-      </Pressable>
+      <Button block style={{ marginTop: theme.spacing.lg }} testID="download-data" onPress={downloadData}>
+        Download my data
+      </Button>
       {toast ? (
         <Text testID="toast" style={[theme.text("label"), { color: theme.colors.success, marginTop: theme.spacing.sm }]}>
           {toast}

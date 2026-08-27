@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
+import { Card } from "../../components/Card";
 import { peso, type RecommendationRow } from "./workOrderApi";
 
 const SEVERITY_ORDER: Record<string, number> = { CRITICAL: 0, ATTENTION: 1, MONITOR: 2 };
@@ -30,7 +31,7 @@ export function RecommendationsListScreen({
         <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>No open recommendations — your vehicle is up to date.</Text>
       )}
       {open.map((r) => (
-        <View key={r.id} style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md, gap: t.spacing.xs }}>
+        <Card key={r.id} style={{ gap: t.spacing.xs }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.xs }}>
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: SEVERITY_COLOR[r.severity] ?? t.colors.inkMuted }} />
             <Text style={{ ...t.text("h2"), color: t.colors.ink, flex: 1 }}>{r.label}</Text>
@@ -47,7 +48,7 @@ export function RecommendationsListScreen({
               </Pressable>
             )}
           </View>
-        </View>
+        </Card>
       ))}
     </ScrollView>
   );

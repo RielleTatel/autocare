@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { theme } from "../../theme";
+import { theme, familyForRole } from "../../theme";
+import { Button } from "../../components/Button";
 import { PRIVACY_POLICY } from "./privacy-policy";
 import { api } from "../../shared/api";
 
@@ -12,23 +13,23 @@ export function ConsentScreen({ onConsented }: { onConsented: () => void }) {
         <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep, marginBottom: theme.spacing.sm }]}>
           Privacy policy
         </Text>
-        <Text style={[theme.text("label"), { fontFamily: "IBMPlexMono_500Medium", color: theme.colors.inkMuted,
+        <Text style={[theme.text("label"), { fontFamily: familyForRole("code"), color: theme.colors.inkMuted,
           marginBottom: theme.spacing.md }]}>
           Policy version {POLICY_VERSION}
         </Text>
         <Text style={[theme.text("body"), { color: theme.colors.ink }]}>{PRIVACY_POLICY}</Text>
       </ScrollView>
-      <Pressable
+      <Button
+        block
+        style={{ marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.lg }}
         testID="agree"
         onPress={async () => {
           await api.post("/auth/consent", { policyVersion: POLICY_VERSION });
           onConsented();
         }}
-        style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginHorizontal: theme.spacing.lg,
-                 marginBottom: theme.spacing.lg, backgroundColor: theme.colors.primary,
-                 alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>I agree</Text>
-      </Pressable>
+      >
+        I agree
+      </Button>
     </View>
   );
 }
