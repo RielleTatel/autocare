@@ -47,7 +47,7 @@ export function OnboardingScreen({ onGetStarted }: { onGetStarted: () => void })
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginHorizontal: theme.spacing.lg,
                  marginBottom: theme.spacing.lg, backgroundColor: theme.colors.primary,
                  alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Get started</Text>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Get started</Text>
       </Pressable>
     </View>
   );

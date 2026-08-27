@@ -51,8 +51,7 @@ export function Button({
     >
       <Text
         style={{
-          ...theme.text("body"),
-          fontWeight: "600",
+          ...theme.text("body", 600),
           fontSize: size === "field" ? 18 : 16,
           color: disabled ? theme.colors.inkMuted : v.fg,
         }}

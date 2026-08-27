@@ -69,7 +69,7 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
         <Pressable testID="change-done" onPress={onDone}
           style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
             backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Done</Text>
+          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Done</Text>
         </Pressable>
       </View>
     );
@@ -108,7 +108,7 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
         <Pressable testID="confirm-change" disabled={submitting} onPress={confirm}
           style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
             backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>
+          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
             {submitting ? "Applying…" : `Confirm ${selection.direction === "UPGRADE" ? "upgrade" : "downgrade"}`}
           </Text>
         </Pressable>

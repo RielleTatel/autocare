@@ -74,7 +74,7 @@ export function EmailAuthScreen({
           backgroundColor: valid ? theme.colors.primary : theme.colors.line, alignItems: "center", justifyContent: "center",
         }}
       >
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
           {isRegister ? "Create account" : "Sign in"}
         </Text>
       </Pressable>

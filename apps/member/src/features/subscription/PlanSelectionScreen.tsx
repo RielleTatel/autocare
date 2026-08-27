@@ -32,7 +32,7 @@ function PlanCard({ plan, onSelect }: { plan: Plan; onSelect: () => void }) {
       </View>
       <View style={{ height: theme.minTarget, marginTop: theme.spacing.sm, borderRadius: theme.radii.sm,
         backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Choose this plan</Text>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Choose this plan</Text>
       </View>
     </Pressable>
   );

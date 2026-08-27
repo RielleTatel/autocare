@@ -66,7 +66,7 @@ export function PaymentMethodScreen({ plan, createSubscription, createPaymentInt
         <Pressable testID="cod-continue" onPress={() => onDone(codResult)}
           style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
             backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Continue</Text>
+          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Continue</Text>
         </Pressable>
       </View>
     );
@@ -107,7 +107,7 @@ export function PaymentMethodScreen({ plan, createSubscription, createPaymentInt
         <Pressable testID="confirm-epayment" disabled={submitting} onPress={handleEPayment}
           style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
             backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>
+          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
             {submitting ? "Opening checkout…" : "Continue to payment"}
           </Text>
         </Pressable>
@@ -116,7 +116,7 @@ export function PaymentMethodScreen({ plan, createSubscription, createPaymentInt
         <Pressable testID="confirm-cod" disabled={submitting} onPress={handleCod}
           style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
             backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>
+          <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
             {submitting ? "Setting up…" : "Confirm Cash on Delivery"}
           </Text>
         </Pressable>

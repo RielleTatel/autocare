@@ -43,7 +43,7 @@ export function RecommendationsListScreen({
             </Text>
             {onBookService && (
               <Pressable accessibilityRole="button" accessibilityLabel={`Book service for ${r.label}`} onPress={() => onBookService(r)}>
-                <Text style={{ ...t.text("body"), color: t.colors.primary, fontWeight: "600" }}>Book service →</Text>
+                <Text style={{ ...t.text("body", 600), color: t.colors.primary }}>Book service →</Text>
               </Pressable>
             )}
           </View>

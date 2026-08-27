@@ -101,7 +101,7 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
               </Pressable>
               <Pressable testID="archive-confirm" onPress={confirmedArchive}
                 style={{ height: theme.minTarget, justifyContent: "center", paddingHorizontal: theme.spacing.md }}>
-                <Text style={[theme.text("body"), { color: theme.colors.danger, fontWeight: "600" }]}>Archive</Text>
+                <Text style={[theme.text("body", 600), { color: theme.colors.danger }]}>Archive</Text>
               </Pressable>
             </View>
           </View>
@@ -124,7 +124,7 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
                   paddingHorizontal: theme.spacing.sm, height: theme.minTarget, minWidth: 100 }]} />
               <Pressable testID="odometer-save" onPress={submitOdometer}
                 style={{ height: theme.minTarget, justifyContent: "center" }}>
-                <Text style={[theme.text("body"), { color: theme.colors.primary, fontWeight: "600" }]}>Save</Text>
+                <Text style={[theme.text("body", 600), { color: theme.colors.primary }]}>Save</Text>
               </Pressable>
             </View>
           ) : (
@@ -145,7 +145,7 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
                 padding: theme.spacing.sm, minHeight: theme.minTarget }]} multiline />
             <Pressable testID="odometer-retry" onPress={submitOdometer}
               style={{ height: theme.minTarget, justifyContent: "center" }}>
-              <Text style={[theme.text("body"), { color: theme.colors.primary, fontWeight: "600" }]}>Retry with justification</Text>
+              <Text style={[theme.text("body", 600), { color: theme.colors.primary }]}>Retry with justification</Text>
             </Pressable>
           </View>
         )}
@@ -177,7 +177,7 @@ export function VehicleDetailScreen({ vehicle, onUpdateOdometer, onArchive, onAr
           <Pressable testID="manage-subscription" onPress={onManageSubscription}
             style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
               backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-            <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Manage subscription</Text>
+            <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Manage subscription</Text>
           </Pressable>
         ) : null}
       </View>

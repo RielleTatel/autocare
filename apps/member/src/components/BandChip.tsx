@@ -21,7 +21,7 @@ export function BandChip({ band, style }: { band: Band; style?: ViewStyle }) {
         ...style,
       }}
     >
-      <Text style={{ ...theme.text("label"), color: b.on, fontWeight: "600" }}>{LABEL[band]}</Text>
+      <Text style={{ ...theme.text("label", 600), color: b.on }}>{LABEL[band]}</Text>
     </View>
   );
 }

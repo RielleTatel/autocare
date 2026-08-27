@@ -64,7 +64,7 @@ export function InvoiceDetailScreen({ invoice, onDownloadReceipt, onBack }: {
       <Pressable testID="download-receipt" disabled={downloading} onPress={handleDownload}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
           backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>
           {downloading ? "Opening…" : "Download / Share receipt"}
         </Text>
       </Pressable>

@@ -69,7 +69,7 @@ export function HomeScreen({
 
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             {health ? <StarRating score={health.score} band={health.band} size={18} /> : <View />}
-            <Text style={[t.text("label"), { color: t.colors.primary, fontWeight: "600" }]}>
+            <Text style={[t.text("label", 600), { color: t.colors.primary }]}>
               {health ? `Health score ${health.score} ›` : "View health score ›"}
             </Text>
           </View>

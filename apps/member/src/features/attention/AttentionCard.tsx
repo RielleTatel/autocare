@@ -42,7 +42,7 @@ export function AttentionCard({ items, onSeeAll, onPressItem }: { items: Attenti
 
       {onSeeAll && (
         <Pressable accessibilityRole="button" accessibilityLabel="See all attention items" onPress={onSeeAll} style={{ minHeight: 40, justifyContent: "center" }}>
-          <Text style={{ ...t.text("body"), color: t.colors.primary, fontWeight: "600" }}>See all {items.length} ›</Text>
+          <Text style={{ ...t.text("body", 600), color: t.colors.primary }}>See all {items.length} ›</Text>
         </Pressable>
       )}
     </View>

@@ -161,7 +161,7 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
       <Pressable testID="submit" disabled={submitting} onPress={handleSubmit}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
           backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Add vehicle</Text>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Add vehicle</Text>
       </Pressable>
     </ScrollView>
   );

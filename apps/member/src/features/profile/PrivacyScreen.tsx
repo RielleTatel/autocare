@@ -37,7 +37,7 @@ export function PrivacyScreen({ requestDataExport, requestDeletion, onSignedOut 
       <Pressable testID="download-data" onPress={downloadData}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
           backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Download my data</Text>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Download my data</Text>
       </Pressable>
       {toast ? (
         <Text testID="toast" style={[theme.text("label"), { color: theme.colors.success, marginTop: theme.spacing.sm }]}>
@@ -64,7 +64,7 @@ export function PrivacyScreen({ requestDataExport, requestDeletion, onSignedOut 
             </Pressable>
             <Pressable testID="delete-confirm" onPress={deleteAccount}
               style={{ height: theme.minTarget, justifyContent: "center", paddingHorizontal: theme.spacing.md }}>
-              <Text style={[theme.text("body"), { color: theme.colors.danger, fontWeight: "600" }]}>Delete</Text>
+              <Text style={[theme.text("body", 600), { color: theme.colors.danger }]}>Delete</Text>
             </Pressable>
           </View>
         </View>

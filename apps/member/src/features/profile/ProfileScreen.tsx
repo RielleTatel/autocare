@@ -77,7 +77,7 @@ export function ProfileScreen({ initialProfile, saveProfile, onSignOut, onPrivac
       <Pressable testID="save-profile" onPress={save}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
           backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Save</Text>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Save</Text>
       </Pressable>
       {saved ? (
         <Text style={[theme.text("label"), { color: theme.colors.success, marginTop: theme.spacing.sm }]}>Saved</Text>

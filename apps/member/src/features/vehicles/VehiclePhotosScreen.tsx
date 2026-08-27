@@ -94,7 +94,7 @@ export function VehiclePhotosScreen({ vehicleId, onDone, pickImage, uploadPhoto,
       <Pressable testID="done" disabled={busy} onPress={finish}
         style={{ height: theme.minTarget, borderRadius: theme.radii.sm, marginTop: theme.spacing.lg,
           backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[theme.text("body"), { color: theme.colors.onPrimary, fontWeight: "600" }]}>Done</Text>
+        <Text style={[theme.text("body", 600), { color: theme.colors.onPrimary }]}>Done</Text>
       </Pressable>
       <Pressable testID="skip" disabled={busy} onPress={onDone}
         style={{ height: theme.minTarget, alignItems: "center", justifyContent: "center" }}>
