@@ -20,3 +20,45 @@ describe("InspectionsService.markStale (BR-05)", () => {
     expect(cutoff.getTime()).toBe(day90.getTime());
   });
 });
+
+describe("InspectionsService.inspectionDetail — diagram zones (FR-116)", () => {
+  const point = (code: string, diagramZoneId: string | null) => ({
+    pointCode: code,
+    status: "GOOD",
+    measuredValue: null,
+    notes: null,
+    photoUrls: [],
+    point: {
+      label: code,
+      labelFil: null,
+      categoryId: "cat-1",
+      category: { code: "TYRES" },
+      unit: null,
+      thresholdDirection: null,
+      templates: null,
+      recommendation: "",
+      isSafetyCritical: false,
+      diagramZoneId,
+    },
+  });
+
+  const findFirst = jest.fn().mockResolvedValue({
+    id: "insp-1",
+    submittedAt: null,
+    odometerKm: null,
+    results: [point("TREAD_FL", "WHEEL_FL"), point("WHEEL_CONDITION", null)],
+  });
+  // A staff role short-circuits assertCanReadVehicle, so no vehicle mock is needed.
+  const service = new InspectionsService({ inspection: { findFirst } } as any);
+  const staff = { id: "u1", role: "ADMIN" } as any;
+
+  it("returns the zone for a point whose position is known", async () => {
+    const detail = await service.inspectionDetail(staff, "veh-1", "insp-1");
+    expect(detail.results.find((r) => r.pointCode === "TREAD_FL")?.diagramZone).toBe("WHEEL_FL");
+  });
+
+  it("returns null for a point with no unambiguous position", async () => {
+    const detail = await service.inspectionDetail(staff, "veh-1", "insp-1");
+    expect(detail.results.find((r) => r.pointCode === "WHEEL_CONDITION")?.diagramZone).toBeNull();
+  });
+});

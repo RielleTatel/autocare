@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { DiagramZone } from "@autocare/contracts";
 import { DomainError } from "../../common/errors/domain-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { AbilityUser } from "../../common/policies/ability.factory";
@@ -93,6 +94,7 @@ export class InspectionsService {
         labelFil: r.point.labelFil,
         categoryId: r.point.categoryId,
         categoryCode: r.point.category.code,
+        diagramZone: (r.point.diagramZoneId ?? null) as DiagramZone | null,
         status: r.status,
         measuredValue: r.measuredValue,
         unit: r.point.unit,
