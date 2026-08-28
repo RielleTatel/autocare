@@ -1,83 +1,96 @@
 import { ScrollView, Text, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
-import { bandForScore, vhsBands } from "@autocare/design-tokens";
-import type { Band } from "@autocare/scoring";
+import type { Band, PointStatus } from "@autocare/scoring";
 import { fieldTheme } from "../../theme";
+import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
+import { FieldNav } from "../../components/FieldNav";
+import { ScoreGauge } from "../../components/ScoreGauge";
+import { StatusChip, statusColor } from "../../components/StatusChip";
 
 export type FieldScore = {
   score: number;
   band: Band;
   overrideApplied: string;
-  topDetractors: Array<{ label: string; status: string; recommendation: string }>;
+  /** The pre-override average, shown so the mechanic can explain the cap. */
+  averagedScore?: number;
+  confidence?: "HIGH" | "MEDIUM" | "LOW";
+  topDetractors: Array<{
+    label: string;
+    status: PointStatus;
+    recommendation: string;
+    estimatedCostCentavos?: number;
+  }>;
 };
 
-function polar(cx: number, cy: number, r: number, deg: number) {
-  const a = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(a), y: cy - r * Math.sin(a) };
-}
-function arcPath(cx: number, cy: number, r: number, fromDeg: number, toDeg: number): string {
-  const s = polar(cx, cy, r, fromDeg);
-  const e = polar(cx, cy, r, toDeg);
-  const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
-  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;
-}
+const peso = (centavos: number) => `₱${Math.round(centavos / 100).toLocaleString("en-PH")}`;
 
-/** F-09 — gauge (same geometry as the member ScoreGauge) + a "what to tell the
- *  customer" summary. Shown after a synced submission returns its score. */
-export function ScoreResultScreen({ result, offline }: { result?: FieldScore; offline?: boolean }) {
+/** F-09 — the gauge plus what to tell the customer. Shown once a submitted
+ *  inspection syncs and returns its score. */
+export function ScoreResultScreen({
+  result, offline, onBackToTasks,
+}: {
+  result?: FieldScore;
+  offline?: boolean;
+  onBackToTasks?: () => void;
+}) {
   const t = fieldTheme;
 
   if (!result) {
     return (
-      <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center", padding: t.spacing.lg }}>
-        <Text style={[t.text("h1"), { color: t.colors.ink, textAlign: "center" }]}>Inspection submitted</Text>
-        <Text style={[t.text("body"), { color: t.colors.inkMuted, textAlign: "center", marginTop: t.spacing.sm }]}>
-          {offline ? "Score will appear once this device syncs." : "Computing score…"}
-        </Text>
+      <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+        <FieldNav title="Score result" />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: t.spacing.lg }}>
+          <Text style={{ ...t.text("h1"), color: t.colors.ink, textAlign: "center" }}>Inspection submitted</Text>
+          <Text style={{ ...t.text("body"), color: t.colors.inkMuted, textAlign: "center", marginTop: t.spacing.sm }}>
+            {offline ? "Score will appear once this device syncs." : "Computing score…"}
+          </Text>
+        </View>
       </View>
     );
   }
 
-  const size = 240;
-  const stroke = 20;
-  const r = (size - stroke) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const clamped = Math.max(0, Math.min(100, result.score));
-  const progressDeg = 180 - (clamped / 100) * 180;
-  const bandInfo = vhsBands[(result.band ?? bandForScore(clamped)) as Band];
+  const capped = result.overrideApplied !== "NONE" && result.averagedScore !== undefined;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.lg }}>
-      <View style={{ alignItems: "center", paddingTop: t.spacing.md }}>
-        <Svg width={size} height={size / 2 + stroke}>
-          <Path d={arcPath(cx, cy, r, 180, 0)} stroke={t.colors.line} strokeWidth={stroke} fill="none" strokeLinecap="round" />
-          {clamped > 0 && <Path d={arcPath(cx, cy, r, 180, progressDeg)} stroke={bandInfo.fill} strokeWidth={stroke} fill="none" strokeLinecap="round" />}
-          <Circle cx={polar(cx, cy, r, progressDeg).x} cy={polar(cx, cy, r, progressDeg).y} r={stroke / 2.5} fill={bandInfo.fill} />
-        </Svg>
-        <View style={{ position: "absolute", top: size / 4, alignItems: "center" }}>
-          <Text style={{ ...t.text("score"), fontSize: 72, color: bandInfo.text }}>{clamped}</Text>
-        </View>
-        <Text style={[t.text("h2"), { color: bandInfo.text }]}>{bandInfo.labelEn} · {bandInfo.labelFil}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+      <FieldNav title="Score result" />
+      <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.lg }}>
+        <Card pad="lg" style={{ alignItems: "center", gap: t.spacing.sm }}>
+          <ScoreGauge score={result.score} band={result.band} size={240} confidence={result.confidence} />
+          {capped ? (
+            <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textAlign: "center" }}>
+              Averaged {result.averagedScore} · capped at {Math.round(result.score)} by a safety-critical finding
+            </Text>
+          ) : null}
+        </Card>
 
-      <View style={{ gap: t.spacing.sm }}>
-        <Text style={[t.text("h1"), { color: t.colors.ink }]}>What to tell the customer</Text>
+        <Text style={{ ...t.text("h1"), color: t.colors.ink }}>What to tell the customer</Text>
+
         {result.overrideApplied !== "NONE" && (
-          <View style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.danger, padding: t.spacing.md }}>
-            <Text style={[t.text("body"), { color: t.colors.danger }]}>
+          <Card accent={t.colors.danger}>
+            <Text style={{ ...t.text("body"), color: t.colors.danger }}>
               A safety-critical item {result.overrideApplied === "SAFETY_CRITICAL" ? "is in unsafe condition" : "needs attention"} — explain the score is capped until it is fixed.
             </Text>
-          </View>
+          </Card>
         )}
+
         {result.topDetractors.map((d, i) => (
-          <View key={i} style={{ backgroundColor: t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, padding: t.spacing.md }}>
-            <Text style={[t.text("h2"), { color: t.colors.ink }]}>{d.label}</Text>
-            <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>{d.recommendation}</Text>
-          </View>
+          <Card key={i} accent={statusColor(d.status)} style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...t.text("body"), color: t.colors.ink }}>{d.label}</Text>
+              <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>{d.recommendation}</Text>
+              {d.estimatedCostCentavos !== undefined ? (
+                <Text style={{ ...t.text("code"), color: t.colors.inkMuted }}>est. {peso(d.estimatedCostCentavos)}</Text>
+              ) : null}
+            </View>
+            <StatusChip status={d.status} />
+          </Card>
         ))}
-      </View>
-      <View style={{ height: t.spacing.xl }} />
-    </ScrollView>
+
+        {onBackToTasks ? (
+          <Button variant="secondary" onPress={onBackToTasks}>Back to today's tasks</Button>
+        ) : null}
+      </ScrollView>
+    </View>
   );
 }
