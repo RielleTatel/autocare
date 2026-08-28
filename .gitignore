@@ -8,3 +8,6 @@ coverage
 .turbo
 .DS_Store
 .storage/
+
+# Redis snapshot, if redis-server is started from a workspace dir
+dump.rdb

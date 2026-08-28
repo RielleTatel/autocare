@@ -6,6 +6,10 @@ module.exports = {
   // bigint-serializer patches BigInt.prototype.toJSON — main.ts loads it in production; load it
   // here too so e2e responses serialize BigInt money fields the same way (else raw BigInt → 500).
   setupFiles: ["reflect-metadata", "<rootDir>/test/setup-env.ts", "<rootDir>/src/common/bigint-serializer.ts"],
+  // Aborts immediately when Redis is unreachable. Without it the e2e specs' BullMQ
+  // workers retry forever, and the suite hangs with no output at all rather than
+  // failing — see test/preflight.ts.
+  globalSetup: "<rootDir>/test/global-setup.ts",
   transform: { "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.json" }] },
   moduleNameMapper: {
     "^@autocare/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
