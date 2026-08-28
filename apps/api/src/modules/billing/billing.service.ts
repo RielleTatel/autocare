@@ -160,7 +160,8 @@ export class BillingService {
    * clear/consume the flag that gates them.
    */
   async evaluateStates(): Promise<{ evaluated: number; downgradesApplied: number; cancellationsFinalized: number }> {
-    const todayIdx = manilaDayIndex(this.clock.now());
+    const now = this.clock.now();
+    const todayIdx = manilaDayIndex(now);
 
     const invoices = await this.prisma.invoice.findMany({
       where: { status: { in: ["AWAITING_CASH", "GRACE", "PAST_DUE"] } },
@@ -193,7 +194,10 @@ export class BillingService {
     let cancellationsFinalized = 0;
     for (const sub of cancelCandidates) {
       if (manilaDayIndex(sub.currentPeriodEnd) > todayIdx) continue;
-      await this.prisma.subscription.update({ where: { id: sub.id }, data: { status: "CANCELLED" } });
+      await this.prisma.subscription.update({
+        where: { id: sub.id },
+        data: { status: "CANCELLED", cancelledAt: now },
+      });
       cancellationsFinalized += 1;
     }
 

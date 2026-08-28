@@ -264,7 +264,7 @@ export class SubscriptionsService {
       this.prisma.$transaction(async (tx) => {
         const updated = await tx.subscription.update({
           where: { id: sub.id },
-          data: { status: "CANCELLED", cancelRequestedAt: now },
+          data: { status: "CANCELLED", cancelRequestedAt: now, cancelledAt: now },
           select: SUBSCRIPTION_SELECT,
         });
         const number = await nextInvoiceNumber(tx);

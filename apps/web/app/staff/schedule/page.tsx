@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Board } from "./Board";
+import { TodayPanel } from "./TodayPanel";
 import { getBoard, cancelAppointment, type BoardAppointment } from "../../../lib/scheduling/api";
 
 const todayManila = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }); // YYYY-MM-DD
@@ -45,8 +46,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <main className="min-h-screen bg-chassis px-6 py-6">
-      <div className="max-w-3xl mx-auto flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <header className="flex items-center justify-between">
           <h1 className="font-display text-2xl text-ink">Schedule</h1>
           <Link href="/staff/config" className="text-primary text-sm font-medium">
@@ -73,9 +73,13 @@ export default function SchedulePage() {
           </button>
         </div>
 
-        {error && <p className="text-danger text-sm">{error}</p>}
-        {loading ? <p className="text-ink-muted text-sm py-8 text-center">Loading…</p> : <Board appointments={appts} onCancel={onCancel} />}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_300px]">
+          <section className="flex flex-col gap-5">
+            {error && <p className="text-danger text-sm">{error}</p>}
+            {loading ? <p className="text-ink-muted text-sm py-8 text-center">Loading…</p> : <Board appointments={appts} onCancel={onCancel} />}
+          </section>
+          <TodayPanel appointments={appts} />
+        </div>
       </div>
-    </main>
   );
 }

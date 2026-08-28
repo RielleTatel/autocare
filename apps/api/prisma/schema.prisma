@@ -278,6 +278,7 @@ model Subscription {
   currentPeriodEnd   DateTime                  @map("current_period_end")
   paymentMethod      SubscriptionPaymentMethod @map("payment_method")
   cancelRequestedAt  DateTime?                 @map("cancel_requested_at")
+  cancelledAt        DateTime?                 @map("cancelled_at")
   pendingPlanId      String?                   @map("pending_plan_id") @db.Uuid
   entitlementUsages  EntitlementUsage[]
   invoices           Invoice[]

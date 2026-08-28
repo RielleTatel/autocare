@@ -11,7 +11,7 @@ const THRESHOLD = 0.85;
 export function UtilisationWidget({ days }: { days: DayUtilisation[] }) {
   return (
     <section className="rounded-md border border-line bg-surface p-4" data-testid="utilisation-widget">
-      <h2 className="font-display text-lg text-ink mb-3">Forward utilisation</h2>
+      <h2 className="font-display text-lg text-ink mb-3">Forward utilisation · next 14 days</h2>
       {days.length === 0 ? (
         <p className="text-ink-muted text-sm">No data.</p>
       ) : (
@@ -30,6 +30,9 @@ export function UtilisationWidget({ days }: { days: DayUtilisation[] }) {
           })}
         </div>
       )}
+      <p className="mt-2 text-xs text-ink-muted">
+        Dashed line is the 85% capacity threshold. Bars turn amber approaching it and red once breached.
+      </p>
     </section>
   );
 }

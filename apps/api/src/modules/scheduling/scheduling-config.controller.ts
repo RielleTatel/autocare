@@ -45,6 +45,11 @@ export class SchedulingConfigController {
     return this.config.createBlock(u, dto);
   }
 
+  @Get("operating-hours")
+  listOperatingHours(@CurrentUser() u: AbilityUser) {
+    return this.config.listOperatingHours(u);
+  }
+
   @Put("operating-hours")
   upsertOperatingHours(@CurrentUser() u: AbilityUser, @Body(new ZodValidationPipe(operatingHoursSchema)) dto: OperatingHoursInput) {
     return this.config.upsertOperatingHours(u, dto);
