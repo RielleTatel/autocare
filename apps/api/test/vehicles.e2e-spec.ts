@@ -3,6 +3,7 @@ import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { purgeFixtures } from "./fixtures";
 
 describe("vehicles (e2e)", () => {
   let app: any, prisma: PrismaService, vehicleId: string;
@@ -13,6 +14,10 @@ describe("vehicles (e2e)", () => {
       .compile();
     app = mod.createNestApplication(); app.setGlobalPrefix("api/v1"); await app.init();
     prisma = app.get(PrismaService);
+
+    // Idempotent setup: clear anything a previously-aborted run left behind,
+    // whose afterAll never got to execute.
+    await purgeFixtures(prisma, { firebaseUids: ["veh-fm-noorg"], plateNos: ["1234ABC", "XYZ7890"] });
     for (const [uid, role] of [["veh-a", "MEMBER"], ["veh-b", "MEMBER"], ["veh-mech", "MECHANIC"]] as const) {
       await prisma.user.create({ data: { firebaseUid: uid, role,
         consents: role === "MEMBER" ? { create: { policyVersion: "2026-08-privacy-v1" } } : undefined } });

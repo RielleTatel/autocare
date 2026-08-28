@@ -5,6 +5,7 @@ import { createHmac } from "crypto";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { purgeFixtures } from "./fixtures";
 import { FAKE_WEBHOOK_SECRET, FakePspPayload } from "../src/modules/payments/fake-provider.adapter";
 
 function sign(body: string): string {
@@ -29,6 +30,12 @@ describe("subscriptions (e2e)", () => {
     // webhook through POST /webhooks/payments (same requirement as payments-webhook.e2e-spec.ts).
     app = mod.createNestApplication({ rawBody: true }); app.setGlobalPrefix("api/v1"); await app.init();
     prisma = app.get(PrismaService);
+
+    // Idempotent setup: clear anything a previously-aborted run left behind,
+    // whose afterAll never got to execute.
+    await purgeFixtures(prisma, { firebaseUids: ["sub-owner-a", "sub-owner-b", "sub-mech", "sub-advisor"],
+      planCodes: ["E2E-SUB-BASIC"],
+      plateNos: ["SUB0001", "SUB0002", "SUB0003", "SUB0004", "SUB0005", "SUB0006", "SUB0007", "SUB0008", "SUB0009"] });
 
     for (const [uid, role] of [["sub-owner-a", "MEMBER"], ["sub-owner-b", "MEMBER"], ["sub-mech", "MECHANIC"], ["sub-advisor", "ADVISOR"]] as const) {
       await prisma.user.create({ data: { firebaseUid: uid, role,
