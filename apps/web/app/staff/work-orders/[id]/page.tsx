@@ -8,9 +8,30 @@ import {
   type PartRow, type RecommendationRow, type WorkOrder, type WorkOrderStatus,
 } from "../../../../lib/work-orders/api";
 import { quoteTotals } from "../../../../lib/work-orders/totals";
+import { StatusPill } from "../../../../components/StatusPill";
+import { Plate } from "../../../../components/Plate";
+import { bandVar } from "../../../../components/BandChip";
 
 const STATUS_FLOW: WorkOrderStatus[] = ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "IN_PROGRESS", "QC", "READY", "CLOSED"];
-const SEVERITY_COLOR: Record<string, string> = { CRITICAL: "#B3261E", ATTENTION: "#C75E1B", MONITOR: "#B87E00" };
+/** Finding severity → its protected band token. Severity is product data. */
+const SEVERITY_VAR: Record<string, string> = {
+  CRITICAL: bandVar("CRITICAL"),
+  ATTENTION: bandVar("NEEDS_ATTENTION"),
+  MONITOR: bandVar("FAIR"),
+};
+
+/** Work-order lifecycle → pill tone: grey not started, blue moving, amber
+ *  waiting on someone, green settled. */
+const STATUS_TONE: Record<string, "neutral" | "info" | "success" | "warn" | "danger"> = {
+  DRAFT: "neutral",
+  AWAITING_APPROVAL: "warn",
+  APPROVED: "info",
+  IN_PROGRESS: "info",
+  QC: "info",
+  READY: "info",
+  CLOSED: "success",
+  CANCELLED: "neutral",
+};
 
 /** W-05/W-06 — advisor quote builder + lifecycle controls. */
 export default function WorkOrderPage() {
@@ -60,8 +81,8 @@ export default function WorkOrderPage() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="font-display text-2xl text-ink">Work order <span className="font-mono">{wo.number}</span></h1>
-            {wo.plateNo && <span className="font-mono text-sm rounded-sm border border-line px-2 py-0.5 text-ink">{wo.plateNo}</span>}
-            <StatusPill status={wo.status} />
+            {wo.plateNo && <Plate variant="outline">{wo.plateNo}</Plate>}
+            <StatusPill tone={STATUS_TONE[wo.status] ?? "neutral"}>{wo.status.replace("_", " ")}</StatusPill>
           </div>
           <Link href="/staff/schedule" className="text-primary text-sm font-medium">← Schedule</Link>
         </header>
@@ -109,16 +130,12 @@ export default function WorkOrderPage() {
   );
 }
 
-function StatusPill({ status }: { status: WorkOrderStatus }) {
-  return <span className="rounded-pill bg-primary-deep text-white text-xs px-2 py-0.5">{status.replace("_", " ")}</span>;
-}
-
 function ItemTable({ wo, editable, onMarkDone }: { wo: WorkOrder; editable: boolean; onMarkDone: (itemId: string, done: boolean) => void }) {
   return (
     <div className="rounded-md border border-line bg-surface overflow-x-auto">
       <table className="w-full text-sm text-ink">
         <thead>
-          <tr className="text-left text-ink-muted border-b border-line">
+          <tr className="border-b border-line text-left font-display font-semibold tracking-[0.02em] text-ink">
             <th className="p-2">Item</th><th className="p-2">Qty</th><th className="p-2">Unit</th><th className="p-2">Discount</th><th className="p-2">Line</th><th className="p-2">Decision</th><th className="p-2">Done</th>
           </tr>
         </thead>
@@ -129,10 +146,10 @@ function ItemTable({ wo, editable, onMarkDone }: { wo: WorkOrder; editable: bool
                 <div className="font-medium">{i.description}</div>
                 <div className="text-ink-muted text-xs">{i.type === "PART" ? (i.partSku ? `${i.partSku} · stock ${i.stockQty}` : "part") : "labour"}{i.recommendationLabel ? " · from finding" : ""}</div>
               </td>
-              <td className="p-2">{i.qty}</td>
-              <td className="p-2">{peso(i.unitPriceCentavos)}</td>
-              <td className="p-2">{i.discountCentavos ? `-${peso(i.discountCentavos)}` : "—"}</td>
-              <td className="p-2 font-medium">{peso(i.lineTotalCentavos)}</td>
+              <td className="p-2 font-mono tabular-nums">{i.qty}</td>
+              <td className="p-2 font-mono tabular-nums">{peso(i.unitPriceCentavos)}</td>
+              <td className="p-2 font-mono tabular-nums">{i.discountCentavos ? `-${peso(i.discountCentavos)}` : "—"}</td>
+              <td className="p-2 font-mono tabular-nums font-medium">{peso(i.lineTotalCentavos)}</td>
               <td className="p-2"><DecisionBadge status={i.approvalStatus} /></td>
               <td className="p-2">
                 {!editable && i.approvalStatus === "APPROVED" ? (
@@ -167,7 +184,7 @@ function TotalsPanel({ totals }: { totals: ReturnType<typeof quoteTotals> }) {
   );
 }
 function Row({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
-  return <div className="flex justify-between"><span className={muted ? "text-ink-muted" : "text-ink"}>{label}</span><span className={`${bold ? "font-semibold" : ""} ${muted ? "text-ink-muted" : "text-ink"}`}>{value}</span></div>;
+  return <div className="flex justify-between"><span className={muted ? "text-ink-muted" : "text-ink"}>{label}</span><span className={`font-mono tabular-nums ${bold ? "font-semibold" : ""} ${muted ? "text-ink-muted" : "text-ink"}`}>{value}</span></div>;
 }
 
 function RecommendationsTray({ recs, onConvert }: { recs: RecommendationRow[]; onConvert: (r: RecommendationRow) => void }) {
@@ -177,7 +194,7 @@ function RecommendationsTray({ recs, onConvert }: { recs: RecommendationRow[]; o
       {recs.map((r) => (
         <button key={r.id} type="button" onClick={() => onConvert(r)} className="text-left rounded-sm border border-line p-2 hover:bg-chassis">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_COLOR[r.severity] ?? "#51616F" }} />
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_VAR[r.severity] ?? "var(--ac-ink-muted)" }} />
             <span className="text-ink text-sm font-medium">{r.label}</span>
             {r.resurfacedCount > 0 && <span className="text-xs text-danger">seen {r.resurfacedCount + 1}×</span>}
           </div>
