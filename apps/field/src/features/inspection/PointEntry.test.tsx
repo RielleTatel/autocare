@@ -61,4 +61,17 @@ describe("PointEntryScreen (F-06)", () => {
     render(<PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={noop} onNext={noop} />);
     expect(screen.getByLabelText("Notes")).toBeTruthy();
   });
+
+  it("confirms an attached photo so the mechanic knows it took", () => {
+    render(
+      <PointEntryScreen
+        point={measuredPoint}
+        initial={{ pointCode: "PAD", status: "ATTENTION", photoUris: ["file:///a.jpg"] }}
+        onSave={noop}
+        onAddPhoto={noop}
+        onNext={noop}
+      />,
+    );
+    expect(screen.getByText("1 photo attached")).toBeTruthy();
+  });
 });
