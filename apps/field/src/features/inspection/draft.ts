@@ -35,6 +35,7 @@ const ADVERSE: PointStatus[] = ["ATTENTION", "CRITICAL"];
 export interface CategoryProgress {
   code: string;
   label: string;
+  labelFil?: string;
   answered: number;
   total: number;
   /** Worst answered status in the category — drives the F-05 tile accent. */
@@ -67,7 +68,7 @@ export function categoryProgress(checklist: CachedChecklist, results: LocalResul
         if (worst === null || SEVERITY[status] > SEVERITY[worst]) worst = status;
       }
     }
-    return { code: cat.code, label: cat.label, answered, total: cat.points.length, worst };
+    return { code: cat.code, label: cat.label, labelFil: cat.labelFil, answered, total: cat.points.length, worst };
   });
 }
 

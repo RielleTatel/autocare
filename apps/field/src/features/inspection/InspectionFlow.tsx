@@ -173,6 +173,7 @@ function CaptureFlow({
       overall={draft.overall}
       onOpenCategory={(code) => setRoute({ name: "point", code: firstUnansweredIn(code) })}
       onReview={() => setRoute({ name: "review" })}
+      onBack={onDone}
     />
   );
 }
