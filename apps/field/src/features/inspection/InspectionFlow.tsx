@@ -151,7 +151,9 @@ function CaptureFlow({
         overall={draft.overall}
         submitted={draft.isLocked}
         isOffline
+        vehicle={{ plateNo: vehicle.plateNo, description: `${vehicle.year} ${vehicle.make} ${vehicle.model}`, odometerKm: odometerKm ?? undefined }}
         onJumpToPoint={(code) => setRoute({ name: "point", code })}
+        onBack={() => setRoute({ name: "categories" })}
         onSubmit={async () => {
           await draft.submit();
           void syncProcessor.drain().catch(() => undefined);

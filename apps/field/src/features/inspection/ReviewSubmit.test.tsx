@@ -70,4 +70,35 @@ describe("ReviewSubmitScreen (F-08)", () => {
     );
     expect(screen.getByText(/Score will appear when synced/)).toBeTruthy();
   });
+
+  it("lists every point with its measurement and threshold, not just the problems", () => {
+    render(
+      <ReviewSubmitScreen
+        checklist={checklist}
+        results={[{ pointCode: "PAD", measuredValue: 3, status: "ATTENTION", photoUris: ["file://x.jpg"] }]}
+        check={{ complete: false, missingPoints: ["DISC"], missingPhotos: [] }}
+        overall={{ answered: 1, total: 2 }}
+        onJumpToPoint={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+    expect(screen.getByText(/3 mm · good ≥ 7 mm/)).toBeTruthy();
+  });
+
+  it("says where a submission goes so an offline mechanic is not left guessing", () => {
+    render(
+      <ReviewSubmitScreen
+        checklist={checklist}
+        results={[
+          { pointCode: "PAD", measuredValue: 8, status: "GOOD", photoUris: [] },
+          { pointCode: "DISC", status: "GOOD", photoUris: [] },
+        ]}
+        check={{ complete: true, missingPoints: [], missingPhotos: [] }}
+        overall={{ answered: 2, total: 2 }}
+        onJumpToPoint={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+    expect(screen.getByText(/Submits to the outbox/)).toBeTruthy();
+  });
 });
