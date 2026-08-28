@@ -76,6 +76,12 @@ export class SchedulingConfigService {
   }
 
   // ---- Operating hours (upsert by weekday or by dateOverride) ----
+  /** Read side of the operating-hours config — the Board's walk-in buffer row. */
+  async listOperatingHours(u: AbilityUser) {
+    this.assertStaff(u);
+    return this.prisma.operatingHours.findMany({ orderBy: { weekday: "asc" } });
+  }
+
   async upsertOperatingHours(u: AbilityUser, dto: OperatingHoursInput) {
     this.assertStaff(u);
     if (!dto.weekday && !dto.dateOverride) throw new DomainError("FORBIDDEN_ROLE", "weekday or dateOverride required", 400);
