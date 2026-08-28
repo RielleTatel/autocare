@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
+import { useFonts } from "expo-font";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { fieldTheme } from "../theme";
+import { fontAssets } from "../theme/fonts";
 import { StaffLoginScreen } from "../features/auth/StaffLoginScreen";
 import { StaffHomeScreen } from "../features/home/StaffHomeScreen";
 import { signInStaff } from "../features/auth/staffAuth";
@@ -42,11 +44,19 @@ function StaffLoginContainer({ setBoot }: { setBoot: (b: StaffBootState) => void
 
 export default function App() {
   const [boot, setBoot] = useState<StaffBootState | "PENDING">("PENDING");
+  // Every screen styles text through fieldTheme.text(), which names the Barlow
+  // / Inter / IBM Plex faces directly. Rendering before they register shows a
+  // frame of system-font fallback and reflow. `fontError` counts as loaded on
+  // purpose: a missing face should degrade to the system font, never to a
+  // permanently blank app.
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   useEffect(() => {
     bootstrapStaff().then(setBoot);
     startSyncListener();
   }, []);
+
+  if (!fontsLoaded && !fontError) return <Splash />;
 
   return (
     <NavigationContainer>

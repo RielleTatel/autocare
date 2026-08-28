@@ -1,6 +1,16 @@
+const expoPreset = require("jest-expo/jest-preset");
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "jest-expo",
+  // The preset only transforms `\.[jt]sx?$`, so `.mjs` sources fall through
+  // untransformed and blow up on their first `export` — which is how
+  // lucide-react-native ships (its package `exports` resolves the react-native
+  // condition to dist/esm/*.mjs).
+  transform: {
+    ...expoPreset.transform,
+    "\\.mjs$": expoPreset.transform["\\.[jt]sx?$"],
+  },
   moduleNameMapper: {
     "^@autocare/design-tokens$": "<rootDir>/../../packages/design-tokens/src/index.ts",
     "^@autocare/api-client$": "<rootDir>/../../packages/api-client/src/index.ts",
