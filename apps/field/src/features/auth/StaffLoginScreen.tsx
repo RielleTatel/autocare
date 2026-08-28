@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Text, View } from "react-native";
 import { fieldTheme } from "../../theme";
+import { FormField } from "../../components/FormField";
+import { Button } from "../../components/Button";
 
 export interface StaffLoginScreenProps {
   error: string | null;
@@ -8,96 +10,39 @@ export interface StaffLoginScreenProps {
 }
 
 export function StaffLoginScreen({ error, onSubmit }: StaffLoginScreenProps) {
+  const t = fieldTheme;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   return (
-    <View style={styles.screen}>
-      <Text style={styles.brand}>Staff sign-in</Text>
-      <Text style={styles.tagline}>AutoCare+ Field</Text>
+    <View style={{ flex: 1, backgroundColor: t.colors.chassis, padding: t.spacing.lg, justifyContent: "center", gap: t.spacing.md }}>
+      <View>
+        <Text style={{ ...t.text("h1"), color: t.colors.primaryDeep }}>Staff sign-in</Text>
+        <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>AutoCare+ Field</Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
+      <FormField
+        testID="staff-email"
+        accessibilityLabel="Staff email"
         placeholder="Staff email"
-        placeholderTextColor={fieldTheme.colors.inkMuted}
         keyboardType="email-address"
-        autoCapitalize="none"
-        autoComplete="email"
         value={email}
         onChangeText={setEmail}
-        testID="staff-email"
       />
-      <TextInput
-        style={styles.input}
+      <FormField
+        testID="staff-password"
+        accessibilityLabel="Password"
         placeholder="Password"
-        placeholderTextColor={fieldTheme.colors.inkMuted}
         secureTextEntry
-        autoComplete="current-password"
         value={password}
         onChangeText={setPassword}
-        testID="staff-password"
+        error={error ?? undefined}
+        errorTestID="staff-login-error"
       />
 
-      {error && (
-        <Text style={styles.error} testID="staff-login-error">
-          {error}
-        </Text>
-      )}
-
-      <Pressable
-        style={styles.button}
-        accessibilityRole="button"
-        onPress={() => onSubmit(email, password)}
-        testID="staff-login-submit"
-      >
-        <Text style={styles.buttonLabel}>Sign in</Text>
-      </Pressable>
+      <Button testID="staff-login-submit" onPress={() => onSubmit(email, password)}>
+        Sign in
+      </Button>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: fieldTheme.colors.chassis,
-    padding: fieldTheme.spacing.lg,
-    justifyContent: "center",
-  },
-  brand: {
-    ...fieldTheme.text("h1"),
-    color: fieldTheme.colors.primaryDeep,
-    marginBottom: fieldTheme.spacing.xs,
-  },
-  tagline: {
-    ...fieldTheme.text("body"),
-    color: fieldTheme.colors.inkMuted,
-    marginBottom: fieldTheme.spacing.xl,
-  },
-  input: {
-    height: fieldTheme.minTarget,
-    backgroundColor: fieldTheme.colors.surface,
-    borderColor: fieldTheme.colors.line,
-    borderWidth: 1,
-    borderRadius: fieldTheme.radii.sm,
-    paddingHorizontal: fieldTheme.spacing.md,
-    color: fieldTheme.colors.ink,
-    marginBottom: fieldTheme.spacing.md,
-  },
-  error: {
-    ...fieldTheme.text("body"),
-    color: fieldTheme.colors.danger,
-    marginBottom: fieldTheme.spacing.md,
-  },
-  button: {
-    height: fieldTheme.minTarget,
-    backgroundColor: fieldTheme.colors.primary,
-    borderRadius: fieldTheme.radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonLabel: {
-    ...fieldTheme.text("body"),
-    color: fieldTheme.colors.onPrimary,
-    fontWeight: "600",
-  },
-});
