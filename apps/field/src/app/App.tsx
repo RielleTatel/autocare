@@ -7,7 +7,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { fieldTheme } from "../theme";
 import { fontAssets } from "../theme/fonts";
 import { StaffLoginScreen } from "../features/auth/StaffLoginScreen";
-import { StaffHomeScreen } from "../features/home/StaffHomeScreen";
+import { TaskListScreen } from "../features/tasks/TaskListScreen";
 import { signInStaff } from "../features/auth/staffAuth";
 import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSession";
 import { InspectionFlow } from "../features/inspection/InspectionFlow";
@@ -67,7 +67,7 @@ export default function App() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Home">
             {({ navigation }) => (
-              <StaffHomeScreen
+              <TaskListScreen
                 name={boot.name}
                 role={boot.role}
                 onStartInspection={() => navigation.navigate("Inspection")}
