@@ -34,7 +34,8 @@ export function VehicleDiagram({
             stroke={theme.colors.line}
             strokeWidth={1.5}
             opacity={s.id === "BODY_SHELL" ? 0.35 : 1}
-            accessibilityRole="button"
+            // react-native-svg's Path takes accessibilityLabel but not
+            // accessibilityRole; the label plus onPress carries the affordance.
             accessibilityLabel={s.label}
             onPress={onShapePress ? () => onShapePress(s.id) : undefined}
           />

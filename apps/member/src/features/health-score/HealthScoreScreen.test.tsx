@@ -1,6 +1,10 @@
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import { HealthScoreScreen } from "./HealthScoreScreen";
-import type { HealthScore } from "./healthScoreApi";
+import type { HealthScore, InspectionResultDetail } from "./healthScoreApi";
+
+const results = [
+  { pointCode: "ENGINE_IDLE", label: "Engine idle quality", diagramZone: "ENGINE_BAY", status: "MONITOR", categoryCode: "ENGINE" },
+] as unknown as InspectionResultDetail[];
 
 const base = {
   score: 69,
@@ -45,5 +49,28 @@ describe("HealthScoreScreen (M-13)", () => {
     render(<HealthScoreScreen score={uncapped} />);
     expect(screen.getByText("Why 78?")).toBeTruthy();
     expect(screen.getByTestId("why-this-score")).toHaveTextContent(/Front brake pads/);
+  });
+
+  it("offers a diagram toggle when inspection results are available", () => {
+    render(<HealthScoreScreen score={base} results={results} />);
+    expect(screen.getByTestId("view-toggle-diagram")).toBeTruthy();
+  });
+
+  it("hides the toggle when there are no results yet", () => {
+    render(<HealthScoreScreen score={base} results={[]} />);
+    expect(screen.queryByTestId("view-toggle-diagram")).toBeNull();
+  });
+
+  it("shows the diagram after switching to it", () => {
+    render(<HealthScoreScreen score={base} results={results} />);
+    fireEvent.press(screen.getByTestId("view-toggle-diagram"));
+    expect(screen.getByTestId("zone-ENGINE_BAY")).toBeTruthy();
+  });
+
+  it("keeps the score explanation to the list view", () => {
+    render(<HealthScoreScreen score={base} results={results} />);
+    expect(screen.getByTestId("why-this-score")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("view-toggle-diagram"));
+    expect(screen.queryByTestId("why-this-score")).toBeNull();
   });
 });
