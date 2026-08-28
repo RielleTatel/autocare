@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getBays, getServiceTypes, createBay, createServiceType, upsertOperatingHours, type Bay, type ServiceType } from "../../../lib/scheduling/api";
+import { Button } from "../../../components/Button";
 
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 
@@ -77,9 +78,7 @@ export default function CapacityConfigPage() {
           <div className="flex gap-2 flex-wrap">
             <input value={bayName} onChange={(e) => setBayName(e.target.value)} placeholder="Bay name" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
             <input value={bayCaps} onChange={(e) => setBayCaps(e.target.value)} placeholder="capabilities (comma-sep)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
-            <button type="button" onClick={() => guard(() => createBay(bayName, csv(bayCaps)), "Bay created")} className="h-9 px-3 rounded-sm bg-primary text-white text-sm font-medium">
-              Add bay
-            </button>
+            <Button onClick={() => guard(() => createBay(bayName, csv(bayCaps)), "Bay created")}>Add bay</Button>
           </div>
         </section>
 
@@ -99,9 +98,7 @@ export default function CapacityConfigPage() {
             <input type="number" value={stDur} onChange={(e) => setStDur(Number(e.target.value))} placeholder="Duration (min)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
             <input value={stSkills} onChange={(e) => setStSkills(e.target.value)} placeholder="required skills (comma-sep)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
             <input type="number" value={stPrice} onChange={(e) => setStPrice(Number(e.target.value))} placeholder="Price (centavos)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
-            <button type="button" onClick={() => guard(() => createServiceType({ code: stCode, name: stName, standardDurationMin: stDur, requiredSkills: csv(stSkills), priceCentavos: stPrice }), "Service type created")} className="h-9 px-3 rounded-sm bg-primary text-white text-sm font-medium">
-              Add service type
-            </button>
+            <Button onClick={() => guard(() => createServiceType({ code: stCode, name: stName, standardDurationMin: stDur, requiredSkills: csv(stSkills), priceCentavos: stPrice }), "Service type created")}>Add service type</Button>
           </div>
         </section>
 
@@ -117,9 +114,7 @@ export default function CapacityConfigPage() {
             <input type="time" value={close} onChange={(e) => setClose(e.target.value)} className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm font-mono" aria-label="Close time" />
             <input type="number" value={buffer} min={0} max={100} onChange={(e) => setBuffer(Number(e.target.value))} className="h-9 w-20 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" aria-label="Walk-in buffer percent" />
             <span className="text-ink-muted text-xs">% walk-in buffer</span>
-            <button type="button" onClick={() => guard(() => upsertOperatingHours({ weekday, openTime: open, closeTime: close, walkInBufferPct: buffer }), "Hours saved")} className="h-9 px-3 rounded-sm bg-primary text-white text-sm font-medium">
-              Save hours
-            </button>
+            <Button onClick={() => guard(() => upsertOperatingHours({ weekday, openTime: open, closeTime: close, walkInBufferPct: buffer }), "Hours saved")}>Save hours</Button>
           </div>
         </section>
       </div>
