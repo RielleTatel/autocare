@@ -634,6 +634,10 @@ model ChecklistPoint {
   templates              Json?
   requiresPhotoOnAdverse Boolean             @default(false) @map("requires_photo_on_adverse")
   notApplicableWhen      String?             @map("not_applicable_when")
+  // Where this point physically sits on the vehicle (FR-116). Nullable: a point
+  // whose position is ambiguous stays null rather than being guessed. Values are
+  // the DiagramZone union in @autocare/contracts.
+  diagramZoneId          String?             @map("diagram_zone_id")
   sortOrder              Int                 @default(0) @map("sort_order")
   results                InspectionResult[]
 
