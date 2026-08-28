@@ -1,6 +1,7 @@
 import { ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { ScoreGauge } from "./ScoreGauge";
+import { statusColor } from "./statusColor";
 import { StarRating } from "./StarRating";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -12,15 +13,6 @@ const OVERRIDE_COPY: Record<string, string> = {
 };
 
 const SEVERITY_WORD: Record<string, string> = { CRITICAL: "Critical", ATTENTION: "Attention", MONITOR: "Monitor" };
-
-function severityColor(status: string): string {
-  switch (status) {
-    case "CRITICAL": return theme.vhsBands.CRITICAL.fill;
-    case "ATTENTION": return theme.vhsBands.NEEDS_ATTENTION.fill;
-    case "MONITOR": return theme.vhsBands.FAIR.fill;
-    default: return theme.colors.inkMuted;
-  }
-}
 
 /** M-13 — gauge + plain-language top-detractor cards + "why this score?" */
 export function HealthScoreScreen({
@@ -67,7 +59,7 @@ export function HealthScoreScreen({
                       paddingVertical: t.spacing.sm, borderTopWidth: 1, borderTopColor: t.colors.line,
                     }}
                   >
-                    <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 5, backgroundColor: severityColor(d.status) }} />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 5, backgroundColor: statusColor(d.status) }} />
                     <Text style={{ ...t.text("body"), color: t.colors.inkMuted, flex: 1, fontSize: 14 }}>
                       <Text style={{ color: t.colors.ink }}>{d.label} — {SEVERITY_WORD[d.status] ?? d.status}.</Text>
                       {" "}{rec?.recommendation ?? d.recommendation}
