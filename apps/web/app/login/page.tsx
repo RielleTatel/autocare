@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signInStaff } from "../../lib/auth/firebase";
+import { Button } from "../../components/Button";
 
 const WRONG_CREDENTIALS = "Wrong email or password";
 const STAFF_ONLY = "Staff access only. Members use the mobile app.";
@@ -41,7 +42,10 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-chassis px-4">
-      <div className="w-full max-w-sm bg-surface rounded-md border border-line p-8 shadow-sm">
+      <div
+        className="w-full max-w-sm rounded-md border border-line bg-surface p-8"
+        style={{ boxShadow: "var(--ac-elevation-raised)" }}
+      >
         <h1 className="font-display text-primary-deep text-3xl font-semibold mb-1">AutoCare+</h1>
         <p className="text-ink-muted text-sm mb-6">Staff console</p>
 
@@ -53,7 +57,7 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full h-11 rounded-sm border border-line px-3 text-ink"
+              className="mt-1 w-full h-12 rounded-sm border border-line px-3 text-ink"
             />
           </label>
           <label className="block">
@@ -63,19 +67,15 @@ export default function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full h-11 rounded-sm border border-line px-3 text-ink"
+              className="mt-1 w-full h-12 rounded-sm border border-line px-3 text-ink"
             />
           </label>
 
           {error && <p className="text-danger text-sm">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={submitting || !email || !password}
-            className="w-full h-12 rounded-sm bg-primary text-white font-medium disabled:opacity-60"
-          >
+          <Button type="submit" block disabled={submitting || !email || !password}>
             Sign in
-          </button>
+          </Button>
         </form>
 
         <p className="text-ink-muted text-xs mt-6">Staff access only. Members use the mobile app.</p>
