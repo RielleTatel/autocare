@@ -115,33 +115,35 @@ export class ChecklistsService {
     await this.prisma.$transaction(async (tx) => {
       await tx.checklistPoint.deleteMany({ where: { category: { checklistVersionId: id } } });
       await tx.checklistCategory.deleteMany({ where: { checklistVersionId: id } });
-      let catOrder = 0;
-      for (const cat of dto.categories) {
-        const c = await tx.checklistCategory.create({
-          data: {
-            checklistVersionId: id, code: cat.code, label: cat.label, labelFil: cat.labelFil ?? null,
-            weight: cat.weight, sortOrder: catOrder++,
-          },
-        });
-        let ptOrder = 0;
-        for (const p of cat.points) {
-          await tx.checklistPoint.create({
-            data: {
-              categoryId: c.id, code: p.code, label: p.label, labelFil: p.labelFil ?? null,
-              weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
-              inputType: p.inputType, unit: p.unit ?? null,
-              thresholdDirection: p.thresholds?.direction ?? null,
-              thresholdGood: p.thresholds?.good ?? null,
-              thresholdMonitor: p.thresholds?.monitor ?? null,
-              thresholdAttention: p.thresholds?.attention ?? null,
-              recommendation: p.recommendation, templates: p.templates ?? undefined,
-              requiresPhotoOnAdverse: p.requiresPhotoOnAdverse,
-              notApplicableWhen: p.notApplicableWhen ?? null,
-              sortOrder: ptOrder++,
-            },
-          });
-        }
-      }
+
+      // Bulk for the same reason createDraft is: one create per row put ~62
+      // sequential round trips inside the 5s interactive-transaction budget.
+      const categories = dto.categories.map((cat, catOrder) => ({ ...cat, newId: randomUUID(), catOrder }));
+
+      await tx.checklistCategory.createMany({
+        data: categories.map((cat) => ({
+          id: cat.newId, checklistVersionId: id, code: cat.code, label: cat.label,
+          labelFil: cat.labelFil ?? null, weight: cat.weight, sortOrder: cat.catOrder,
+        })),
+      });
+
+      await tx.checklistPoint.createMany({
+        data: categories.flatMap((cat) =>
+          cat.points.map((p, ptOrder) => ({
+            categoryId: cat.newId, code: p.code, label: p.label, labelFil: p.labelFil ?? null,
+            weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
+            inputType: p.inputType, unit: p.unit ?? null,
+            thresholdDirection: p.thresholds?.direction ?? null,
+            thresholdGood: p.thresholds?.good ?? null,
+            thresholdMonitor: p.thresholds?.monitor ?? null,
+            thresholdAttention: p.thresholds?.attention ?? null,
+            recommendation: p.recommendation, templates: p.templates ?? undefined,
+            requiresPhotoOnAdverse: p.requiresPhotoOnAdverse,
+            notApplicableWhen: p.notApplicableWhen ?? null,
+            sortOrder: ptOrder,
+          })),
+        ),
+      });
     });
     await this.audit.record(u.id, "CHECKLIST_DRAFT_EDITED", "ChecklistVersion", id, null, { categories: dto.categories.length });
     return this.present(await this.loadFull(id));

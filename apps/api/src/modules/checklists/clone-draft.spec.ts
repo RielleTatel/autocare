@@ -95,3 +95,57 @@ describe("ChecklistsService.createDraft", () => {
     expect(calls.length).toBeLessThan(10);
   });
 });
+
+/**
+ * patchDraft carried the identical N+1 shape: deleteMany x2 plus one create per
+ * category and per point. For a full 10-category / 50-point draft that is 62
+ * sequential statements — the same ~7.4s against the same 5s budget. It only
+ * escaped the 500 because the e2e patches a small payload.
+ */
+function patchPrisma(calls: string[]) {
+  const tx = {
+    checklistPoint: {
+      deleteMany: async () => { calls.push("checklistPoint.deleteMany"); return { count: 50 }; },
+      create: async () => { calls.push("checklistPoint.create"); return { id: "p" }; },
+      createMany: async () => { calls.push("checklistPoint.createMany"); return { count: 50 }; },
+    },
+    checklistCategory: {
+      deleteMany: async () => { calls.push("checklistCategory.deleteMany"); return { count: 10 }; },
+      create: async () => { calls.push("checklistCategory.create"); return { id: "c" }; },
+      createMany: async () => { calls.push("checklistCategory.createMany"); return { count: 10 }; },
+    },
+  };
+  const loaded = {
+    id: "v-draft", versionLabel: "v1.1", weightVersion: "w1.0", status: "DRAFT",
+    isActive: false, publishedAt: null, categories: [],
+  };
+  return {
+    checklistVersion: { findUniqueOrThrow: async () => loaded },
+    $transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
+  } as never;
+}
+
+const patchPayload = {
+  categories: Array.from({ length: 10 }, (_, c) => ({
+    code: `CAT${c}`, label: `Category ${c}`, weight: 10,
+    points: Array.from({ length: 5 }, (_, i) => ({
+      code: `CAT${c}-${i}`, label: `Point ${i}`, weightInCategory: 20,
+      isSafetyCritical: false, inputType: "STATUS" as const,
+      recommendation: "do the thing", requiresPhotoOnAdverse: false,
+    })),
+  })),
+};
+
+describe("ChecklistsService.patchDraft", () => {
+  it("replaces a draft in bulk, with a statement count flat in draft size", async () => {
+    const calls: string[] = [];
+    await new ChecklistsService(patchPrisma(calls), audit).patchDraft(admin, "v-draft", patchPayload as never);
+
+    expect(calls).toContain("checklistCategory.createMany");
+    expect(calls).toContain("checklistPoint.createMany");
+    expect(calls).not.toContain("checklistCategory.create");
+    expect(calls).not.toContain("checklistPoint.create");
+    // 2 deletes + 2 bulk inserts. The old shape was 62 for this payload.
+    expect(calls.length).toBeLessThanOrEqual(4);
+  });
+});
