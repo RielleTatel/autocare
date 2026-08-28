@@ -9,6 +9,14 @@ import { RedisService } from "../src/common/redis/redis.service";
 // Fixture prefix keeps every write scoped so cleanup never touches non-test rows on the shared
 // Supabase DB (see plan Global Constraints — data safety).
 const TAG = `sched-${randomUUID().slice(0, 8)}`;
+// A tag-unique skill, not the shared "OIL". Bays are matched by capability
+// (`need.every(x => have.includes(x))`), so a generic skill lets leftover bays
+// from other specs satisfy this spec's service type. The engine then caps
+// concurrency to the number of qualified mechanics and breaks ties by sorting
+// on random bay UUIDs — so "my bay is first" became a coin flip that got worse
+// as fixture bays accumulated. A unique skill makes only this spec's bay
+// capable, which is what the assertions below actually mean.
+const SKILL = `${TAG}-SKILL`;
 const POLICY = "2026-08-privacy-v1";
 
 // 30 consecutive dates starting well in the future (dateOverride rows, so no weekday collision).
@@ -55,10 +63,10 @@ describe("scheduling — slots + holds (e2e)", () => {
     await prisma.user.create({ data: { id: mechId, firebaseUid: `${TAG}-mech`, role: "MECHANIC" } });
 
     const st = await prisma.serviceType.create({
-      data: { code: `${TAG}-OIL`, name: "Oil Change", standardDurationMin: 60, requiredSkills: ["OIL"], priceCentavos: 50000n },
+      data: { code: `${TAG}-OIL`, name: "Oil Change", standardDurationMin: 60, requiredSkills: [SKILL], priceCentavos: 50000n },
     });
     serviceTypeId = st.id;
-    const bay = await prisma.serviceBay.create({ data: { name: `${TAG}-bay`, capabilities: ["OIL"] } });
+    const bay = await prisma.serviceBay.create({ data: { name: `${TAG}-bay`, capabilities: [SKILL] } });
     bayId = bay.id;
 
     // Operating hours + a mechanic shift for each of the 30 dates (batched to keep round-trips low).
@@ -66,7 +74,7 @@ describe("scheduling — slots + holds (e2e)", () => {
       data: DATES.map((date) => ({ dateOverride: date, openTime: "09:00", closeTime: "17:00", walkInBufferPct: 0 })),
     });
     await prisma.staffShift.createMany({
-      data: DATES.map((date) => ({ userId: mechId, date, startTime: "09:00", endTime: "17:00", skills: ["OIL"] })),
+      data: DATES.map((date) => ({ userId: mechId, date, startTime: "09:00", endTime: "17:00", skills: [SKILL] })),
     });
   });
 
