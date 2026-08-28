@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { UtilisationWidget } from "./UtilisationWidget";
+import { KpiRow } from "./KpiRow";
+import { WastePanel } from "./WastePanel";
+import { ChecklistWeightsCard } from "./ChecklistWeightsCard";
 import { getUtilisation, type DayUtilisation } from "../../lib/scheduling/api";
 
 export default function AdminPage() {
@@ -22,7 +25,15 @@ export default function AdminPage() {
         <Link href="/admin/checklists" className="text-primary text-sm font-medium">Checklists</Link>
       </header>
       {err && <p className="text-danger text-sm">{err}</p>}
-      <UtilisationWidget days={util} />
+
+      <KpiRow />
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <UtilisationWidget days={util} />
+        <ChecklistWeightsCard />
+      </div>
+
+      <WastePanel />
     </div>
   );
 }
