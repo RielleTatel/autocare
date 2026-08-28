@@ -7,6 +7,7 @@
   "scripts": { "build": "tsc -p tsconfig.build.json", "test": "vitest run", "typecheck": "tsc --noEmit" },
   "devDependencies": {
     "@autocare/config": "workspace:*",
+    "@autocare/contracts": "workspace:*",
     "@autocare/design-tokens": "workspace:*",
     "@vitest/coverage-v8": "^2.0.0",
     "vitest": "^2.0.0",

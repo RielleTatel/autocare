@@ -1,3 +1,5 @@
+import type { DiagramZone } from "@autocare/contracts";
+
 export type PointStatus = "GOOD" | "MONITOR" | "ATTENTION" | "CRITICAL" | "NOT_APPLICABLE";
 export type Band = "EXCELLENT" | "GOOD" | "FAIR" | "NEEDS_ATTENTION" | "CRITICAL";
 export type Confidence = "HIGH" | "MEDIUM" | "LOW";
@@ -24,6 +26,7 @@ export interface ConfigPoint {
   templates?: StatusTemplates;
   requiresPhotoOnAdverse?: boolean;
   notApplicableWhen?: string;        // human note, e.g. "manual transmission"
+  diagramZone?: DiagramZone;         // where this sits on the car (FR-116); omit when ambiguous
 }
 export interface ConfigCategory { code: string; label: string; weight: number; points: ConfigPoint[]; labelFil?: string }
 export interface ChecklistConfig { checklistVersion: string; weightVersion: string; categories: ConfigCategory[] }
