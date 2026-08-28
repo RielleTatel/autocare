@@ -45,8 +45,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <main className="min-h-screen bg-chassis px-6 py-6">
-      <div className="max-w-3xl mx-auto flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <header className="flex items-center justify-between">
           <h1 className="font-display text-2xl text-ink">Schedule</h1>
           <Link href="/staff/config" className="text-primary text-sm font-medium">
@@ -76,6 +75,5 @@ export default function SchedulePage() {
         {error && <p className="text-danger text-sm">{error}</p>}
         {loading ? <p className="text-ink-muted text-sm py-8 text-center">Loading…</p> : <Board appointments={appts} onCancel={onCancel} />}
       </div>
-    </main>
   );
 }

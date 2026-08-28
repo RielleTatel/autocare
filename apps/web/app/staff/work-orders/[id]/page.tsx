@@ -46,7 +46,7 @@ export default function WorkOrderPage() {
   const totals = useMemo(() => (wo ? quoteTotals(wo.items) : null), [wo]);
 
   if (!wo || !totals) {
-    return <main className="min-h-screen bg-chassis px-6 py-6"><p className="text-ink-muted text-sm">{err ?? "Loading…"}</p></main>;
+    return <p className="text-ink-muted text-sm">{err ?? "Loading…"}</p>;
   }
 
   const editable = wo.status === "DRAFT" || wo.status === "AWAITING_APPROVAL";
@@ -56,8 +56,7 @@ export default function WorkOrderPage() {
   })();
 
   return (
-    <main className="min-h-screen bg-chassis px-6 py-6">
-      <div className="max-w-5xl mx-auto flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="font-display text-2xl text-ink">Work order <span className="font-mono">{wo.number}</span></h1>
@@ -107,7 +106,6 @@ export default function WorkOrderPage() {
           </aside>
         </div>
       </div>
-    </main>
   );
 }
 
