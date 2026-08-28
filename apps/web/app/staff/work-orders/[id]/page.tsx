@@ -11,6 +11,7 @@ import { quoteTotals } from "../../../../lib/work-orders/totals";
 import { StatusPill } from "../../../../components/StatusPill";
 import { Plate } from "../../../../components/Plate";
 import { bandVar } from "../../../../components/BandChip";
+import { HealthScorePanel } from "./HealthScorePanel";
 
 const STATUS_FLOW: WorkOrderStatus[] = ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "IN_PROGRESS", "QC", "READY", "CLOSED"];
 /** Finding severity → its protected band token. Severity is product data. */
@@ -97,6 +98,7 @@ export default function WorkOrderPage() {
           </section>
 
           <aside className="flex flex-col gap-4">
+            <HealthScorePanel vehicleId={wo.vehicleId ?? null} />
             <TotalsPanel totals={totals} />
             {wo.status !== "CLOSED" && wo.status !== "CANCELLED" && (
               <WastePanel wo={wo} onAdd={(w) => guard(() => addWaste(id, w))} />
