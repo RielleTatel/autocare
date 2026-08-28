@@ -4,6 +4,7 @@ import type { BoardAppointment } from "../../../lib/scheduling/api";
 import { Card } from "../../../components/Card";
 import { StatusPill } from "../../../components/StatusPill";
 import { Plate } from "../../../components/Plate";
+import { EmptyState } from "../../../components/EmptyState";
 
 const manilaTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false });
@@ -32,7 +33,7 @@ function ApptStatus({ status }: { status: string }) {
  */
 export function Board({ appointments, onCancel }: { appointments: BoardAppointment[]; onCancel?: (id: string) => void }) {
   if (appointments.length === 0) {
-    return <p className="text-ink-muted text-sm py-8 text-center">No appointments for this day.</p>;
+    return <EmptyState title="No appointments for this day" body="Walk-ins will appear here once an advisor books them." />;
   }
 
   const sorted = [...appointments].sort((x, y) => x.scheduledStart.localeCompare(y.scheduledStart));
