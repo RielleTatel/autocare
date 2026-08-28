@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Board } from "./Board";
+import { TodayPanel } from "./TodayPanel";
 import { getBoard, cancelAppointment, type BoardAppointment } from "../../../lib/scheduling/api";
 
 const todayManila = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }); // YYYY-MM-DD
@@ -72,8 +73,13 @@ export default function SchedulePage() {
           </button>
         </div>
 
-        {error && <p className="text-danger text-sm">{error}</p>}
-        {loading ? <p className="text-ink-muted text-sm py-8 text-center">Loading…</p> : <Board appointments={appts} onCancel={onCancel} />}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_300px]">
+          <section className="flex flex-col gap-5">
+            {error && <p className="text-danger text-sm">{error}</p>}
+            {loading ? <p className="text-ink-muted text-sm py-8 text-center">Loading…</p> : <Board appointments={appts} onCancel={onCancel} />}
+          </section>
+          <TodayPanel appointments={appts} />
+        </div>
       </div>
   );
 }

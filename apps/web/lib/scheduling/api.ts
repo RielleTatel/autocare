@@ -46,3 +46,12 @@ export const upsertOperatingHours = (input: { weekday?: string; dateOverride?: s
 
 export type DayUtilisation = { date: string; booked: number; available: number; ratio: number };
 export const getUtilisation = (windowDays = 14) => call<DayUtilisation[]>(`admin/capacity/utilisation?window=${windowDays}d`);
+
+export type OperatingHours = {
+  weekday: string | null;
+  dateOverride: string | null;
+  openTime: string | null;
+  closeTime: string | null;
+  walkInBufferPct: number;
+};
+export const getOperatingHours = () => call<OperatingHours[]>("scheduling/operating-hours");
