@@ -3,15 +3,18 @@ import { fieldTheme } from "../theme";
 
 /** Uppercase label + sunken input + sentence-form error (never a code). */
 export function FormField({
-  label, value, placeholder, error, hint, mono, multiline, keyboardType, onChangeText, testID, accessibilityLabel,
+  label, value, placeholder, error, errorTestID, hint, mono, multiline, secureTextEntry, keyboardType, onChangeText, testID, accessibilityLabel,
 }: {
   label?: string;
   value?: string;
   placeholder?: string;
   error?: string;
+  /** testID for the error line — lets a screen assert on it directly. */
+  errorTestID?: string;
   hint?: string;
   mono?: boolean;
   multiline?: boolean;
+  secureTextEntry?: boolean;
   keyboardType?: KeyboardTypeOptions;
   onChangeText?: (value: string) => void;
   testID?: string;
@@ -34,6 +37,7 @@ export function FormField({
         placeholderTextColor={t.colors.inkMuted}
         onChangeText={onChangeText}
         multiline={multiline}
+        secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         style={{
           height: multiline ? undefined : height,
@@ -50,7 +54,7 @@ export function FormField({
         }}
       />
       {error ? (
-        <Text style={{ ...t.text("label"), color: t.colors.danger }}>{error}</Text>
+        <Text testID={errorTestID} style={{ ...t.text("label"), color: t.colors.danger }}>{error}</Text>
       ) : hint ? (
         <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>{hint}</Text>
       ) : null}

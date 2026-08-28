@@ -18,4 +18,14 @@ describe("FormField", () => {
     fireEvent.changeText(screen.getByLabelText("Quantity"), "2.5");
     expect(onChangeText).toHaveBeenCalledWith("2.5");
   });
+
+  it("masks input when asked, for passwords", () => {
+    render(<FormField accessibilityLabel="Password" secureTextEntry />);
+    expect(screen.getByLabelText("Password").props.secureTextEntry).toBe(true);
+  });
+
+  it("tags its error text with a testID a screen can assert on", () => {
+    render(<FormField accessibilityLabel="Password" error="Wrong email or password" errorTestID="staff-login-error" />);
+    expect(screen.getByTestId("staff-login-error")).toHaveTextContent("Wrong email or password");
+  });
 });

@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Circle, Line, Polygon } from "react-native-svg";
 import { fieldTheme } from "../../theme";
+import { Icon } from "../../components/Icon";
 import { compressForUpload } from "../../shared/sync/photos";
 
 type Mark = { kind: "arrow" | "circle"; x: number; y: number };
@@ -81,11 +82,13 @@ export function PhotoAnnotateScreen({ onDone, onCancel }: { onDone(uri: string, 
         </View>
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-around", padding: t.spacing.md, backgroundColor: t.colors.primaryDeep }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Arrow tool" onPress={() => setTool("arrow")} style={{ minHeight: t.minTarget, justifyContent: "center", opacity: tool === "arrow" ? 1 : 0.6 }}>
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>↗ Arrow</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Arrow tool" onPress={() => setTool("arrow")} style={{ minHeight: t.minTarget, flexDirection: "row", alignItems: "center", gap: t.spacing.xs, justifyContent: "center", opacity: tool === "arrow" ? 1 : 0.6 }}>
+          <Icon name="arrow-up-right" size={20} color="#FFFFFF" />
+          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Arrow</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Circle tool" onPress={() => setTool("circle")} style={{ minHeight: t.minTarget, justifyContent: "center", opacity: tool === "circle" ? 1 : 0.6 }}>
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>◯ Circle</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Circle tool" onPress={() => setTool("circle")} style={{ minHeight: t.minTarget, flexDirection: "row", alignItems: "center", gap: t.spacing.xs, justifyContent: "center", opacity: tool === "circle" ? 1 : 0.6 }}>
+          <Icon name="circle-dot" size={20} color="#FFFFFF" />
+          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Circle</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Retake" onPress={() => { setPhotoUri(null); setMarks([]); }} style={{ minHeight: t.minTarget, justifyContent: "center" }}>
           <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Retake</Text>
@@ -97,9 +100,10 @@ export function PhotoAnnotateScreen({ onDone, onCancel }: { onDone(uri: string, 
             const compressed = await compressForUpload(photoUri);
             onDone(compressed, marks);
           }}
-          style={{ minHeight: t.minTarget, justifyContent: "center" }}
+          style={{ minHeight: t.minTarget, flexDirection: "row", alignItems: "center", gap: t.spacing.xs, justifyContent: "center" }}
         >
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Use photo ✓</Text>
+          <Icon name="check" size={20} color="#FFFFFF" />
+          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Use photo</Text>
         </Pressable>
       </View>
     </View>
