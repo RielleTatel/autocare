@@ -1,7 +1,7 @@
 import {
   House, User, CarFront, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight,
   Share2, TrendingUp, ListTree, Plus, MapPin, Phone, Camera, TriangleAlert,
-  BatteryWarning, Disc3, Fuel, CircleQuestionMark, Eye, EyeOff, Wrench,
+  BatteryWarning, Disc3, Fuel, CircleQuestionMark, Eye, EyeOff, Wrench, Ellipsis,
 } from "lucide-react-native";
 import { theme } from "../theme";
 
@@ -40,6 +40,7 @@ const GLYPHS = {
   "eye": Eye,
   "eye-off": EyeOff,
   "wrench": Wrench,
+  "ellipsis": Ellipsis,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;

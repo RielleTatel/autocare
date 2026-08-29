@@ -488,9 +488,20 @@ function PhotosContainer({ navigation, route, refreshVehicles }: any) {
 
 function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
   const { vehicle } = route.params;
+  const [health, setHealth] = useState<{ score: number; band: any } | null>(null);
+
+  // A vehicle with no inspection yet legitimately has no score — that is the
+  // "Coming with your first inspection" case, not an error worth surfacing.
+  useEffect(() => {
+    healthScoreApi.getScore(vehicle.id)
+      .then((s) => setHealth({ score: s.score, band: s.band }))
+      .catch(() => setHealth(null));
+  }, [vehicle.id]);
+
   return (
     <VehicleDetailScreen
       vehicle={vehicle}
+      health={health}
       onUpdateOdometer={async (km: number, justification?: string) => {
         await api.post(`/vehicles/${vehicle.id}/odometer`, { km, justification });
         await refreshVehicles();

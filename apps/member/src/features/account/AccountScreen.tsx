@@ -38,6 +38,20 @@ function EntitlementGauge({ e }: { e: EntitlementSummary }) {
   );
 }
 
+/** A titled set of settings rows. The heading names what the group is for, so
+ *  four rows read as three concerns instead of one list. */
+function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  const t = theme;
+  return (
+    <View style={{ gap: t.spacing.xs }}>
+      <Text style={[t.text("label", 600), { color: t.colors.inkMuted, letterSpacing: 0.5 }]}>
+        {title.toUpperCase()}
+      </Text>
+      <Card pad="none" style={{ paddingHorizontal: t.spacing.md }}>{children}</Card>
+    </View>
+  );
+}
+
 function Row({ label, onPress, testID }: { label: string; onPress: () => void; testID?: string }) {
   const t = theme;
   return (
@@ -167,21 +181,32 @@ export function AccountScreen({
         </View>
       ) : null}
 
-      <View>
+      {/* Grouped so the tail of the screen reads as a few decisions rather than
+          one undifferentiated stack. Only rows that already have a route
+          appear — a settings list that navigates nowhere reads as broken. */}
+      <SettingsGroup title="Account">
         <Row testID="row-personal" label="Personal details" onPress={onPersonalDetails} />
         <Row testID="row-subscription" label="Subscription details" onPress={onSubscriptionDetails} />
-        <Row testID="row-invoices" label="Invoices & receipts" onPress={onInvoices} />
-        <Row testID="row-privacy" label="Privacy & data" onPress={onPrivacy} />
-      </View>
+      </SettingsGroup>
 
-      <Pressable
-        testID="sign-out"
-        accessibilityRole="button"
-        onPress={onSignOut}
-        style={{ minHeight: t.minTarget, justifyContent: "center" }}
-      >
-        <Text style={[t.text("body"), { color: t.colors.danger }]}>Sign out</Text>
-      </Pressable>
+      <SettingsGroup title="Billing">
+        <Row testID="row-invoices" label="Invoices & receipts" onPress={onInvoices} />
+      </SettingsGroup>
+
+      <SettingsGroup title="Legal & data">
+        <Row testID="row-privacy" label="Privacy & data" onPress={onPrivacy} />
+      </SettingsGroup>
+
+      <Card>
+        <Pressable
+          testID="sign-out"
+          accessibilityRole="button"
+          onPress={onSignOut}
+          style={{ minHeight: t.minTarget, justifyContent: "center" }}
+        >
+          <Text style={[t.text("body", 600), { color: t.colors.danger }]}>Sign out</Text>
+        </Pressable>
+      </Card>
     </ScrollView>
   );
 }

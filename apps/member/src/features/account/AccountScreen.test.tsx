@@ -101,4 +101,16 @@ describe("AccountScreen (M-28/M-29)", () => {
     expect(screen.getByTestId("no-subscription")).toBeTruthy();
     expect(screen.queryByTestId("status-banner")).toBeNull();
   });
+
+  it("files each settings row under what it is about", () => {
+    render(<AccountScreen {...props} />);
+    screen.getByText("ACCOUNT");
+    screen.getByText("BILLING");
+    screen.getByText("LEGAL & DATA");
+    // Grouping is presentation only — every row still reaches its own screen.
+    expect(screen.getByTestId("row-personal")).toBeTruthy();
+    expect(screen.getByTestId("row-subscription")).toBeTruthy();
+    expect(screen.getByTestId("row-invoices")).toBeTruthy();
+    expect(screen.getByTestId("row-privacy")).toBeTruthy();
+  });
 });
