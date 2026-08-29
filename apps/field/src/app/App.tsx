@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
 import { useFonts } from "expo-font";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { fieldTheme } from "../theme";
@@ -16,11 +17,24 @@ import { startSyncListener } from "../shared/sync";
 
 const Stack = createNativeStackNavigator();
 
+/**
+ * Every stack screen clears the status bar / notch here rather than each screen
+ * padding itself — a screen added later inherits it instead of forgetting it.
+ * FieldNav sits at the top of most screens and was running under the clock.
+ */
+function useScreenOptions() {
+  const insets = useSafeAreaInsets();
+  return {
+    headerShown: false,
+    contentStyle: { paddingTop: insets.top, backgroundColor: fieldTheme.colors.chassis },
+  } as const;
+}
+
 function Splash() {
   return (
-    <View style={{ flex: 1, backgroundColor: fieldTheme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: fieldTheme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
       <Text style={[fieldTheme.text("h1"), { color: fieldTheme.colors.primaryDeep }]}>AutoCare+ Field</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -42,7 +56,8 @@ function StaffLoginContainer({ setBoot }: { setBoot: (b: StaffBootState) => void
   );
 }
 
-export default function App() {
+/** Inside the provider, so useScreenOptions has an ancestor to read from. */
+function AppShell() {
   const [boot, setBoot] = useState<StaffBootState | "PENDING">("PENDING");
   // Every screen styles text through fieldTheme.text(), which names the Barlow
   // / Inter / IBM Plex faces directly. Rendering before they register shows a
@@ -50,6 +65,7 @@ export default function App() {
   // purpose: a missing face should degrade to the system font, never to a
   // permanently blank app.
   const [fontsLoaded, fontError] = useFonts(fontAssets);
+  const screenOptions = useScreenOptions();
 
   useEffect(() => {
     bootstrapStaff().then(setBoot);
@@ -64,31 +80,46 @@ export default function App() {
       {boot === "PENDING" ? (
         <Splash />
       ) : boot.state === "READY" ? (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={screenOptions}>
           <Stack.Screen name="Home">
             {({ navigation }) => (
               <TaskListScreen
                 name={boot.name}
                 role={boot.role}
-                onStartInspection={() => navigation.navigate("Inspection")}
+                onStartInspection={(vehicleId) => navigation.navigate("Inspection", { vehicleId })}
                 onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
               />
             )}
           </Stack.Screen>
           <Stack.Screen name="Inspection">
-            {({ navigation }) => <InspectionFlow onDone={() => navigation.navigate("Home")} />}
+            {({ navigation, route }) => (
+              <InspectionFlow
+                initialVehicleId={(route.params as { vehicleId?: string } | undefined)?.vehicleId}
+                onDone={() => navigation.navigate("Home")}
+              />
+            )}
           </Stack.Screen>
           <Stack.Screen name="SyncQueue">
             {() => <SyncQueueScreen />}
           </Stack.Screen>
         </Stack.Navigator>
       ) : (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={screenOptions}>
           <Stack.Screen name="StaffLogin">
             {() => <StaffLoginContainer setBoot={setBoot} />}
           </Stack.Screen>
         </Stack.Navigator>
       )}
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  // Screens read the status bar / notch insets from here. Without a provider
+  // useSafeAreaInsets returns zeros, so content ran under the clock.
+  return (
+    <SafeAreaProvider>
+      <AppShell />
+    </SafeAreaProvider>
   );
 }
