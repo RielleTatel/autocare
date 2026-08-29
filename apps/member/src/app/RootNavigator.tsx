@@ -315,6 +315,7 @@ function BookingFlowContainer({ navigation }: any) {
     <BookingContainer
       api={bookingApi}
       vehicleId={vehicle.id}
+      vehicle={vehicle}
       subscriptionId={subscriptionId}
       onBooked={() => navigation.navigate("Bookings")}
     />
