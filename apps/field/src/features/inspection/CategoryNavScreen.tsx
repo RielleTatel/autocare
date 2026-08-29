@@ -5,6 +5,7 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { FieldNav } from "../../components/FieldNav";
 import { Icon } from "../../components/Icon";
+import { ProgressBar } from "../../components/ProgressBar";
 import { statusColor } from "../../components/StatusChip";
 import type { CategoryProgress } from "./draft";
 
@@ -25,7 +26,6 @@ export function CategoryNavScreen({
   onBack?(): void;
 }) {
   const t = fieldTheme;
-  const pct = overall.total === 0 ? 0 : (overall.answered / overall.total) * 100;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
@@ -34,13 +34,7 @@ export function CategoryNavScreen({
         <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>
           {overall.answered} of {overall.total} points recorded
         </Text>
-        <View
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 0, max: overall.total, now: overall.answered }}
-          style={{ height: 8, borderRadius: t.radii.pill, backgroundColor: t.colors.line, overflow: "hidden" }}
-        >
-          <View style={{ width: `${pct}%`, height: "100%", backgroundColor: t.colors.primary }} />
-        </View>
+        <ProgressBar answered={overall.answered} total={overall.total} />
 
         {perCategory.map((cat) => {
           const done = cat.answered === cat.total;
