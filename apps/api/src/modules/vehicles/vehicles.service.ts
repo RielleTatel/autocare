@@ -12,6 +12,10 @@ const VEHICLE_SELECT = { id: true, plateNo: true, make: true, model: true, year:
 
 type VehicleRow = Prisma.VehicleGetPayload<{ select: typeof VEHICLE_SELECT }>;
 
+// Staff work on any customer's vehicle (an inspection, a check-in), not just
+// ones they happen to own — see appointments.service.ts's identical bypass.
+const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "DRIVER", "ADMIN"]);
+
 /**
  * Strips internal-only owner columns (ownerUserId/orgOwnerId) before a row is serialized to
  * an HTTP response, so the response shape matches `vehicleSchema` exactly (no owner-ID leak
@@ -27,7 +31,11 @@ export class VehiclesService {
 
   async list(user: AbilityUser) {
     if (user.role === "FLEET_MANAGER" && !user.orgId) return []; // fleet manager not yet attached to an org
-    const owner = user.role === "FLEET_MANAGER" ? { orgOwnerId: user.orgId } : { ownerUserId: user.id };
+    const owner = STAFF_ROLES.has(user.role)
+      ? {}
+      : user.role === "FLEET_MANAGER"
+        ? { orgOwnerId: user.orgId }
+        : { ownerUserId: user.id };
     const rows = await this.prisma.vehicle.findMany({ where: { ...owner, status: "ACTIVE" }, select: VEHICLE_SELECT, orderBy: { createdAt: "asc" } });
     return rows.map(toVehicleResponse);
   }

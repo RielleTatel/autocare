@@ -78,6 +78,10 @@ describe("vehicles (e2e)", () => {
       expect(v.orgOwnerId).toBeUndefined();
     }
   });
+  it("staff see the whole active fleet, not just vehicles they own", async () => {
+    const list = await as("veh-mech").get("/api/v1/vehicles").expect(200);
+    expect(list.body.data.find((v: any) => v.id === vehicleId)).toBeTruthy();
+  });
   it("DELETE archives; archived is absent from list but staff still GET it (FR-006 note)", async () => {
     await as("veh-a").del(`/api/v1/vehicles/${vehicleId}`).expect(200);
     const list = await as("veh-a").get("/api/v1/vehicles").expect(200);
