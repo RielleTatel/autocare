@@ -7,7 +7,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { Skeleton } from "../components/Skeleton";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { bootstrap, type BootState } from "../features/auth/session";
 import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
@@ -81,10 +81,10 @@ function useScreenOptions() {
  */
 function Splash() {
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", gap: theme.spacing.md }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", gap: theme.spacing.md }}>
       <Image source={logoMark} style={{ width: 88, height: 88, borderRadius: 20 }} />
       <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>AutoCare+</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -802,7 +802,14 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
 
   const screenOptions = useScreenOptions();
 
-  if (vehicles === null) return <Skeleton.Screen cards={3} />;
+  if (vehicles === null) {
+    // Rendered before the Navigator mounts, so screenOptions cannot reach it.
+    return (
+      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: theme.colors.chassis }}>
+        <Skeleton.Screen cards={3} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <ReadyContext.Provider value={{ vehicles, refreshVehicles, firstName, setBootState }}>
