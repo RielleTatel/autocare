@@ -35,4 +35,33 @@ function SkeletonCard({ lines = 3 }: { lines?: number }) {
   );
 }
 
-export const Skeleton = { Line, Card: SkeletonCard };
+/**
+ * A whole screen mid-load: a heading, then cards. Matches the padding and
+ * rhythm the real screens use, so content lands where its placeholder was
+ * instead of the layout jumping when data arrives.
+ *
+ * Not for app boot — before auth resolves there is no known layout to preview,
+ * which is the one case a branded splash is doing real work.
+ */
+function Screen({ cards = 3 }: { cards?: number }) {
+  return (
+    <View
+      testID="skeleton-screen"
+      accessibilityRole="progressbar"
+      accessibilityLabel="Loading"
+      style={{
+        flex: 1,
+        backgroundColor: theme.colors.chassis,
+        padding: theme.spacing.lg,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <Line width="55%" height={24} />
+      {Array.from({ length: cards }).map((_, i) => (
+        <SkeletonCard key={i} lines={i === 0 ? 3 : 2} />
+      ))}
+    </View>
+  );
+}
+
+export const Skeleton = { Line, Card: SkeletonCard, Screen };

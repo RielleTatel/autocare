@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
+import { Skeleton } from "../components/Skeleton";
 import { bootstrap, type BootState } from "../features/auth/session";
 import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
@@ -48,6 +49,8 @@ import { makeAttentionApi, type AttentionItem } from "../features/attention/atte
 import { AttentionCard } from "../features/attention/AttentionCard";
 import { AttentionListScreen } from "../features/attention/AttentionListScreen";
 
+const logoMark = require("../../assets/logo-mark.png");
+
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
 const healthScoreApi = makeHealthScoreApi(api);
@@ -56,9 +59,15 @@ const attentionApi = makeAttentionApi(api);
 
 const Stack = createNativeStackNavigator();
 
+/**
+ * App boot only — the wait before auth resolves and there is no known layout to
+ * preview. Every in-app wait uses Skeleton.Screen instead, which previews the
+ * screen that is coming.
+ */
 function Splash() {
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", gap: theme.spacing.md }}>
+      <Image source={logoMark} style={{ width: 88, height: 88, borderRadius: 20 }} />
       <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>AutoCare+</Text>
     </View>
   );
@@ -301,7 +310,7 @@ function BookingFlowContainer({ navigation }: any) {
       .finally(() => setReady(true));
   }, [vehicle]);
 
-  if (!vehicle || !ready) return <Splash />;
+  if (!vehicle || !ready) return <Skeleton.Screen cards={2} />;
   return (
     <BookingContainer
       api={bookingApi}
@@ -546,7 +555,7 @@ function HealthScoreContainer({ navigation, route }: any) {
       </View>
     );
   }
-  if (!score) return <Splash />;
+  if (!score) return <Skeleton.Screen cards={3} />;
   return (
     <HealthScoreScreen
       score={score}
@@ -569,7 +578,7 @@ function CategoryBreakdownContainer({ route }: any) {
       if (detail) setResults(detail.results);
     }).catch(() => undefined);
   }, [vehicleId]);
-  if (!score) return <Splash />;
+  if (!score) return <Skeleton.Screen cards={3} />;
   return <CategoryBreakdownScreen score={score} results={results} />;
 }
 
@@ -588,7 +597,7 @@ function ApprovalRequestContainer({ navigation, route }: any) {
   useEffect(() => {
     workOrderApi.getWorkOrder(workOrderId).then(setWo).catch(() => undefined);
   }, [workOrderId]);
-  if (!wo) return <Splash />;
+  if (!wo) return <Skeleton.Screen cards={2} />;
   return (
     <ApprovalRequestScreen
       workOrder={wo}
@@ -698,7 +707,7 @@ function UpgradeDowngradeContainer({ navigation, route }: any) {
     subApi.getSubscription(subscriptionId).then((s) => setCurrentPlan(s.plan));
   }, [subscriptionId]);
 
-  if (!currentPlan) return <Splash />;
+  if (!currentPlan) return <Skeleton.Screen cards={3} />;
 
   return (
     <UpgradeDowngradeScreen
@@ -775,7 +784,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
     }).catch(() => {});
   }, [refreshVehicles]);
 
-  if (vehicles === null) return <Splash />;
+  if (vehicles === null) return <Skeleton.Screen cards={3} />;
 
   return (
     <ReadyContext.Provider value={{ vehicles, refreshVehicles, firstName, setBootState }}>
