@@ -509,10 +509,17 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
 function HealthScoreContainer({ navigation, route }: any) {
   const { vehicleId } = route.params;
   const [score, setScore] = useState<HealthScore | null>(null);
+  const [results, setResults] = useState<InspectionResultDetail[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    healthScoreApi.getScore(vehicleId).then(setScore).catch((e) => setError(e instanceof Error ? e.message : "No score yet"));
+    healthScoreApi.getScore(vehicleId).then(async (s) => {
+      setScore(s);
+      // Per-point results power the diagram view (M-39). Secondary to the score:
+      // if this fails the screen still renders, just without the Diagram toggle.
+      const detail = await healthScoreApi.getInspection(vehicleId, s.inspectionId).catch(() => null);
+      if (detail) setResults(detail.results);
+    }).catch((e) => setError(e instanceof Error ? e.message : "No score yet"));
   }, [vehicleId]);
 
   if (error) {
@@ -526,6 +533,7 @@ function HealthScoreContainer({ navigation, route }: any) {
   return (
     <HealthScoreScreen
       score={score}
+      results={results}
       onOpenBreakdown={() => navigation.navigate("CategoryBreakdown", { vehicleId })}
       onOpenHistory={() => navigation.navigate("ScoreHistory", { vehicleId })}
       onShare={() => navigation.navigate("ShareCertificate", { vehicleId, healthScoreId: score.id })}
