@@ -316,11 +316,16 @@ function BookingFlowContainer({ navigation }: any) {
 function BookingsContainer({ navigation }: any) {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [serviceNames, setServiceNames] = useState<Record<string, string>>({});
+  const [vehicleLabels, setVehicleLabels] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async () => {
     const [appts, types] = await Promise.all([bookingApi.listAppointments(), bookingApi.listServiceTypes()]);
     setAppointments(appts);
     setServiceNames(Object.fromEntries(types.map((t) => [t.id, t.name])));
+    // Names a booking's vehicle. Secondary to the list itself: on failure the
+    // rows simply omit the vehicle line rather than the screen failing.
+    const vehicles = await api.get<Vehicle[]>("/vehicles").catch(() => []);
+    setVehicleLabels(Object.fromEntries(vehicles.map((v) => [v.id, `${v.year} ${v.make} ${v.model}`])));
   }, []);
 
   useEffect(() => {
@@ -331,6 +336,7 @@ function BookingsContainer({ navigation }: any) {
     <BookingsListScreen
       appointments={appointments}
       serviceNames={serviceNames}
+      vehicleLabels={vehicleLabels}
       now={new Date()}
       onCancel={async (id: string) => {
         await bookingApi.cancel(id).catch(() => {});

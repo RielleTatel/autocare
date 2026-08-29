@@ -2,12 +2,53 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { theme, familyForRole } from "../../theme";
 import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
+import { Icon } from "../../components/Icon";
+import { Plate } from "../../components/Plate";
 import { fuelTypes, transmissions, Vehicle } from "@autocare/contracts";
 import { ApiError } from "@autocare/api-client";
 import { emptyVehicleForm, validateVehicleForm, VehicleFormState } from "./vehicleForm";
 
 function FieldLabel({ children }: { children: string }) {
   return <Text style={[theme.text("label"), { color: theme.colors.inkMuted, marginTop: theme.spacing.md }]}>{children}</Text>;
+}
+
+/** A group of related fields. The heading says what this part of the form is
+ *  about, so seven inputs read as three decisions rather than one long list. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: theme.spacing.xs }}>
+      <Text style={[theme.text("label", 600), { color: theme.colors.inkMuted, letterSpacing: 0.5 }]}>
+        {title.toUpperCase()}
+      </Text>
+      <Card>{children}</Card>
+    </View>
+  );
+}
+
+/**
+ * The car taking shape as it is described. Held back until the plate and make
+ * exist, because an empty frame promises something the form has not earned yet.
+ */
+function VehiclePreview({ form }: { form: VehicleFormState }) {
+  const t = theme;
+  if (!form.plateNo.trim() || !form.make.trim()) return null;
+  const name = [form.year.trim(), form.make.trim(), form.model.trim()].filter(Boolean).join(" ");
+  const odo = form.odometerKm.trim();
+  return (
+    <View style={{ gap: t.spacing.xs }} testID="vehicle-preview">
+      <Text style={[t.text("label", 600), { color: t.colors.inkMuted, letterSpacing: 0.5 }]}>YOUR VEHICLE</Text>
+      <Card pad="lg" style={{ gap: t.spacing.sm, alignItems: "center" }}>
+        <Plate variant="chip">{form.plateNo.trim().toUpperCase()}</Plate>
+        <Text style={[t.text("h2"), { color: t.colors.ink, textAlign: "center" }]}>{name}</Text>
+        {odo ? (
+          <Text style={[t.text("code"), { color: t.colors.inkMuted }]}>
+            {Number(odo).toLocaleString("en-US")} km
+          </Text>
+        ) : null}
+      </Card>
+    </View>
+  );
 }
 
 function FieldError({ children }: { children?: string }) {
@@ -105,42 +146,54 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.chassis }}
-      contentContainerStyle={{ padding: theme.spacing.lg }}>
-      <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Add your vehicle</Text>
+      contentContainerStyle={{ padding: theme.spacing.lg, gap: theme.spacing.lg }}>
+      <View style={{ gap: 4 }}>
+        <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>Add your vehicle</Text>
+        <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>Tell us about your car.</Text>
+      </View>
 
-      <FieldLabel>Plate number</FieldLabel>
-      <TextField name="plateNo" value={form.plateNo} onChangeText={set("plateNo")}
-        placeholder="ABA 1234" autoCapitalize="characters" mono error={errors.plateNo} />
+      <Section title="Vehicle">
+        <FieldLabel>Plate number</FieldLabel>
+        <TextField name="plateNo" value={form.plateNo} onChangeText={set("plateNo")}
+          placeholder="ABA 1234" autoCapitalize="characters" mono error={errors.plateNo} />
 
-      <FieldLabel>Make</FieldLabel>
-      <TextField name="make" value={form.make} onChangeText={set("make")} placeholder="Toyota" error={errors.make} />
+        <FieldLabel>Make</FieldLabel>
+        <TextField name="make" value={form.make} onChangeText={set("make")} placeholder="Toyota" error={errors.make} />
 
-      <FieldLabel>Model</FieldLabel>
-      <TextField name="model" value={form.model} onChangeText={set("model")} placeholder="Vios" error={errors.model} />
+        <FieldLabel>Model</FieldLabel>
+        <TextField name="model" value={form.model} onChangeText={set("model")} placeholder="Vios" error={errors.model} />
 
-      <FieldLabel>Year</FieldLabel>
-      <TextField name="year" value={form.year} onChangeText={set("year")} placeholder="2019"
-        keyboardType="number-pad" error={errors.year} />
+        <FieldLabel>Year</FieldLabel>
+        <TextField name="year" value={form.year} onChangeText={set("year")} placeholder="2019"
+          keyboardType="number-pad" error={errors.year} />
+      </Section>
 
-      <FieldLabel>Odometer (km)</FieldLabel>
-      <TextField name="odometerKm" value={form.odometerKm} onChangeText={set("odometerKm")} placeholder="42000"
-        keyboardType="number-pad" error={errors.odometerKm} />
+      <Section title="Usage">
+        <FieldLabel>Odometer (km)</FieldLabel>
+        <TextField name="odometerKm" value={form.odometerKm} onChangeText={set("odometerKm")} placeholder="42000"
+          keyboardType="number-pad" error={errors.odometerKm} />
 
-      <FieldLabel>Fuel type</FieldLabel>
-      <PillRow name="fuelType" options={fuelTypes} value={form.fuelType} onChange={set("fuelType")} />
+        <FieldLabel>Fuel type</FieldLabel>
+        <PillRow name="fuelType" options={fuelTypes} value={form.fuelType} onChange={set("fuelType")} />
+      </Section>
 
-      <FieldLabel>Transmission</FieldLabel>
-      <PillRow name="transmission" options={transmissions} value={form.transmission} onChange={set("transmission")} />
+      <Section title="Transmission">
+        <FieldLabel>Transmission</FieldLabel>
+        <PillRow name="transmission" options={transmissions} value={form.transmission} onChange={set("transmission")} />
+      </Section>
+
+      <VehiclePreview form={form} />
 
       <Pressable testID="more-details-toggle" onPress={() => setMoreOpen((o) => !o)}
-        style={{ height: theme.minTarget, justifyContent: "center", marginTop: theme.spacing.md }}>
-        <Text style={[theme.text("body"), { color: theme.colors.primary }]}>
-          {moreOpen ? "Hide more details" : "More details"}
-        </Text>
+        accessibilityRole="button"
+        accessibilityState={{ expanded: moreOpen }}
+        style={{ minHeight: theme.minTarget, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={[theme.text("body", 600), { color: theme.colors.primary }]}>Vehicle details</Text>
+        <Icon name={moreOpen ? "chevron-left" : "chevron-right"} size={20} color={theme.colors.primary} />
       </Pressable>
 
       {moreOpen && (
-        <View>
+        <Card>
           <FieldLabel>Variant</FieldLabel>
           <TextField name="variant" value={form.variant} onChangeText={set("variant")} error={errors.variant} />
           <FieldLabel>Engine (cc)</FieldLabel>
@@ -150,7 +203,7 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
           <TextField name="color" value={form.color} onChangeText={set("color")} error={errors.color} />
           <FieldLabel>VIN</FieldLabel>
           <TextField name="vin" value={form.vin} onChangeText={set("vin")} autoCapitalize="characters" mono error={errors.vin} />
-        </View>
+        </Card>
       )}
 
       {formError ? (
@@ -159,7 +212,7 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
         </Text>
       ) : null}
 
-      <Button block style={{ marginTop: theme.spacing.lg }} testID="submit" disabled={submitting} onPress={handleSubmit}>
+      <Button block testID="submit" disabled={submitting} onPress={handleSubmit}>
         Add vehicle
       </Button>
     </ScrollView>
