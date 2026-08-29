@@ -7,6 +7,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { Skeleton } from "../components/Skeleton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { bootstrap, type BootState } from "../features/auth/session";
 import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
 import { api } from "../shared/api";
@@ -58,6 +59,20 @@ const workOrderApi = makeWorkOrderApi(api);
 const attentionApi = makeAttentionApi(api);
 
 const Stack = createNativeStackNavigator();
+
+/**
+ * Every stack screen clears the status bar / notch here rather than each screen
+ * padding itself — a screen added later inherits it instead of forgetting it.
+ * Bottom inset is left to TabBar, which already handles the home indicator.
+ */
+function useScreenOptions() {
+  const insets = useSafeAreaInsets();
+  return {
+    headerShown: false,
+    contentStyle: { paddingTop: insets.top, backgroundColor: theme.colors.chassis },
+  } as const;
+}
+
 
 /**
  * App boot only — the wait before auth resolves and there is no known layout to
@@ -785,11 +800,13 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
     }).catch(() => {});
   }, [refreshVehicles]);
 
+  const screenOptions = useScreenOptions();
+
   if (vehicles === null) return <Skeleton.Screen cards={3} />;
 
   return (
     <ReadyContext.Provider value={{ vehicles, refreshVehicles, firstName, setBootState }}>
-    <Stack.Navigator screenOptions={{ headerShown: false }}
+    <Stack.Navigator screenOptions={screenOptions}
       initialRouteName={vehicles.length === 0 ? "AddVehicle" : "HomeTabsScreen"}>
       <Stack.Screen name="HomeTabsScreen" component={HomeTabsContainer} />
       <Stack.Screen name="AddVehicle">
@@ -826,6 +843,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
 }
 
 export function RootNavigator() {
+  const screenOptions = useScreenOptions();
   const [state, setState] = useState<BootState | "PENDING">("PENDING");
 
   useEffect(() => {
@@ -844,7 +862,7 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={screenOptions}>
         {state === "ANONYMOUS" && (
           <>
             <Stack.Screen name="Onboarding">

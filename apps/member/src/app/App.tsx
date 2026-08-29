@@ -1,5 +1,6 @@
 import { ActivityIndicator, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { RootNavigator } from "./RootNavigator";
 import { fontAssets } from "../theme/fonts";
@@ -22,9 +23,12 @@ export default function App() {
   }
 
   return (
-    <>
+    // Screens read the status bar / notch insets from here. Without a provider
+    // useSafeAreaInsets silently returns zeros, which is why content sat under
+    // the clock and the tab bar ignored the home indicator.
+    <SafeAreaProvider>
       <StatusBar style="dark" />
       <RootNavigator />
-    </>
+    </SafeAreaProvider>
   );
 }
