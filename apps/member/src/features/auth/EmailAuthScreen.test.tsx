@@ -53,4 +53,27 @@ describe("EmailAuthScreen", () => {
     const { getByTestId } = render(<EmailAuthScreen {...props()} notice="Verification email sent." />);
     expect(getByTestId("notice").props.children).toBe("Verification email sent.");
   });
+
+  it("masks the password until the reveal toggle is pressed", () => {
+    const { getByTestId } = render(<EmailAuthScreen {...props()} />);
+    expect(getByTestId("password-input").props.secureTextEntry).toBe(true);
+    fireEvent.press(getByTestId("toggle-password"));
+    expect(getByTestId("password-input").props.secureTextEntry).toBe(false);
+    fireEvent.press(getByTestId("toggle-password"));
+    expect(getByTestId("password-input").props.secureTextEntry).toBe(true);
+  });
+
+  it("names the reveal control for what pressing it will do", () => {
+    const { getByTestId } = render(<EmailAuthScreen {...props()} />);
+    expect(getByTestId("toggle-password").props.accessibilityLabel).toBe("Show password");
+    fireEvent.press(getByTestId("toggle-password"));
+    expect(getByTestId("toggle-password").props.accessibilityLabel).toBe("Hide password");
+  });
+
+  it("greets a returning member, and switches the heading in create-account mode", () => {
+    const { getByTestId } = render(<EmailAuthScreen {...props()} />);
+    expect(getByTestId("auth-heading").props.children).toBe("Welcome back");
+    fireEvent.press(getByTestId("toggle-mode"));
+    expect(getByTestId("auth-heading").props.children).toBe("Create your account");
+  });
 });

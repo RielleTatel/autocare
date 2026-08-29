@@ -1,7 +1,7 @@
 import {
   House, User, CarFront, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight,
   Share2, TrendingUp, ListTree, Plus, MapPin, Phone, Camera, TriangleAlert,
-  BatteryWarning, Disc3, Fuel, CircleQuestionMark,
+  BatteryWarning, Disc3, Fuel, CircleQuestionMark, Eye, EyeOff, Wrench,
 } from "lucide-react-native";
 import { theme } from "../theme";
 
@@ -37,6 +37,9 @@ const GLYPHS = {
   // Renamed upstream after the version the design system pinned; keep the DS
   // name as the public one so mockup code ports across unchanged.
   "circle-help": CircleQuestionMark,
+  "eye": Eye,
+  "eye-off": EyeOff,
+  "wrench": Wrench,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;
