@@ -29,6 +29,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const getBoard = (from: string, to: string) =>
   call<BoardAppointment[]>(`scheduling/board?from=${from}&to=${to}`);
 
+export type Slot = { start: string; end: string; bayId: string; serviceTypeId: string };
+
+// Availability is per service type, not a single true "open/busy" — duration and
+// required mechanic skills both vary by service. There is no service-type-agnostic
+// notion of an open slot; see the capacity engine's qualifiedMechanics check.
+export const getSlots = (from: string, to: string, serviceTypeId: string) =>
+  call<Slot[]>(`scheduling/slots?from=${from}&to=${to}&serviceTypeId=${serviceTypeId}`);
+
 export const getServiceTypes = () => call<ServiceType[]>("scheduling/service-types");
 export const getBays = () => call<Bay[]>("scheduling/bays");
 

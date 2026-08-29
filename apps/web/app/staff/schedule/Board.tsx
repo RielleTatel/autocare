@@ -22,7 +22,7 @@ const STATUS_TONE: Record<string, Tone> = {
   NO_SHOW: "danger",
 };
 
-function ApptStatus({ status }: { status: string }) {
+export function ApptStatus({ status }: { status: string }) {
   return <StatusPill tone={STATUS_TONE[status] ?? "neutral"}>{status.replace("_", " ")}</StatusPill>;
 }
 
