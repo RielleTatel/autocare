@@ -70,23 +70,50 @@ Closes Defect 1. Without this the daily job short-circuits and no reminder has e
 
 - [ ] **Step 1: Write the failing test**
 
+> **Revised 2026-09-04 after Task 1 review.** The original version of this test queried
+> globally-seeded DB rows by hardcoded production codes, so it depended on `seed-scheduling.ts`
+> having been run out-of-band and would fail on a fresh CI database with no code regression.
+> It also used `expect(t.intervalDays ?? t.intervalKm).not.toBeNull()`, which cannot catch a
+> transposed value or an interval set on the wrong field. Replaced with a DB-free assertion over
+> the seed's exported data definition, asserting the exact pair per code.
+
+First export the constant so the test can assert against it — in
+`apps/api/prisma/seed-scheduling.ts` change `const SERVICE_TYPES = [` to
+`export const SERVICE_TYPES = [`.
+
 Append to `apps/api/test/scheduling-config.e2e-spec.ts`, inside the existing top-level `describe`:
 
 ```ts
-it("seeds a maintenance interval on every reminder-generating service type", async () => {
-  const REMINDER_SERVICES = ["OIL_CHANGE", "TIRE_ROTATION", "BRAKE_SERVICE", "AC_SERVICE", "FULL_INSPECTION"];
-  const types = await prisma.serviceType.findMany({ where: { code: { in: REMINDER_SERVICES } } });
-  expect(types).toHaveLength(REMINDER_SERVICES.length);
-  for (const t of types) {
-    expect(t.intervalDays ?? t.intervalKm).not.toBeNull();
+import { SERVICE_TYPES } from "../prisma/seed-scheduling";
+
+it("seeds the exact maintenance intervals every reminder-generating service type needs", () => {
+  // dueCandidates() selects only service types with a non-null interval, so a type
+  // shipped without one is invisible to the daily reminder job — permanently.
+  const EXPECTED: Record<string, { intervalDays: number | null; intervalKm: number | null }> = {
+    OIL_CHANGE: { intervalDays: 180, intervalKm: 5000 },
+    TIRE_ROTATION: { intervalDays: 180, intervalKm: 10000 },
+    BRAKE_SERVICE: { intervalDays: null, intervalKm: 20000 },
+    AC_SERVICE: { intervalDays: 365, intervalKm: null },
+    FULL_INSPECTION: { intervalDays: 365, intervalKm: 15000 },
+  };
+
+  expect(SERVICE_TYPES.map((s) => s.code).sort()).toEqual(Object.keys(EXPECTED).sort());
+
+  for (const st of SERVICE_TYPES) {
+    expect({ intervalDays: st.intervalDays, intervalKm: st.intervalKm }).toEqual(EXPECTED[st.code]);
+    expect(st.intervalDays ?? st.intervalKm).not.toBeNull();
   }
 });
 ```
 
+`seed-scheduling.ts` calls `main()` at module scope. If importing it fires the seed or opens a
+DB connection during the test run, guard the invocation with `if (require.main === module) { … }`.
+
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter api test -- scheduling-config.e2e-spec`
-Expected: FAIL — every seeded type has both interval columns null.
+Expected: FAIL — `SERVICE_TYPES` carries no interval fields, so each `{ intervalDays, intervalKm }`
+comes back `{ undefined, undefined }` against the expected pair.
 
 - [ ] **Step 3: Add the intervals to the seed**
 
