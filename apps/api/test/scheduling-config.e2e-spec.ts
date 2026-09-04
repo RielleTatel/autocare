@@ -77,4 +77,13 @@ describe("scheduling config (e2e)", () => {
     expect(Array.isArray(res.body.data)).toBe(true);
     await member().get("/api/v1/scheduling/board?from=2027-04-01&to=2027-04-01").expect(403);
   });
+
+  it("seeds a maintenance interval on every reminder-generating service type", async () => {
+    const REMINDER_SERVICES = ["OIL_CHANGE", "TIRE_ROTATION", "BRAKE_SERVICE", "AC_SERVICE", "FULL_INSPECTION"];
+    const types = await prisma.serviceType.findMany({ where: { code: { in: REMINDER_SERVICES } } });
+    expect(types).toHaveLength(REMINDER_SERVICES.length);
+    for (const t of types) {
+      expect(t.intervalDays ?? t.intervalKm).not.toBeNull();
+    }
+  });
 });
