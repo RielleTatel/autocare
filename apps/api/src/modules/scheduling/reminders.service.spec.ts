@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
-import { RemindersService, dueReason, staggerBucket, bucketForDay, fnv1a } from "./reminders.service";
+import { RemindersService, dueReason, staggerBucket, bucketForDay, fnv1a, resolveBaselineDate } from "./reminders.service";
 
 const DAY = 86_400_000;
 
@@ -32,6 +32,24 @@ describe("reminders — pure helpers", () => {
   it("fnv1a is deterministic", () => {
     expect(fnv1a("abc")).toBe(fnv1a("abc"));
     expect(bucketForDay(new Date("2027-06-01T00:00:00Z"))).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("resolveBaselineDate", () => {
+  const completed = new Date("2026-06-01T00:00:00Z");
+  const lastService = new Date("2026-03-01T00:00:00Z");
+  const created = new Date("2026-01-01T00:00:00Z");
+
+  it("prefers the last completed appointment", () => {
+    expect(resolveBaselineDate(completed, lastService, created)).toEqual(completed);
+  });
+
+  it("falls back to the member-entered last-service date", () => {
+    expect(resolveBaselineDate(undefined, lastService, created)).toEqual(lastService);
+  });
+
+  it("falls back to registration date when nothing else is known", () => {
+    expect(resolveBaselineDate(undefined, null, created)).toEqual(created);
   });
 });
 

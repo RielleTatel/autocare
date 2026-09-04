@@ -203,6 +203,9 @@ export function AddVehicleScreen({ onCreated, createVehicle }:
           <TextField name="color" value={form.color} onChangeText={set("color")} error={errors.color} />
           <FieldLabel>VIN</FieldLabel>
           <TextField name="vin" value={form.vin} onChangeText={set("vin")} autoCapitalize="characters" mono error={errors.vin} />
+          <FieldLabel>Last service date (optional)</FieldLabel>
+          <TextField name="lastServiceAt" value={form.lastServiceAt} onChangeText={set("lastServiceAt")}
+            placeholder="2026-03-01" error={errors.lastServiceAt} />
         </Card>
       )}
 

@@ -99,6 +99,7 @@ model Vehicle {
   vin               String?
   color             String?
   currentOdometerKm Int               @default(0) @map("current_odometer_km")
+  lastServiceAt     DateTime?         @map("last_service_at")
   status            String            @default("ACTIVE")
   createdAt         DateTime          @default(now()) @map("created_at")
   odometerReadings  OdometerReading[]

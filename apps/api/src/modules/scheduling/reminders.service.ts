@@ -47,6 +47,18 @@ export function dueReason(p: {
   return null;
 }
 
+/**
+ * Baseline for a service interval, most-trustworthy first: a real completed appointment of
+ * that type, else the member-entered last-service date, else vehicle registration.
+ */
+export function resolveBaselineDate(
+  lastCompleted: Date | undefined,
+  lastServiceAt: Date | null,
+  createdAt: Date,
+): Date {
+  return lastCompleted ?? lastServiceAt ?? createdAt;
+}
+
 @Injectable()
 export class RemindersService {
   constructor(private prisma: PrismaService) {}
@@ -61,7 +73,7 @@ export class RemindersService {
     const [vehicles, serviceTypes] = await Promise.all([
       this.prisma.vehicle.findMany({
         where: { status: "ACTIVE" },
-        select: { id: true, currentOdometerKm: true, createdAt: true },
+        select: { id: true, currentOdometerKm: true, createdAt: true, lastServiceAt: true },
       }),
       this.prisma.serviceType.findMany({
         where: { isActive: true, OR: [{ intervalDays: { not: null } }, { intervalKm: { not: null } }] },
@@ -97,7 +109,7 @@ export class RemindersService {
       for (const st of serviceTypes) {
         const reason = dueReason({
           now,
-          baselineDate: lastServiceAt.get(`${v.id}:${st.id}`) ?? v.createdAt,
+          baselineDate: resolveBaselineDate(lastServiceAt.get(`${v.id}:${st.id}`), v.lastServiceAt, v.createdAt),
           intervalDays: st.intervalDays,
           currentOdometerKm: v.currentOdometerKm,
           baselineOdometerKm: baselineOdo.get(v.id) ?? 0,

@@ -8,7 +8,7 @@ import { AbilityFactory, AbilityUser, Action } from "../../common/policies/abili
 
 const VEHICLE_SELECT = { id: true, plateNo: true, make: true, model: true, year: true, variant: true,
   engineCc: true, fuelType: true, transmission: true, color: true, vin: true, photoUrls: true,
-  orCrUrls: true, currentOdometerKm: true, status: true, ownerUserId: true, orgOwnerId: true } as const;
+  orCrUrls: true, currentOdometerKm: true, status: true, lastServiceAt: true, ownerUserId: true, orgOwnerId: true } as const;
 
 type VehicleRow = Prisma.VehicleGetPayload<{ select: typeof VEHICLE_SELECT }>;
 
@@ -23,7 +23,10 @@ const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "DRIVER", "ADMIN"]);
  * `findForUser` keeps those fields for CASL's `subject("Vehicle", row)` matching — only the
  * response-facing paths call this mapper.
  */
-const toVehicleResponse = ({ ownerUserId: _ownerUserId, orgOwnerId: _orgOwnerId, ...rest }: VehicleRow) => rest;
+const toVehicleResponse = ({ ownerUserId: _ownerUserId, orgOwnerId: _orgOwnerId, lastServiceAt, ...rest }: VehicleRow) => ({
+  ...rest,
+  lastServiceAt: lastServiceAt ? lastServiceAt.toISOString().slice(0, 10) : null,
+});
 
 @Injectable()
 export class VehiclesService {
@@ -43,13 +46,14 @@ export class VehiclesService {
   async create(user: AbilityUser, dto: VehicleCreate) {
     if (user.role === "FLEET_MANAGER" && !user.orgId)
       throw new DomainError("FORBIDDEN_ROLE", "Fleet manager account is not linked to an organization", 403);
-    const { odometerKm, ...fields } = dto;
+    const { odometerKm, lastServiceAt, ...fields } = dto;
     const owner = user.role === "FLEET_MANAGER"
       ? { orgOwnerId: user.orgId ?? undefined }
       : { ownerUserId: user.id };
     try {
       const row = await this.prisma.vehicle.create({
         data: { ...fields, ...owner, currentOdometerKm: odometerKm,
+                lastServiceAt: lastServiceAt ? new Date(`${lastServiceAt}T00:00:00Z`) : null,
                 odometerReadings: { create: { km: odometerKm, source: "MEMBER", recordedBy: user.id } } },
         select: VEHICLE_SELECT,
       });
@@ -83,7 +87,12 @@ export class VehiclesService {
 
   async update(user: AbilityUser, id: string, dto: VehicleUpdate) {
     await this.findForUser(user, id, "update");
-    const row = await this.prisma.vehicle.update({ where: { id }, data: dto, select: VEHICLE_SELECT });
+    const { lastServiceAt, ...rest } = dto;
+    const row = await this.prisma.vehicle.update({
+      where: { id },
+      data: { ...rest, ...(lastServiceAt !== undefined ? { lastServiceAt: lastServiceAt ? new Date(`${lastServiceAt}T00:00:00Z`) : null } : {}) },
+      select: VEHICLE_SELECT,
+    });
     return toVehicleResponse(row);
   }
 
