@@ -1,11 +1,19 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 
 const DAY_MS = 86_400_000;
 const STAGGER_WINDOW_DAYS = 28; // every vehicle is reminded within any 28-day window (load shaping)
 
 export type DueReason = "TIME" | "ODOMETER";
-export type DueCandidate = { vehicleId: string; serviceTypeId: string; reason: DueReason };
+export type DueCandidate = {
+  vehicleId: string;
+  serviceTypeId: string;
+  reason: DueReason;
+  /** null for org-owned (fleet) vehicles — no single member to notify. */
+  userId: string | null;
+  serviceTypeName: string;
+};
 
 /** FNV-1a over a string — a small stable hash so a vehicle's stagger bucket never drifts. */
 export function fnv1a(s: string): number {
@@ -61,7 +69,7 @@ export function resolveBaselineDate(
 
 @Injectable()
 export class RemindersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private announcements: AnnouncementsService) {}
 
   /**
    * Vehicles due for a service, one candidate per (vehicle, serviceType). Baselines: last COMPLETED
@@ -73,11 +81,11 @@ export class RemindersService {
     const [vehicles, serviceTypes] = await Promise.all([
       this.prisma.vehicle.findMany({
         where: { status: "ACTIVE" },
-        select: { id: true, currentOdometerKm: true, createdAt: true, lastServiceAt: true },
+        select: { id: true, currentOdometerKm: true, createdAt: true, lastServiceAt: true, ownerUserId: true },
       }),
       this.prisma.serviceType.findMany({
         where: { isActive: true, OR: [{ intervalDays: { not: null } }, { intervalKm: { not: null } }] },
-        select: { id: true, intervalDays: true, intervalKm: true },
+        select: { id: true, name: true, intervalDays: true, intervalKm: true },
       }),
     ]);
     if (vehicles.length === 0 || serviceTypes.length === 0) return [];
@@ -115,29 +123,43 @@ export class RemindersService {
           baselineOdometerKm: baselineOdo.get(v.id) ?? 0,
           intervalKm: st.intervalKm,
         });
-        if (reason) out.push({ vehicleId: v.id, serviceTypeId: st.id, reason });
+        if (reason)
+          out.push({
+            vehicleId: v.id,
+            serviceTypeId: st.id,
+            reason,
+            userId: v.ownerUserId,
+            serviceTypeName: st.name,
+          });
       }
     }
     return out;
   }
 
+  /** Extracted so tests can pin the stagger without having to reverse the hash. */
+  private isInTodaysBucket(vehicleId: string, now: Date): boolean {
+    return staggerBucket(vehicleId) === bucketForDay(now);
+  }
+
   /**
-   * Persists in-app reminders for due vehicles whose stagger bucket matches today's bucket — spreads
-   * sends across a 28-day window (Architecture §7.7 load shaping). Idempotent via the
-   * (vehicleId, serviceTypeId) unique index. Returns how many new reminders were created.
+   * Opens a SERVICE_DUE announcement thread for every due vehicle whose stagger bucket matches
+   * today's — spreading sends across a 28-day window (Architecture §7.7 load shaping).
+   * Idempotency is the thread state machine's job: re-running creates nothing new, because
+   * SERVICE_DUE_DETECTED on an already-open thread is a no-op.
    */
   async serviceDue(now: Date): Promise<{ created: number }> {
-    const todayBucket = bucketForDay(now);
-    const candidates = (await this.dueCandidates(now)).filter((c) => staggerBucket(c.vehicleId) === todayBucket);
+    const candidates = (await this.dueCandidates(now)).filter((c) => this.isInTodaysBucket(c.vehicleId, now));
 
     let created = 0;
     for (const c of candidates) {
-      const existing = await this.prisma.serviceReminder.findUnique({
-        where: { vehicleId_serviceTypeId: { vehicleId: c.vehicleId, serviceTypeId: c.serviceTypeId } },
-      });
-      if (existing) continue;
-      await this.prisma.serviceReminder.create({
-        data: { vehicleId: c.vehicleId, serviceTypeId: c.serviceTypeId, reason: c.reason },
+      if (!c.userId) continue; // org-owned vehicle — no single member to notify
+      await this.announcements.applyThreadEvent({
+        userId: c.userId,
+        vehicleId: c.vehicleId,
+        serviceTypeId: c.serviceTypeId,
+        serviceTypeName: c.serviceTypeName,
+        event: { type: "SERVICE_DUE_DETECTED" },
+        reason: c.reason,
       });
       created++;
     }

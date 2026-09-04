@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { RemindersService, dueReason, staggerBucket, bucketForDay, fnv1a, resolveBaselineDate } from "./reminders.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 
 const DAY = 86_400_000;
 
@@ -66,7 +67,7 @@ describe("RemindersService — dueCandidates + staggered serviceDue (real DB)", 
   beforeAll(async () => {
     prisma = new PrismaService();
     await prisma.$connect();
-    service = new RemindersService(prisma);
+    service = new RemindersService(prisma, new AnnouncementsService(prisma));
 
     memberId = (await prisma.user.create({ data: { firebaseUid: `${TAG}-m`, role: "MEMBER" } })).id;
     serviceTypeId = (
@@ -90,7 +91,7 @@ describe("RemindersService — dueCandidates + staggered serviceDue (real DB)", 
   });
 
   afterAll(async () => {
-    await prisma.serviceReminder.deleteMany({ where: { serviceTypeId } });
+    await prisma.announcement.deleteMany({ where: { serviceTypeId } });
     await prisma.vehicle.deleteMany({ where: { id: { in: [dueVehicleId, freshVehicleId] } } });
     await prisma.serviceType.deleteMany({ where: { id: serviceTypeId } });
     await prisma.user.deleteMany({ where: { firebaseUid: { startsWith: TAG } } });
@@ -112,9 +113,77 @@ describe("RemindersService — dueCandidates + staggered serviceDue (real DB)", 
       const day = new Date((startEpochDay + d) * DAY);
       total += (await service.serviceDue(day)).created;
     }
-    const reminders = await prisma.serviceReminder.findMany({ where: { serviceTypeId } });
-    expect(reminders).toHaveLength(1);
-    expect(reminders[0].vehicleId).toBe(dueVehicleId);
+    // Scoped to this spec's own vehicles: serviceDue() sweeps every ACTIVE
+    // vehicle in the database, so any unrelated vehicle old enough to be due
+    // (a hand-created one in a dev DB, say) would otherwise fail this.
+    const threads = await prisma.announcement.findMany({
+      where: { serviceTypeId, vehicleId: { in: [dueVehicleId, freshVehicleId] } },
+    });
+    expect(threads).toHaveLength(1);
+    expect(threads[0].vehicleId).toBe(dueVehicleId);
+    expect(threads[0].kind).toBe("SERVICE_DUE");
     expect(total).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("serviceDue writes announcement threads", () => {
+  const vehicleId = "11111111-1111-1111-1111-111111111111";
+  const NOW_T7 = new Date("2026-09-04T00:00:00Z");
+
+  function stubPrisma() {
+    return {
+      vehicle: {
+        findMany: jest.fn(async () => [
+          { id: vehicleId, currentOdometerKm: 20000, createdAt: new Date("2020-01-01"), lastServiceAt: null, ownerUserId: "u1" },
+        ]),
+      },
+      serviceType: {
+        findMany: jest.fn(async () => [{ id: "s1", name: "Oil Change", intervalDays: 180, intervalKm: 5000 }]),
+      },
+      appointment: { findMany: jest.fn(async () => []) },
+      odometerReading: { findMany: jest.fn(async () => [{ vehicleId, km: 0 }]) },
+    } as any;
+  }
+
+  it("applies a SERVICE_DUE_DETECTED event per due candidate in today's bucket", async () => {
+    const applyThreadEvent = jest.fn(async () => undefined);
+    const svc = new RemindersService(stubPrisma(), { applyThreadEvent } as any);
+    jest.spyOn(svc as any, "isInTodaysBucket").mockReturnValue(true);
+
+    const result = await svc.serviceDue(NOW_T7);
+
+    expect(result).toEqual({ created: 1 });
+    expect(applyThreadEvent).toHaveBeenCalledTimes(1);
+    expect(applyThreadEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "u1",
+        vehicleId,
+        serviceTypeId: "s1",
+        serviceTypeName: "Oil Change",
+        event: { type: "SERVICE_DUE_DETECTED" },
+      }),
+    );
+  });
+
+  it("skips candidates outside today's stagger bucket", async () => {
+    const applyThreadEvent = jest.fn(async () => undefined);
+    const svc = new RemindersService(stubPrisma(), { applyThreadEvent } as any);
+    jest.spyOn(svc as any, "isInTodaysBucket").mockReturnValue(false);
+
+    expect(await svc.serviceDue(NOW_T7)).toEqual({ created: 0 });
+    expect(applyThreadEvent).not.toHaveBeenCalled();
+  });
+
+  it("skips org-owned vehicles — there is no single member to notify", async () => {
+    const applyThreadEvent = jest.fn(async () => undefined);
+    const prisma = stubPrisma();
+    prisma.vehicle.findMany = jest.fn(async () => [
+      { id: vehicleId, currentOdometerKm: 20000, createdAt: new Date("2020-01-01"), lastServiceAt: null, ownerUserId: null },
+    ]);
+    const svc = new RemindersService(prisma, { applyThreadEvent } as any);
+    jest.spyOn(svc as any, "isInTodaysBucket").mockReturnValue(true);
+
+    expect(await svc.serviceDue(NOW_T7)).toEqual({ created: 0 });
+    expect(applyThreadEvent).not.toHaveBeenCalled();
   });
 });
