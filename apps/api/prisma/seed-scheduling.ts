@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 
 const WEEKDAYS: Weekday[] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-const SERVICE_TYPES = [
+export const SERVICE_TYPES = [
   { code: "OIL_CHANGE", name: "Oil Change", standardDurationMin: 45, requiredSkills: ["GENERAL"], priceCentavos: 85000n, intervalDays: 180, intervalKm: 5000 },
   { code: "TIRE_ROTATION", name: "Tire Rotation", standardDurationMin: 30, requiredSkills: ["GENERAL"], priceCentavos: 45000n, intervalDays: 180, intervalKm: 10000 },
   { code: "BRAKE_SERVICE", name: "Brake Service", standardDurationMin: 90, requiredSkills: ["BRAKES"], priceCentavos: 180000n, intervalDays: null, intervalKm: 20000 },
@@ -94,9 +94,11 @@ async function main() {
   console.log(`Shifts: ${shiftCount} created for the next ${SHIFT_WINDOW_DAYS} days`);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}
