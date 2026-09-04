@@ -4,12 +4,13 @@ import type { AppointmentCreate, Reschedule } from "@autocare/contracts";
 import { DomainError } from "../../common/errors/domain-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { EntitlementService } from "../entitlements/entitlement.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { CLOCK, Clock } from "../../common/clock/clock";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { HoldsService, HoldDetails } from "./holds.service";
 import { dateOf, hhmmOf } from "./time";
 
-const STAFF_ROLES = new Set(["ADVISOR", "ADMIN"]);
+const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "ADMIN"]);
 const ACTIVE_STATUSES: Prisma.AppointmentWhereInput["status"] = { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] };
 const RESCHEDULE_CUTOFF_MS = 24 * 60 * 60 * 1000; // FR-044: free reschedule up to 24h before start
 
@@ -31,6 +32,7 @@ export class AppointmentsService {
     private holds: HoldsService,
     private entitlements: EntitlementService,
     @Inject(CLOCK) private clock: Clock,
+    private announcements: AnnouncementsService,
   ) {}
 
   private toDto(a: {
@@ -117,11 +119,24 @@ export class AppointmentsService {
         createdBy: u.id, subscriptionId,
       },
     });
+
+    // Transitions the member's open SERVICE_DUE thread to "scheduled" rather than
+    // adding a second notification about the same service.
+    if (vehicle.ownerUserId) {
+      await this.announcements.applyThreadEvent({
+        userId: vehicle.ownerUserId, vehicleId: dto.vehicleId, serviceTypeId: dto.serviceTypeId,
+        serviceTypeName: serviceType.name, event: { type: "APPOINTMENT_BOOKED" },
+        appointmentId: created.id, scheduledStart: start,
+      });
+    }
     return this.toDto(created);
   }
 
   async reschedule(u: AbilityUser, id: string, dto: Reschedule): Promise<AppointmentDto> {
-    const appt = await this.prisma.appointment.findUnique({ where: { id } });
+    const appt = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: { serviceType: { select: { name: true } }, vehicle: { select: { ownerUserId: true } } },
+    });
     if (!appt) throw new DomainError("SLOT_UNAVAILABLE", "appointment not found", 404);
     await this.assertOwnerOrStaff(u, appt.vehicleId);
 
@@ -144,11 +159,22 @@ export class AppointmentsService {
       where: { id },
       data: { bayId: hold.bayId, scheduledStart: new Date(hold.startIso), scheduledEnd: new Date(hold.endIso) },
     });
+
+    if (appt.vehicle.ownerUserId) {
+      await this.announcements.applyThreadEvent({
+        userId: appt.vehicle.ownerUserId, vehicleId: appt.vehicleId, serviceTypeId: appt.serviceTypeId,
+        serviceTypeName: appt.serviceType.name, event: { type: "APPOINTMENT_RESCHEDULED" },
+        appointmentId: id, scheduledStart: updated.scheduledStart,
+      });
+    }
     return this.toDto(updated);
   }
 
   async cancel(u: AbilityUser, id: string): Promise<AppointmentDto> {
-    const appt = await this.prisma.appointment.findUnique({ where: { id }, include: { serviceType: true } });
+    const appt = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: { serviceType: true, vehicle: { select: { ownerUserId: true } } },
+    });
     if (!appt) throw new DomainError("SLOT_UNAVAILABLE", "appointment not found", 404);
     await this.assertOwnerOrStaff(u, appt.vehicleId);
     if (appt.status === "CANCELLED") return this.toDto(appt);
@@ -159,6 +185,14 @@ export class AppointmentsService {
     }
 
     const updated = await this.prisma.appointment.update({ where: { id }, data: { status: "CANCELLED" } });
+
+    // Falls the thread back to SERVICE_DUE — the service itself is still needed.
+    if (appt.vehicle.ownerUserId) {
+      await this.announcements.applyThreadEvent({
+        userId: appt.vehicle.ownerUserId, vehicleId: appt.vehicleId, serviceTypeId: appt.serviceTypeId,
+        serviceTypeName: appt.serviceType.name, event: { type: "APPOINTMENT_CANCELLED" },
+      });
+    }
     return this.toDto(updated);
   }
 

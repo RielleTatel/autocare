@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { EntitlementService } from "../entitlements/entitlement.service";
 import { AppointmentsService } from "./appointments.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { HoldsService, HoldDetails } from "./holds.service";
 import { Clock } from "../../common/clock/clock";
 import { AbilityUser } from "../../common/policies/ability.factory";
@@ -23,6 +24,12 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     claim: async () => nextClaim,
     restore: async () => undefined,
   } as unknown as HoldsService;
+  // Spy rather than the real service: these tests are about which thread event each
+  // lifecycle call emits, not about how the thread is persisted (covered in Task 5/6 specs).
+  const applyThreadEvent = jest.fn(async () => undefined);
+  const announcementsStub = { applyThreadEvent } as unknown as AnnouncementsService;
+
+  beforeEach(() => applyThreadEvent.mockClear());
 
   let memberId: string;
   let advisorId: string;
@@ -41,7 +48,7 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     prisma = new PrismaService();
     await prisma.$connect();
     entitlements = new EntitlementService(prisma);
-    service = new AppointmentsService(prisma, holdsStub, entitlements, clock);
+    service = new AppointmentsService(prisma, holdsStub, entitlements, clock, announcementsStub);
 
     const m = await prisma.user.create({ data: { firebaseUid: `${TAG}-m`, role: "MEMBER" } });
     memberId = m.id;
@@ -132,6 +139,40 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     await service.cancel(member(), near.id);
     const afterNoRefund = await prisma.entitlementUsage.findFirstOrThrow({ where: { subscriptionId: subId, entitlementType: "INSPECTION" } });
     expect(afterNoRefund.usedQty).toBe(1); // unchanged
+  });
+
+  it("rescheduling emits APPOINTMENT_RESCHEDULED for the vehicle owner", async () => {
+    const appt = await makeAppt(48 * H);
+    nextClaim = { bayId, startIso: iso(80 * H), endIso: iso(81 * H), userId: memberId, serviceTypeId };
+    await service.reschedule(member(), appt.id, { holdId: "x" });
+
+    expect(applyThreadEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: memberId, vehicleId, serviceTypeId,
+        event: { type: "APPOINTMENT_RESCHEDULED" },
+        appointmentId: appt.id,
+      }),
+    );
+  });
+
+  it("cancelling emits APPOINTMENT_CANCELLED, returning the thread to due", async () => {
+    const appt = await makeAppt(48 * H);
+    await service.cancel(member(), appt.id);
+
+    expect(applyThreadEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: memberId, vehicleId, serviceTypeId,
+        event: { type: "APPOINTMENT_CANCELLED" },
+      }),
+    );
+  });
+
+  it("cancelling an already-cancelled appointment emits nothing the second time", async () => {
+    const appt = await makeAppt(48 * H);
+    await service.cancel(member(), appt.id);
+    applyThreadEvent.mockClear();
+    await service.cancel(member(), appt.id);
+    expect(applyThreadEvent).not.toHaveBeenCalled();
   });
 
   it("flagNoShows marks past BOOKED/CONFIRMED appointments NO_SHOW", async () => {
