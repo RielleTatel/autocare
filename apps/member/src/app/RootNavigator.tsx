@@ -47,6 +47,8 @@ import { ApprovalRequestScreen } from "../features/work-orders/ApprovalRequestSc
 import { RecommendationsListScreen } from "../features/work-orders/RecommendationsListScreen";
 import { ServiceHistoryScreen } from "../features/work-orders/ServiceHistoryScreen";
 import { makeAttentionApi, type AttentionItem } from "../features/attention/attentionApi";
+import { AnnouncementsScreen } from "../features/announcements/AnnouncementsScreen";
+import { makeAnnouncementsApi, type AnnouncementFeed } from "../features/announcements/announcementsApi";
 import { AttentionCard } from "../features/attention/AttentionCard";
 import { AttentionListScreen } from "../features/attention/AttentionListScreen";
 
@@ -57,6 +59,7 @@ const bookingApi = makeBookingApi(api);
 const healthScoreApi = makeHealthScoreApi(api);
 const workOrderApi = makeWorkOrderApi(api);
 const attentionApi = makeAttentionApi(api);
+const announcementsApi = makeAnnouncementsApi(api);
 
 const Stack = createNativeStackNavigator();
 
@@ -123,6 +126,11 @@ function registerErrorMessage(e: any): string {
   }
 }
 
+/** Shown when Firebase auth succeeds but the follow-up call to our own API
+ * (afterSignIn → api.createSession) fails — a server/network problem, not
+ * bad credentials, so it must not be reported as one. */
+const SESSION_ERROR = "Signed in, but couldn't reach AutoCare+. Check your connection and try again.";
+
 function EmailAuthContainer({ navigation, setBootState }: any) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -135,9 +143,14 @@ function EmailAuthContainer({ navigation, setBootState }: any) {
         setNotice(null);
         try {
           await signInWithEmail(email, password);
-          await afterSignIn(navigation, setBootState);
         } catch {
           setError("That email or password didn't work. Try again.");
+          return;
+        }
+        try {
+          await afterSignIn(navigation, setBootState);
+        } catch {
+          setError(SESSION_ERROR);
         }
       }}
       onRegister={async (email, password) => {
@@ -145,9 +158,14 @@ function EmailAuthContainer({ navigation, setBootState }: any) {
         setNotice(null);
         try {
           await registerWithEmail(email, password);
-          await afterSignIn(navigation, setBootState);
         } catch (e: any) {
           setError(registerErrorMessage(e));
+          return;
+        }
+        try {
+          await afterSignIn(navigation, setBootState);
+        } catch {
+          setError(SESSION_ERROR);
         }
       }}
       onGoogle={async () => {
@@ -155,9 +173,14 @@ function EmailAuthContainer({ navigation, setBootState }: any) {
         setNotice(null);
         try {
           await signInWithGoogle();
-          await afterSignIn(navigation, setBootState);
         } catch {
           setError("Google sign-in failed. Try again.");
+          return;
+        }
+        try {
+          await afterSignIn(navigation, setBootState);
+        } catch {
+          setError(SESSION_ERROR);
         }
       }}
       onForgotPassword={async (email) => {
@@ -278,6 +301,42 @@ function HomeTabContainer({ navigation }: any) {
           onPressItem={(item) => resolveAttentionDeepLink(parent, item)}
         />
       }
+    />
+  );
+}
+
+/** M-33 (subset) — the announcements feed. Tapping a vehicle-scoped thread deep-links to
+ *  booking, which is the action every service-due and appointment thread is about. */
+function AnnouncementsContainer({ navigation }: any) {
+  const [feed, setFeed] = useState<AnnouncementFeed>({ items: [], unreadCount: 0 });
+  const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setFeed(await announcementsApi.mine());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+  useEffect(() => {
+    load().catch(() => undefined);
+  }, [load]);
+
+  return (
+    <AnnouncementsScreen
+      items={feed.items}
+      unreadCount={feed.unreadCount}
+      refreshing={refreshing}
+      onRefresh={() => load().catch(() => undefined)}
+      onMarkAllRead={() => {
+        announcementsApi.markAllRead().then(load).catch(() => undefined);
+      }}
+      onPressItem={(item) => {
+        announcementsApi.markRead(item.id).catch(() => undefined);
+        if (item.vehicleId && item.serviceTypeId) {
+          navigation.navigate("Booking", { vehicleId: item.vehicleId, serviceTypeId: item.serviceTypeId });
+        }
+      }}
     />
   );
 }
@@ -416,11 +475,13 @@ function AccountTabContainer({ navigation }: any) {
   const [entitlements, setEntitlements] = useState<EntitlementSummary[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
 
   const load = useCallback(async () => {
     await Promise.all([
       api.get("/users/me").then(setProfile).catch(() => setProfile({})),
       subApi.listPlans().then(setPlans).catch(() => setPlans([])),
+      announcementsApi.mine().then((f) => setUnreadAnnouncements(f.unreadCount)).catch(() => setUnreadAnnouncements(0)),
       (async () => {
         if (!vehicle) return;
         const subs = await subApi.listSubscriptions().catch(() => []);
@@ -451,6 +512,8 @@ function AccountTabContainer({ navigation }: any) {
       // the proration preview and the lock-in ETF rules — the inline cards are
       // an entry point to it, not a second way to mutate a subscription.
       onChangePlan={() => subscription && parent().navigate("UpgradeDowngrade", { subscriptionId: subscription.id })}
+      onAnnouncements={() => parent().navigate("Announcements")}
+      unreadAnnouncements={unreadAnnouncements}
       onPersonalDetails={() => parent().navigate("PersonalDetails")}
       onSubscriptionDetails={() => subscription && parent().navigate("SubscriptionDashboard", { subscriptionId: subscription.id })}
       onInvoices={() => parent().navigate("Invoices")}
@@ -718,11 +781,22 @@ function SubscriptionDashboardContainer({ navigation, route }: any) {
 function UpgradeDowngradeContainer({ navigation, route }: any) {
   const { subscriptionId } = route.params;
   const [currentPlan, setCurrentPlan] = useState<{ id: string; name: string; priceCentavos: number; billingInterval: string; lockInMonths: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    subApi.getSubscription(subscriptionId).then((s) => setCurrentPlan(s.plan));
+    subApi
+      .getSubscription(subscriptionId)
+      .then((s) => setCurrentPlan(s.plan))
+      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load your plan"));
   }, [subscriptionId]);
 
+  if (error) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", padding: theme.spacing.lg }}>
+        <Text style={[theme.text("body"), { color: theme.colors.inkMuted, textAlign: "center" }]}>{error}</Text>
+      </View>
+    );
+  }
   if (!currentPlan) return <Skeleton.Screen cards={3} />;
 
   return (
@@ -844,6 +918,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="Recommendations" component={RecommendationsContainer} />
       <Stack.Screen name="ServiceHistory2" component={ServiceHistoryContainer} />
       <Stack.Screen name="Attention" component={AttentionContainer} />
+      <Stack.Screen name="Announcements" component={AnnouncementsContainer} />
     </Stack.Navigator>
     </ReadyContext.Provider>
   );
