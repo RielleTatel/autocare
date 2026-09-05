@@ -32,7 +32,7 @@ type Db = Pick<
   | "payment" | "invoiceItem" | "invoice" | "entitlementUsage" | "subscription"
   | "workOrderItem" | "workOrder" | "categoryScore" | "healthScore"
   | "inspectionResult" | "inspection" | "certificate" | "recommendation"
-  | "serviceReminder" | "appointment" | "odometerReading" | "vehicle"
+  | "announcement" | "appointment" | "odometerReading" | "vehicle"
   | "cashShift" | "staffShift" | "consentRecord" | "dataRequest" | "user"
   | "planEntitlement" | "plan"
 >;
@@ -73,7 +73,7 @@ export async function purgeFixtures(prisma: Db, keys: FixtureKeys): Promise<void
     await prisma.inspection.deleteMany({ where: scope });
     await prisma.certificate.deleteMany({ where: scope });
     await prisma.recommendation.deleteMany({ where: scope });
-    await prisma.serviceReminder.deleteMany({ where: scope });
+    await prisma.announcement.deleteMany({ where: scope });
     await prisma.appointment.deleteMany({ where: scope });
     await prisma.odometerReading.deleteMany({ where: scope });
   }

@@ -37,7 +37,7 @@ function recordingPrisma(log: string[]) {
     inspection: model("inspection"),
     certificate: model("certificate"),
     recommendation: model("recommendation"),
-    serviceReminder: model("serviceReminder"),
+    announcement: model("announcement"),
     appointment: model("appointment"),
     odometerReading: model("odometerReading"),
     vehicle: model("vehicle"),
