@@ -196,6 +196,38 @@ export class AppointmentsService {
     return this.toDto(updated);
   }
 
+  /**
+   * In-app half of FR-090's appointment reminders — the client doc's "the app sends a reminder
+   * before the appointment". Runs hourly and sweeps the next 24h; the thread state machine
+   * collapses repeats, so an appointment is reminded once per scheduled date. A reschedule
+   * re-arms it, because the date the member was told has changed.
+   *
+   * IN_PROGRESS is excluded deliberately: the member is already at the shop.
+   */
+  async remindUpcoming(now: Date): Promise<{ reminded: number }> {
+    const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const upcoming = await this.prisma.appointment.findMany({
+      where: { status: { in: ["BOOKED", "CONFIRMED"] }, scheduledStart: { gt: now, lte: horizon } },
+      include: { serviceType: { select: { name: true } }, vehicle: { select: { ownerUserId: true } } },
+    });
+
+    let reminded = 0;
+    for (const a of upcoming) {
+      if (!a.vehicle.ownerUserId) continue; // org-owned — no single member to remind
+      await this.announcements.applyThreadEvent({
+        userId: a.vehicle.ownerUserId,
+        vehicleId: a.vehicleId,
+        serviceTypeId: a.serviceTypeId,
+        serviceTypeName: a.serviceType.name,
+        event: { type: "APPOINTMENT_REMINDER_DUE" },
+        appointmentId: a.id,
+        scheduledStart: a.scheduledStart,
+      });
+      reminded++;
+    }
+    return { reminded };
+  }
+
   /** Decrements current-period usage by one (floored at 0) — the inverse of a single consume. */
   private async refundEntitlement(subscriptionId: string, type: EntitlementType): Promise<void> {
     const sub = await this.prisma.subscription.findUnique({

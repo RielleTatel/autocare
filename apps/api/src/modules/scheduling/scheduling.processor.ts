@@ -29,6 +29,9 @@ export class SchedulingProcessor extends WorkerHost {
       case "serviceDue":
         await this.reminders.serviceDue(this.clock.now());
         return;
+      case "remindUpcoming":
+        await this.appointments.remindUpcoming(this.clock.now());
+        return;
       case "utilisationAlarm":
         await this.utilisation.utilisationAlarm(this.clock.now());
         return;

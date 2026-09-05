@@ -24,6 +24,13 @@ export class SchedulingScheduler implements OnModuleInit {
       { pattern: "0 8 * * *", tz: MANILA_TZ },
       { name: "serviceDue" },
     );
+    // Hourly, not daily: a reminder is only useful if it lands reasonably close to T-24h,
+    // and the thread state machine makes re-runs free.
+    await this.queue.upsertJobScheduler(
+      "appointments.remindUpcoming",
+      { pattern: "0 * * * *", tz: MANILA_TZ },
+      { name: "remindUpcoming" },
+    );
     await this.queue.upsertJobScheduler(
       "capacity.utilisationAlarm",
       { pattern: "0 6 * * *", tz: MANILA_TZ },
