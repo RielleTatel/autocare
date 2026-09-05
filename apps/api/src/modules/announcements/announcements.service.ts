@@ -158,10 +158,25 @@ export class AnnouncementsService {
 
   async dismiss(userId: string, id: string): Promise<void> {
     const row = await this.prisma.announcement.findUnique({ where: { id } });
-    if (!row || row.userId !== userId) throw new DomainError("FORBIDDEN_ROLE", "Announcement not found", 404);
+    if (!row) throw new DomainError("FORBIDDEN_ROLE", "Announcement not found", 404);
+
+    // A broadcast is ONE row shared by every member: flipping its status would dismiss it for
+    // the whole customer base. Dismissing it is therefore per-viewer, which is exactly what a
+    // read receipt already is.
+    if (row.userId === null) {
+      await this.markRead(userId, id);
+      return;
+    }
+
+    if (row.userId !== userId) throw new DomainError("FORBIDDEN_ROLE", "Announcement not found", 404);
+
     const next = nextThreadState({ kind: row.kind, status: row.status }, { type: "DISMISSED" });
-    if (!next) return;
-    await this.prisma.announcement.update({ where: { id }, data: { status: next.status } });
+    if (next) {
+      await this.prisma.announcement.update({ where: { id }, data: { status: next.status } });
+    }
+    // Dismissing means "I have dealt with this" — it must stop counting toward the unread
+    // badge, otherwise the badge can never be cleared by dismissing.
+    await this.markRead(userId, id);
   }
 
   /** FR-107 — one row with userId null is visible to every member. */

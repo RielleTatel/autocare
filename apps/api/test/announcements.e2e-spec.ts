@@ -158,4 +158,66 @@ describe("announcements (e2e)", () => {
     const res = await asMember().get("/api/v1/me/announcements").expect(200);
     expect(res.body.data.unreadCount).toBe(0);
   });
+
+  it("a dismissed thread stops counting toward the unread badge", async () => {
+    await asMember().post("/api/v1/announcements/read-all").expect(201);
+
+    const t = await prisma.announcement.create({
+      data: {
+        userId: memberId, vehicleId, serviceTypeId: null,
+        kind: "SERVICE_DUE", status: "ACTIVE", title: `${TAG} nag`, body: "x",
+      },
+    });
+    expect((await asMember().get("/api/v1/me/announcements")).body.data.unreadCount).toBe(1);
+
+    await asMember().post(`/api/v1/announcements/${t.id}/dismiss`).expect(201);
+
+    const after = (await asMember().get("/api/v1/me/announcements")).body.data;
+    expect(after.unreadCount).toBe(0);
+  });
+
+  it("dismissing a broadcast clears it for that viewer ONLY, never for everyone", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/admin/announcements")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: `${TAG} dismissable`, body: "x" })
+      .expect(201);
+    const feed = (await asMember().get("/api/v1/me/announcements")).body.data;
+    const bc = feed.items.find((i: any) => i.title.includes("dismissable"));
+    await asMember().post(`/api/v1/announcements/${bc.id}/dismiss`).expect(201);
+
+    // The row is shared by every member, so it must still be ACTIVE and still visible to
+    // someone else — dismissing must never blank a shop notice for the whole customer base.
+    expect((await prisma.announcement.findUniqueOrThrow({ where: { id: bc.id } })).status).toBe("ACTIVE");
+    const other = await request(app.getHttpServer())
+      .get("/api/v1/me/announcements")
+      .set("Authorization", `Bearer ${otherToken}`)
+      .expect(200);
+    const seenByOther = other.body.data.items.find((i: any) => i.id === bc.id);
+    expect(seenByOther).toBeDefined();
+    expect(seenByOther.read).toBe(false);
+  });
+
+
+  it("hides an expired broadcast but keeps a future-dated one", async () => {
+    await prisma.announcement.create({
+      data: {
+        userId: null, kind: "ADMIN_BROADCAST", status: "ACTIVE",
+        title: `${TAG} expired notice`, body: "x",
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+    await prisma.announcement.create({
+      data: {
+        userId: null, kind: "ADMIN_BROADCAST", status: "ACTIVE",
+        title: `${TAG} live notice`, body: "x",
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+
+    const items = (await asMember().get("/api/v1/me/announcements").expect(200)).body.data.items;
+    expect(items.find((i: any) => i.title.includes("expired notice"))).toBeUndefined();
+    expect(items.find((i: any) => i.title.includes("live notice"))).toBeDefined();
+  });
+
 });
