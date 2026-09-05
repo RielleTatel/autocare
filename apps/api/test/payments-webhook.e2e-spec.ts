@@ -4,6 +4,7 @@ import { createHmac } from "crypto";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { purgeFixtures } from "./fixtures";
 import { FAKE_WEBHOOK_SECRET, FakePspPayload } from "../src/modules/payments/fake-provider.adapter";
 
 function sign(body: string): string {
@@ -30,6 +31,10 @@ describe("webhooks/payments (e2e)", () => {
     app.setGlobalPrefix("api/v1");
     await app.init();
     prisma = app.get(PrismaService);
+
+    // Idempotent setup: clear anything a previously-aborted run left behind,
+    // whose afterAll never got to execute.
+    await purgeFixtures(prisma, { firebaseUids: ["pay-owner", "pay-other"], planCodes: ["E2E-PAY-PLAN"] });
 
     await prisma.user.create({ data: { firebaseUid: uid, role: "MEMBER", consents: { create: { policyVersion: "2026-08-privacy-v1" } } } });
     const plan = await prisma.plan.create({ data: { code: planCode, name: "Pay Plan", priceCentavos: 100000n, billingInterval: "MONTHLY", lockInMonths: 6, version: 1 } });

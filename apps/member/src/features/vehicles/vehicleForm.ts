@@ -3,9 +3,10 @@ import { vehicleCreateSchema, VehicleCreate } from "@autocare/contracts";
 export interface VehicleFormState {
   plateNo: string; make: string; model: string; year: string; variant: string;
   engineCc: string; fuelType: string; transmission: string; odometerKm: string; color: string; vin: string;
+  lastServiceAt: string;
 }
 export const emptyVehicleForm: VehicleFormState = { plateNo: "", make: "", model: "", year: "", variant: "",
-  engineCc: "", fuelType: "GASOLINE", transmission: "AT", odometerKm: "", color: "", vin: "" };
+  engineCc: "", fuelType: "GASOLINE", transmission: "AT", odometerKm: "", color: "", vin: "", lastServiceAt: "" };
 
 export type FormResult = { ok: true; data: VehicleCreate } | { ok: false; errors: Partial<Record<keyof VehicleFormState, string>> };
 
@@ -19,6 +20,7 @@ export function validateVehicleForm(f: VehicleFormState): FormResult {
     odometerKm: Number(f.odometerKm) || 0,
     color: f.color.trim() || undefined,
     vin: f.vin.trim() || undefined,
+    lastServiceAt: f.lastServiceAt.trim() || undefined,
   };
   const parsed = vehicleCreateSchema.safeParse(candidate);
   if (parsed.success) return { ok: true, data: parsed.data };

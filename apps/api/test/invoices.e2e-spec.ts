@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { purgeFixtures } from "./fixtures";
 
 describe("invoices (e2e)", () => {
   let app: any, prisma: PrismaService;
@@ -21,6 +22,10 @@ describe("invoices (e2e)", () => {
       .compile();
     app = mod.createNestApplication(); app.setGlobalPrefix("api/v1"); await app.init();
     prisma = app.get(PrismaService);
+
+    // Idempotent setup: clear anything a previously-aborted run left behind,
+    // whose afterAll never got to execute.
+    await purgeFixtures(prisma, { firebaseUids: ["inv-owner-a", "inv-owner-b"], plateNos: ["INV0001"], planCodes: ["E2E-INV-BASIC"] });
 
     for (const uid of uids) {
       await prisma.user.create({ data: { firebaseUid: uid, role: "MEMBER",

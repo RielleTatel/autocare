@@ -47,6 +47,7 @@ export async function seedChecklist(prisma: PrismaClient): Promise<string> {
             templates: p.templates ?? undefined,
             requiresPhotoOnAdverse: p.requiresPhotoOnAdverse ?? false,
             notApplicableWhen: p.notApplicableWhen ?? null,
+            diagramZoneId: p.diagramZone ?? null,
             sortOrder: ptOrder++,
           },
         });

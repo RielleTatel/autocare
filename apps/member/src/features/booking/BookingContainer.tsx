@@ -18,11 +18,14 @@ const manilaDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/
 export function BookingContainer({
   api,
   vehicleId,
+  vehicle,
   subscriptionId,
   onBooked,
 }: {
   api: BookingApi;
   vehicleId: string;
+  /** Shown on the time picker so the choice keeps its subject in view. */
+  vehicle?: { plateNo: string; year: number; make: string; model: string } | null;
   subscriptionId: string | null;
   onBooked: () => void;
 }) {
@@ -142,11 +145,11 @@ export function BookingContainer({
       )}
       {step === "service" && <ServiceTypeScreen serviceTypes={serviceTypes} entitlements={entitlements} onSelect={onSelectService} />}
       {step === "slot" && (
-        <SlotPickerScreen slots={slots} loading={loadingSlots} holdSecondsLeft={null} onPick={onPickSlot} onRepick={() => service && loadSlots(service)} />
+        <SlotPickerScreen slots={slots} loading={loadingSlots} holdSecondsLeft={null} vehicle={vehicle} serviceName={service?.name} onPick={onPickSlot} onRepick={() => service && loadSlots(service)} />
       )}
       {step === "confirm" && slot && service && (
         holdSecondsLeft === 0 ? (
-          <SlotPickerScreen slots={slots} holdSecondsLeft={0} heldSlotKey={`${slot.bayId}|${slot.start}`} onPick={onPickSlot} onRepick={backToSlots} />
+          <SlotPickerScreen slots={slots} holdSecondsLeft={0} heldSlotKey={`${slot.bayId}|${slot.start}`} vehicle={vehicle} serviceName={service.name} onPick={onPickSlot} onRepick={backToSlots} />
         ) : (
           <ConfirmScreen serviceName={service.name} slotStart={slot.start} entitlementLine={entitlementLine()} submitting={submitting} onConfirm={onConfirm} />
         )

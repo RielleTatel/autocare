@@ -5,6 +5,7 @@ import { EncryptJWT } from "jose";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { SERVICE_TYPES } from "../prisma/seed-scheduling";
 
 const TAG = `cfg-${randomUUID().slice(0, 8)}`;
 const POLICY = "2026-08-privacy-v1";
@@ -76,5 +77,24 @@ describe("scheduling config (e2e)", () => {
     const res = await advisor().get("/api/v1/scheduling/board?from=2027-04-01&to=2027-04-01").expect(200);
     expect(Array.isArray(res.body.data)).toBe(true);
     await member().get("/api/v1/scheduling/board?from=2027-04-01&to=2027-04-01").expect(403);
+  });
+
+  it("seeds the exact maintenance intervals every reminder-generating service type needs", () => {
+    // dueCandidates() selects only service types with a non-null interval, so a type
+    // shipped without one is invisible to the daily reminder job — permanently.
+    const EXPECTED: Record<string, { intervalDays: number | null; intervalKm: number | null }> = {
+      OIL_CHANGE: { intervalDays: 180, intervalKm: 5000 },
+      TIRE_ROTATION: { intervalDays: 180, intervalKm: 10000 },
+      BRAKE_SERVICE: { intervalDays: null, intervalKm: 20000 },
+      AC_SERVICE: { intervalDays: 365, intervalKm: null },
+      FULL_INSPECTION: { intervalDays: 365, intervalKm: 15000 },
+    };
+
+    expect(SERVICE_TYPES.map((s) => s.code).sort()).toEqual(Object.keys(EXPECTED).sort());
+
+    for (const st of SERVICE_TYPES) {
+      expect({ intervalDays: st.intervalDays, intervalKm: st.intervalKm }).toEqual(EXPECTED[st.code]);
+      expect(st.intervalDays ?? st.intervalKm).not.toBeNull();
+    }
   });
 });

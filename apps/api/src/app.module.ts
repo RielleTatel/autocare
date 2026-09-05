@@ -21,6 +21,7 @@ import { InspectionsModule } from "./modules/inspections/inspections.module";
 import { CertificatesModule } from "./modules/certificates/certificates.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { AttentionModule } from "./modules/attention/attention.module";
+import { AnnouncementsModule } from "./modules/announcements/announcements.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { ClockModule } from "./common/clock/clock.module";
 import { RedisModule } from "./common/redis/redis.module";
@@ -54,6 +55,7 @@ import { AppThrottlerGuard } from "./common/throttler/throttler.guard";
     CertificatesModule,
     WorkOrdersModule,
     AttentionModule,
+    AnnouncementsModule,
     AnalyticsModule,
   ],
   controllers: [HealthController],

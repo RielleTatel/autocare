@@ -2,8 +2,10 @@ import { Injectable } from "@nestjs/common";
 import type { AttentionItem } from "@autocare/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { aggregateAttention, AttentionInputs } from "./attention.aggregate";
+import { AnnouncementsService } from "../announcements/announcements.service";
 
 const ENTITLEMENT_EXPIRY_WINDOW_DAYS = 14;
+/** A service-due thread left open this long is treated as overdue rather than merely due. */
 const SERVICE_DUE_WINDOW_DAYS = 14;
 
 /** Read-only aggregation of the four attention feeds (FR-109→FR-113). Computes
@@ -11,7 +13,7 @@ const SERVICE_DUE_WINDOW_DAYS = 14;
  *  mapped into the pure aggregator. */
 @Injectable()
 export class AttentionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private announcements: AnnouncementsService) {}
 
   async build(memberId: string, now = new Date()): Promise<AttentionItem[]> {
     const vehicles = await this.prisma.vehicle.findMany({
@@ -110,20 +112,19 @@ export class AttentionService {
     return out;
   }
 
+  /**
+   * Service-due items come from ACTIVE announcement threads (design spec §7) — the announcements
+   * table is the single source. `publishedAt` is a real due signal, unlike the old ServiceReminder
+   * `createdAt` stand-in, so `overdue` can be computed honestly instead of always being true.
+   */
   private async servicesDue(vehicleIds: string[], now: Date): Promise<AttentionInputs["servicesDue"]> {
-    // Phase 3 persists ServiceReminder rows; surface any not yet dismissed.
-    const reminders = await this.prisma.serviceReminder.findMany({
-      where: { vehicleId: { in: vehicleIds }, dismissedAt: null },
-      include: { serviceType: true },
-    });
-    const soon = new Date(now.getTime() + SERVICE_DUE_WINDOW_DAYS * 86_400_000);
-    return reminders.map((r) => ({
-      vehicleId: r.vehicleId,
-      serviceTypeId: r.serviceTypeId,
-      serviceTypeName: r.serviceType.name,
-      // ServiceReminder has no explicit dueDate; treat its creation as the due signal.
-      dueDate: r.createdAt,
-      overdue: r.createdAt < now && r.createdAt < soon,
+    const threads = await this.announcements.activeServiceDue(vehicleIds);
+    return threads.map((t) => ({
+      vehicleId: t.vehicleId,
+      serviceTypeId: t.serviceTypeId,
+      serviceTypeName: t.serviceTypeName,
+      dueDate: t.publishedAt,
+      overdue: now.getTime() - t.publishedAt.getTime() >= SERVICE_DUE_WINDOW_DAYS * 86_400_000,
     }));
   }
 }

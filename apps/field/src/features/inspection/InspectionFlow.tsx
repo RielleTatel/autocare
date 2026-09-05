@@ -31,7 +31,7 @@ type Route =
 
 /** F-04 → F-08 in one stateful flow. Navigation between capture steps is local
  *  state (the flow is one logical task), the outer stack hosts the flow. */
-export function InspectionFlow({ onDone }: { onDone(): void }) {
+export function InspectionFlow({ onDone, initialVehicleId }: { onDone(): void; initialVehicleId?: string }) {
   const t = fieldTheme;
   const [route, setRoute] = useState<Route>({ name: "task" });
   const [checklist, setChecklist] = useState<CachedChecklist | null>(null);
@@ -54,6 +54,7 @@ export function InspectionFlow({ onDone }: { onDone(): void }) {
   if (route.name === "task" || !vehicle || !checklist) {
     return (
       <TaskDetailScreen
+        initialVehicleId={initialVehicleId}
         onStart={(v, odo) => {
           setVehicle(v);
           setOdometerKm(odo);
@@ -93,6 +94,17 @@ function CaptureFlow({
     const m = new Map(checklist.categories.flatMap((c) => c.points.map((p) => [p.code, p] as const)));
     return m;
   }, [checklist]);
+
+  // The nav title names the category a point belongs to, so "back" has an
+  // obvious destination rather than repeating the point label already below it.
+  const categoryByPointCode = useMemo(() => {
+    const m = new Map<string, { label: string }>();
+    for (const c of checklist.categories) {
+      for (const p of c.points) m.set(p.code, { label: c.label });
+    }
+    return m;
+  }, [checklist]);
+  const categoryOf = useCallback((code: string) => categoryByPointCode.get(code), [categoryByPointCode]);
 
   const nextAfter = useCallback((code: string): Route => {
     const idx = orderedCodes.indexOf(code);
@@ -138,6 +150,9 @@ function CaptureFlow({
         onSave={(r) => { void draft.saveResult(r); }}
         onAddPhoto={() => setRoute({ name: "photo", forPoint: route.code })}
         onNext={() => setRoute(nextAfter(route.code))}
+        onBack={() => setRoute({ name: "categories" })}
+        title={categoryOf(route.code)?.label}
+        progress={draft.overall}
       />
     );
   }

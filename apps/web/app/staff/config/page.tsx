@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getBays, getServiceTypes, createBay, createServiceType, upsertOperatingHours, type Bay, type ServiceType } from "../../../lib/scheduling/api";
+import { getBays, getServiceTypes, getOperatingHours, createBay, createServiceType, upsertOperatingHours, type Bay, type ServiceType, type OperatingHours } from "../../../lib/scheduling/api";
 import { Button } from "../../../components/Button";
 
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
@@ -10,14 +10,16 @@ const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 export default function CapacityConfigPage() {
   const [bays, setBays] = useState<Bay[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [hours, setHours] = useState<OperatingHours[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
-      const [b, s] = await Promise.all([getBays(), getServiceTypes()]);
+      const [b, s, h] = await Promise.all([getBays(), getServiceTypes(), getOperatingHours()]);
       setBays(b);
       setServiceTypes(s);
+      setHours(h);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load config");
     }
@@ -37,6 +39,12 @@ export default function CapacityConfigPage() {
       setErr(e instanceof Error ? e.message : "Request failed");
     }
   };
+
+  // Only weekday rows belong to this section. A dateOverride row is a one-off
+  // exception for a specific calendar date, not part of the weekly schedule.
+  const weekdayHours = new Map(
+    hours.filter((h) => h.weekday && !h.dateOverride).map((h) => [h.weekday as string, h]),
+  );
 
   // Local form state
   const [bayName, setBayName] = useState("");
@@ -104,6 +112,44 @@ export default function CapacityConfigPage() {
 
         <section className="rounded-md border border-line bg-surface p-4 flex flex-col gap-3">
           <h2 className="font-display text-lg text-ink">Operating hours (per weekday)</h2>
+
+          {/* Every weekday is listed, including the ones with no row. A missing
+              row is not missing data — the capacity engine reads it as closed,
+              and that is the fact worth showing. */}
+          <ul className="flex flex-col divide-y divide-line border border-line rounded-sm" data-testid="operating-hours-list">
+            {WEEKDAYS.map((w) => {
+              const row = weekdayHours.get(w);
+              const isOpen = Boolean(row?.openTime && row?.closeTime);
+              return (
+                <li key={w}>
+                  <button
+                    type="button"
+                    data-testid={`hours-row-${w}`}
+                    onClick={() => {
+                      setWeekday(w);
+                      if (row?.openTime) setOpen(row.openTime);
+                      if (row?.closeTime) setClose(row.closeTime);
+                      setBuffer(row?.walkInBufferPct ?? 0);
+                    }}
+                    className="w-full flex items-center justify-between gap-3 px-3 h-11 text-sm text-left hover:bg-chassis"
+                  >
+                    <span className="font-mono text-ink w-12">{w}</span>
+                    {isOpen ? (
+                      <>
+                        <span className="text-ink flex-1">{row!.openTime}–{row!.closeTime}</span>
+                        <span className="text-ink-muted text-xs">{row!.walkInBufferPct}% walk-in buffer</span>
+                      </>
+                    ) : (
+                      <span className="text-ink-muted flex-1">Closed — no bookings can be made</span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="text-ink-muted text-xs">Select a day to load it below, or set one that is currently closed.</p>
+
           <div className="flex gap-2 flex-wrap items-center">
             <select value={weekday} onChange={(e) => setWeekday(e.target.value as (typeof WEEKDAYS)[number])} className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm">
               {WEEKDAYS.map((w) => (

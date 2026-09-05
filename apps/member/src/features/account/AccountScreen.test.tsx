@@ -35,6 +35,7 @@ const props = {
   subscription, entitlements, plans: [basic, plus],
   onChangePlan: noop, onPersonalDetails: noop, onSubscriptionDetails: noop,
   onInvoices: noop, onPrivacy: noop, onSignOut: noop,
+  onAnnouncements: noop,
 };
 
 describe("AccountScreen (M-28/M-29)", () => {
@@ -100,5 +101,34 @@ describe("AccountScreen (M-28/M-29)", () => {
     render(<AccountScreen {...props} subscription={null} entitlements={[]} />);
     expect(screen.getByTestId("no-subscription")).toBeTruthy();
     expect(screen.queryByTestId("status-banner")).toBeNull();
+  });
+
+  it("files each settings row under what it is about", () => {
+    render(<AccountScreen {...props} />);
+    screen.getByText("ACCOUNT");
+    screen.getByText("BILLING");
+    screen.getByText("LEGAL & DATA");
+    // Grouping is presentation only — every row still reaches its own screen.
+    expect(screen.getByTestId("row-personal")).toBeTruthy();
+    expect(screen.getByTestId("row-subscription")).toBeTruthy();
+    expect(screen.getByTestId("row-invoices")).toBeTruthy();
+    expect(screen.getByTestId("row-privacy")).toBeTruthy();
+  });
+});
+
+describe("AccountScreen — announcements entry point", () => {
+  it("navigates to announcements from the settings list", () => {
+    const onAnnouncements = jest.fn();
+    render(<AccountScreen {...props} onAnnouncements={onAnnouncements} />);
+    fireEvent.press(screen.getByTestId("row-announcements"));
+    expect(onAnnouncements).toHaveBeenCalled();
+  });
+
+  it("shows an unread badge only when announcements are waiting", () => {
+    const { rerender } = render(<AccountScreen {...props} unreadAnnouncements={3} />);
+    expect(screen.getByTestId("announcements-badge")).toHaveTextContent("3");
+
+    rerender(<AccountScreen {...props} unreadAnnouncements={0} />);
+    expect(screen.queryByTestId("announcements-badge")).toBeNull();
   });
 });

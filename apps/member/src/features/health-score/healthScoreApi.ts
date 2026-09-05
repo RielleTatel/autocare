@@ -1,4 +1,5 @@
 import { ApiClient } from "@autocare/api-client";
+import type { DiagramZone } from "@autocare/contracts";
 import type { Band, Confidence, Override, PointStatus } from "@autocare/scoring";
 
 export type CategoryScore = {
@@ -55,6 +56,8 @@ export type InspectionResultDetail = {
   labelFil: string | null;
   categoryId: string;
   categoryCode: string;
+  /** Where this point sits on the vehicle diagram; null when ambiguous (FR-116). */
+  diagramZone: DiagramZone | null;
   status: PointStatus | null;
   measuredValue: number | null;
   unit: string | null;

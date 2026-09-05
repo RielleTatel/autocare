@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import type { ChecklistDraftPatch, PreviewScoreInput } from "@autocare/contracts";
 import { computeVHS } from "@autocare/scoring";
 import { DomainError } from "../../common/errors/domain-error";
@@ -65,32 +66,40 @@ export class ChecklistsService {
     const source = await this.loadFull(active.id);
     const label = await this.nextVersionLabel(source.versionLabel);
 
+    // Bulk, not row-by-row. Cloning issued 1 + categories + points sequential
+    // creates (61 for the seeded checklist); on the hosted database that ran
+    // ~7.4s and blew Prisma's 5s interactive-transaction limit, expiring with
+    // P2028 and surfacing as a 500. Category ids are minted here so the points
+    // can be inserted in one statement without reading the categories back.
     const draft = await this.prisma.$transaction(async (tx) => {
       const v = await tx.checklistVersion.create({
         data: { versionLabel: label, weightVersion: source.weightVersion, status: "DRAFT", isActive: false },
       });
-      for (const cat of source.categories) {
-        const c = await tx.checklistCategory.create({
-          data: {
-            checklistVersionId: v.id, code: cat.code, label: cat.label, labelFil: cat.labelFil,
-            weight: cat.weight, sortOrder: cat.sortOrder,
-          },
-        });
-        for (const p of cat.points) {
-          await tx.checklistPoint.create({
-            data: {
-              categoryId: c.id, code: p.code, label: p.label, labelFil: p.labelFil,
-              weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
-              inputType: p.inputType, unit: p.unit,
-              thresholdDirection: p.thresholdDirection, thresholdGood: p.thresholdGood,
-              thresholdMonitor: p.thresholdMonitor, thresholdAttention: p.thresholdAttention,
-              recommendation: p.recommendation, templates: p.templates ?? undefined,
-              requiresPhotoOnAdverse: p.requiresPhotoOnAdverse, notApplicableWhen: p.notApplicableWhen,
-              sortOrder: p.sortOrder,
-            },
-          });
-        }
-      }
+
+      const categories = source.categories.map((cat) => ({ ...cat, newId: randomUUID() }));
+
+      await tx.checklistCategory.createMany({
+        data: categories.map((cat) => ({
+          id: cat.newId, checklistVersionId: v.id, code: cat.code, label: cat.label,
+          labelFil: cat.labelFil, weight: cat.weight, sortOrder: cat.sortOrder,
+        })),
+      });
+
+      await tx.checklistPoint.createMany({
+        data: categories.flatMap((cat) =>
+          cat.points.map((p) => ({
+            categoryId: cat.newId, code: p.code, label: p.label, labelFil: p.labelFil,
+            weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
+            inputType: p.inputType, unit: p.unit,
+            thresholdDirection: p.thresholdDirection, thresholdGood: p.thresholdGood,
+            thresholdMonitor: p.thresholdMonitor, thresholdAttention: p.thresholdAttention,
+            recommendation: p.recommendation, templates: p.templates ?? undefined,
+            requiresPhotoOnAdverse: p.requiresPhotoOnAdverse, notApplicableWhen: p.notApplicableWhen,
+            sortOrder: p.sortOrder,
+          })),
+        ),
+      });
+
       return v;
     });
     await this.audit.record(u.id, "CHECKLIST_DRAFT_CREATED", "ChecklistVersion", draft.id, null, { versionLabel: label, clonedFrom: source.versionLabel });
@@ -106,33 +115,35 @@ export class ChecklistsService {
     await this.prisma.$transaction(async (tx) => {
       await tx.checklistPoint.deleteMany({ where: { category: { checklistVersionId: id } } });
       await tx.checklistCategory.deleteMany({ where: { checklistVersionId: id } });
-      let catOrder = 0;
-      for (const cat of dto.categories) {
-        const c = await tx.checklistCategory.create({
-          data: {
-            checklistVersionId: id, code: cat.code, label: cat.label, labelFil: cat.labelFil ?? null,
-            weight: cat.weight, sortOrder: catOrder++,
-          },
-        });
-        let ptOrder = 0;
-        for (const p of cat.points) {
-          await tx.checklistPoint.create({
-            data: {
-              categoryId: c.id, code: p.code, label: p.label, labelFil: p.labelFil ?? null,
-              weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
-              inputType: p.inputType, unit: p.unit ?? null,
-              thresholdDirection: p.thresholds?.direction ?? null,
-              thresholdGood: p.thresholds?.good ?? null,
-              thresholdMonitor: p.thresholds?.monitor ?? null,
-              thresholdAttention: p.thresholds?.attention ?? null,
-              recommendation: p.recommendation, templates: p.templates ?? undefined,
-              requiresPhotoOnAdverse: p.requiresPhotoOnAdverse,
-              notApplicableWhen: p.notApplicableWhen ?? null,
-              sortOrder: ptOrder++,
-            },
-          });
-        }
-      }
+
+      // Bulk for the same reason createDraft is: one create per row put ~62
+      // sequential round trips inside the 5s interactive-transaction budget.
+      const categories = dto.categories.map((cat, catOrder) => ({ ...cat, newId: randomUUID(), catOrder }));
+
+      await tx.checklistCategory.createMany({
+        data: categories.map((cat) => ({
+          id: cat.newId, checklistVersionId: id, code: cat.code, label: cat.label,
+          labelFil: cat.labelFil ?? null, weight: cat.weight, sortOrder: cat.catOrder,
+        })),
+      });
+
+      await tx.checklistPoint.createMany({
+        data: categories.flatMap((cat) =>
+          cat.points.map((p, ptOrder) => ({
+            categoryId: cat.newId, code: p.code, label: p.label, labelFil: p.labelFil ?? null,
+            weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
+            inputType: p.inputType, unit: p.unit ?? null,
+            thresholdDirection: p.thresholds?.direction ?? null,
+            thresholdGood: p.thresholds?.good ?? null,
+            thresholdMonitor: p.thresholds?.monitor ?? null,
+            thresholdAttention: p.thresholds?.attention ?? null,
+            recommendation: p.recommendation, templates: p.templates ?? undefined,
+            requiresPhotoOnAdverse: p.requiresPhotoOnAdverse,
+            notApplicableWhen: p.notApplicableWhen ?? null,
+            sortOrder: ptOrder,
+          })),
+        ),
+      });
     });
     await this.audit.record(u.id, "CHECKLIST_DRAFT_EDITED", "ChecklistVersion", id, null, { categories: dto.categories.length });
     return this.present(await this.loadFull(id));

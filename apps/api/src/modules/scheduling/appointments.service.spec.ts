@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { EntitlementService } from "../entitlements/entitlement.service";
 import { AppointmentsService } from "./appointments.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { HoldsService, HoldDetails } from "./holds.service";
 import { Clock } from "../../common/clock/clock";
 import { AbilityUser } from "../../common/policies/ability.factory";
@@ -23,6 +24,12 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     claim: async () => nextClaim,
     restore: async () => undefined,
   } as unknown as HoldsService;
+  // Spy rather than the real service: these tests are about which thread event each
+  // lifecycle call emits, not about how the thread is persisted (covered in Task 5/6 specs).
+  const applyThreadEvent = jest.fn(async () => undefined);
+  const announcementsStub = { applyThreadEvent } as unknown as AnnouncementsService;
+
+  beforeEach(() => applyThreadEvent.mockClear());
 
   let memberId: string;
   let advisorId: string;
@@ -41,7 +48,7 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     prisma = new PrismaService();
     await prisma.$connect();
     entitlements = new EntitlementService(prisma);
-    service = new AppointmentsService(prisma, holdsStub, entitlements, clock);
+    service = new AppointmentsService(prisma, holdsStub, entitlements, clock, announcementsStub);
 
     const m = await prisma.user.create({ data: { firebaseUid: `${TAG}-m`, role: "MEMBER" } });
     memberId = m.id;
@@ -134,6 +141,40 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     expect(afterNoRefund.usedQty).toBe(1); // unchanged
   });
 
+  it("rescheduling emits APPOINTMENT_RESCHEDULED for the vehicle owner", async () => {
+    const appt = await makeAppt(48 * H);
+    nextClaim = { bayId, startIso: iso(80 * H), endIso: iso(81 * H), userId: memberId, serviceTypeId };
+    await service.reschedule(member(), appt.id, { holdId: "x" });
+
+    expect(applyThreadEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: memberId, vehicleId, serviceTypeId,
+        event: { type: "APPOINTMENT_RESCHEDULED" },
+        appointmentId: appt.id,
+      }),
+    );
+  });
+
+  it("cancelling emits APPOINTMENT_CANCELLED, returning the thread to due", async () => {
+    const appt = await makeAppt(48 * H);
+    await service.cancel(member(), appt.id);
+
+    expect(applyThreadEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: memberId, vehicleId, serviceTypeId,
+        event: { type: "APPOINTMENT_CANCELLED" },
+      }),
+    );
+  });
+
+  it("cancelling an already-cancelled appointment emits nothing the second time", async () => {
+    const appt = await makeAppt(48 * H);
+    await service.cancel(member(), appt.id);
+    applyThreadEvent.mockClear();
+    await service.cancel(member(), appt.id);
+    expect(applyThreadEvent).not.toHaveBeenCalled();
+  });
+
   it("flagNoShows marks past BOOKED/CONFIRMED appointments NO_SHOW", async () => {
     const past = await makeAppt(-48 * H); // ended in the past relative to NOW
     const future = await makeAppt(24 * H);
@@ -144,5 +185,64 @@ describe("AppointmentsService — cutoffs, refunds, no-shows (real DB)", () => {
     const futureRow = await prisma.appointment.findUniqueOrThrow({ where: { id: future.id } });
     expect(pastRow.status).toBe("NO_SHOW");
     expect(futureRow.status).toBe("BOOKED");
+  });
+});
+
+/** Pure-stub suite: remindUpcoming is a query + a fan-out, so a real DB adds nothing. */
+describe("AppointmentsService.remindUpcoming", () => {
+  const now = new Date("2026-09-11T02:00:00Z");
+  const clockStub: Clock = { now: () => now };
+
+  function svcWith(rows: any[], applyThreadEvent = jest.fn(async () => undefined)) {
+    const prisma: any = { appointment: { findMany: jest.fn(async () => rows) } };
+    const service = new AppointmentsService(
+      prisma, {} as any, {} as any, clockStub, { applyThreadEvent } as any,
+    );
+    return { service, applyThreadEvent, prisma };
+  }
+
+  const upcoming = (over: Record<string, unknown> = {}) => ({
+    id: "ap1", vehicleId: "v1", serviceTypeId: "s1",
+    scheduledStart: new Date("2026-09-12T01:00:00Z"),
+    serviceType: { name: "Oil Change" },
+    vehicle: { ownerUserId: "u1" },
+    ...over,
+  });
+
+  it("reminds appointments starting within the next 24 hours", async () => {
+    const { service, applyThreadEvent } = svcWith([upcoming()]);
+
+    expect(await service.remindUpcoming(now)).toEqual({ reminded: 1 });
+    expect(applyThreadEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "u1", vehicleId: "v1", serviceTypeId: "s1",
+        serviceTypeName: "Oil Change",
+        event: { type: "APPOINTMENT_REMINDER_DUE" },
+        appointmentId: "ap1",
+      }),
+    );
+  });
+
+  it("queries only the next 24h window and only reminder-eligible statuses", async () => {
+    const { service, prisma } = svcWith([]);
+    await service.remindUpcoming(now);
+
+    const where = prisma.appointment.findMany.mock.calls[0][0].where;
+    expect(where.scheduledStart.gt).toEqual(now);
+    expect(where.scheduledStart.lte).toEqual(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+    // IN_PROGRESS must not be reminded — the member is already at the shop.
+    expect(where.status.in).toEqual(["BOOKED", "CONFIRMED"]);
+  });
+
+  it("reminds nobody when nothing is upcoming", async () => {
+    const { service, applyThreadEvent } = svcWith([]);
+    expect(await service.remindUpcoming(now)).toEqual({ reminded: 0 });
+    expect(applyThreadEvent).not.toHaveBeenCalled();
+  });
+
+  it("skips an org-owned vehicle — there is no single member to remind", async () => {
+    const { service, applyThreadEvent } = svcWith([upcoming({ vehicle: { ownerUserId: null } })]);
+    expect(await service.remindUpcoming(now)).toEqual({ reminded: 0 });
+    expect(applyThreadEvent).not.toHaveBeenCalled();
   });
 });

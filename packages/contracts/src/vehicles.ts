@@ -25,6 +25,12 @@ export const vehicleCreateSchema = z.object({
   odometerKm: z.number().int().min(0),
   color: z.string().max(30).optional(),
   vin: z.string().min(11).max(17).optional(),
+  /** Date of the member's last service, if known — improves reminder accuracy (FR-047). */
+  lastServiceAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+    .refine((s) => new Date(`${s}T00:00:00Z`).getTime() <= Date.now(), { message: "Last service cannot be in the future" })
+    .optional(),
 });
 export type VehicleCreate = z.infer<typeof vehicleCreateSchema>;
 
@@ -47,6 +53,7 @@ export const vehicleSchema = z.object({
   photoUrls: z.array(z.string()), orCrUrls: z.array(z.string()),
   currentOdometerKm: z.number().int(),
   status: z.enum(["ACTIVE", "ARCHIVED"]),
+  lastServiceAt: z.string().nullable(),
 });
 export type Vehicle = z.infer<typeof vehicleSchema>;
 

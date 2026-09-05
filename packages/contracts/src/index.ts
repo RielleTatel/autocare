@@ -11,6 +11,8 @@ export * from "./invoices";
 export * from "./scheduling";
 export * from "./checklists";
 export * from "./sync";
+export * from "./diagram";
 export * from "./certificates";
 export * from "./work-orders";
 export * from "./attention";
+export * from "./announcements";

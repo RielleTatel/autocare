@@ -38,7 +38,30 @@ function EntitlementGauge({ e }: { e: EntitlementSummary }) {
   );
 }
 
-function Row({ label, onPress, testID }: { label: string; onPress: () => void; testID?: string }) {
+/** A titled set of settings rows. The heading names what the group is for, so
+ *  four rows read as three concerns instead of one list. */
+function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  const t = theme;
+  return (
+    <View style={{ gap: t.spacing.xs }}>
+      <Text style={[t.text("label", 600), { color: t.colors.inkMuted, letterSpacing: 0.5 }]}>
+        {title.toUpperCase()}
+      </Text>
+      <Card pad="none" style={{ paddingHorizontal: t.spacing.md }}>{children}</Card>
+    </View>
+  );
+}
+
+function Row({
+  label, onPress, testID, badge, badgeTestID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID?: string;
+  /** Unread count. Rendered only when > 0 — a zero badge is worse than none. */
+  badge?: number;
+  badgeTestID?: string;
+}) {
   const t = theme;
   return (
     <Pressable
@@ -59,7 +82,20 @@ function Row({ label, onPress, testID }: { label: string; onPress: () => void; t
       ]}
     >
       <Text style={[t.text("body"), { color: t.colors.ink }]}>{label}</Text>
-      <Icon name="chevron-right" size={18} color={t.colors.inkMuted} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.xs }}>
+        {badge ? (
+          <View
+            testID={badgeTestID}
+            style={{
+              minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10,
+              backgroundColor: t.colors.primary, alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Text style={[t.text("label"), { color: t.colors.onPrimary }]}>{badge}</Text>
+          </View>
+        ) : null}
+        <Icon name="chevron-right" size={18} color={t.colors.inkMuted} />
+      </View>
     </Pressable>
   );
 }
@@ -73,6 +109,7 @@ function Row({ label, onPress, testID }: { label: string; onPress: () => void; t
 export function AccountScreen({
   name, email, subscription, entitlements, plans, refreshing, onRefresh,
   onChangePlan, onPersonalDetails, onSubscriptionDetails, onInvoices, onPrivacy, onSignOut,
+  onAnnouncements, unreadAnnouncements = 0,
 }: {
   name: string;
   email?: string;
@@ -84,6 +121,9 @@ export function AccountScreen({
   onRefresh?: () => void;
   onChangePlan: (plan: Plan) => void;
   onPersonalDetails: () => void;
+  onAnnouncements: () => void;
+  /** Unread announcement count for the row badge. */
+  unreadAnnouncements?: number;
   onSubscriptionDetails: () => void;
   onInvoices: () => void;
   onPrivacy: () => void;
@@ -167,21 +207,39 @@ export function AccountScreen({
         </View>
       ) : null}
 
-      <View>
+      {/* Grouped so the tail of the screen reads as a few decisions rather than
+          one undifferentiated stack. Only rows that already have a route
+          appear — a settings list that navigates nowhere reads as broken. */}
+      <SettingsGroup title="Account">
+        <Row
+          testID="row-announcements"
+          badgeTestID="announcements-badge"
+          label="Announcements"
+          badge={unreadAnnouncements}
+          onPress={onAnnouncements}
+        />
         <Row testID="row-personal" label="Personal details" onPress={onPersonalDetails} />
         <Row testID="row-subscription" label="Subscription details" onPress={onSubscriptionDetails} />
-        <Row testID="row-invoices" label="Invoices & receipts" onPress={onInvoices} />
-        <Row testID="row-privacy" label="Privacy & data" onPress={onPrivacy} />
-      </View>
+      </SettingsGroup>
 
-      <Pressable
-        testID="sign-out"
-        accessibilityRole="button"
-        onPress={onSignOut}
-        style={{ minHeight: t.minTarget, justifyContent: "center" }}
-      >
-        <Text style={[t.text("body"), { color: t.colors.danger }]}>Sign out</Text>
-      </Pressable>
+      <SettingsGroup title="Billing">
+        <Row testID="row-invoices" label="Invoices & receipts" onPress={onInvoices} />
+      </SettingsGroup>
+
+      <SettingsGroup title="Legal & data">
+        <Row testID="row-privacy" label="Privacy & data" onPress={onPrivacy} />
+      </SettingsGroup>
+
+      <Card>
+        <Pressable
+          testID="sign-out"
+          accessibilityRole="button"
+          onPress={onSignOut}
+          style={{ minHeight: t.minTarget, justifyContent: "center" }}
+        >
+          <Text style={[t.text("body", 600), { color: t.colors.danger }]}>Sign out</Text>
+        </Pressable>
+      </Card>
     </ScrollView>
   );
 }

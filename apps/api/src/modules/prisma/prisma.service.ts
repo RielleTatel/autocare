@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 
 /** Score tables are append-only (NFR-054): corrections create new rows via
@@ -11,7 +11,7 @@ const APPEND_ONLY_MODELS = new Set(["HealthScore", "CategoryScore", "InspectionR
 const HEALTH_SCORE_MUTABLE_FIELDS = new Set(["isStale"]);
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
     super();
     this.$use(async (params, next) => {
@@ -28,5 +28,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
   async onModuleInit() {
     await this.$connect();
+  }
+
+  /**
+   * Release the connection pool when the module is torn down. Without this,
+   * `app.close()` in an e2e spec's afterAll left the pool open: 28 app-booting
+   * specs exhausted the hosted Postgres connection limit ("remaining connection
+   * slots are reserved"), and the leaked handles stopped jest from exiting.
+   * It matters in production too — a shutting-down app should close cleanly.
+   */
+  async onModuleDestroy() {
+    await this.$disconnect();
   }
 }

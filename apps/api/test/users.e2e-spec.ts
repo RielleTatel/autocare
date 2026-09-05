@@ -3,6 +3,7 @@ import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
+import { purgeFixtures } from "./fixtures";
 
 describe("users (e2e)", () => {
   let app: any, prisma: PrismaService, memberId: string;
@@ -16,6 +17,10 @@ describe("users (e2e)", () => {
     app.setGlobalPrefix("api/v1");
     await app.init();
     prisma = app.get(PrismaService);
+
+    // Idempotent setup: clear anything a previously-aborted run left behind,
+    // whose afterAll never got to execute.
+    await purgeFixtures(prisma, { firebaseUids: ["admin-uid", "member-uid"] });
     await prisma.user.create({ data: { firebaseUid: "admin-uid", role: "ADMIN", name: "Admin" } });
     const m = await prisma.user.create({
       data: { firebaseUid: "member-uid", role: "MEMBER",

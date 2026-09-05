@@ -4,12 +4,13 @@ import type { AppointmentCreate, Reschedule } from "@autocare/contracts";
 import { DomainError } from "../../common/errors/domain-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { EntitlementService } from "../entitlements/entitlement.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { CLOCK, Clock } from "../../common/clock/clock";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { HoldsService, HoldDetails } from "./holds.service";
 import { dateOf, hhmmOf } from "./time";
 
-const STAFF_ROLES = new Set(["ADVISOR", "ADMIN"]);
+const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "ADMIN"]);
 const ACTIVE_STATUSES: Prisma.AppointmentWhereInput["status"] = { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] };
 const RESCHEDULE_CUTOFF_MS = 24 * 60 * 60 * 1000; // FR-044: free reschedule up to 24h before start
 
@@ -31,6 +32,7 @@ export class AppointmentsService {
     private holds: HoldsService,
     private entitlements: EntitlementService,
     @Inject(CLOCK) private clock: Clock,
+    private announcements: AnnouncementsService,
   ) {}
 
   private toDto(a: {
@@ -117,11 +119,24 @@ export class AppointmentsService {
         createdBy: u.id, subscriptionId,
       },
     });
+
+    // Transitions the member's open SERVICE_DUE thread to "scheduled" rather than
+    // adding a second notification about the same service.
+    if (vehicle.ownerUserId) {
+      await this.announcements.applyThreadEvent({
+        userId: vehicle.ownerUserId, vehicleId: dto.vehicleId, serviceTypeId: dto.serviceTypeId,
+        serviceTypeName: serviceType.name, event: { type: "APPOINTMENT_BOOKED" },
+        appointmentId: created.id, scheduledStart: start,
+      });
+    }
     return this.toDto(created);
   }
 
   async reschedule(u: AbilityUser, id: string, dto: Reschedule): Promise<AppointmentDto> {
-    const appt = await this.prisma.appointment.findUnique({ where: { id } });
+    const appt = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: { serviceType: { select: { name: true } }, vehicle: { select: { ownerUserId: true } } },
+    });
     if (!appt) throw new DomainError("SLOT_UNAVAILABLE", "appointment not found", 404);
     await this.assertOwnerOrStaff(u, appt.vehicleId);
 
@@ -144,11 +159,22 @@ export class AppointmentsService {
       where: { id },
       data: { bayId: hold.bayId, scheduledStart: new Date(hold.startIso), scheduledEnd: new Date(hold.endIso) },
     });
+
+    if (appt.vehicle.ownerUserId) {
+      await this.announcements.applyThreadEvent({
+        userId: appt.vehicle.ownerUserId, vehicleId: appt.vehicleId, serviceTypeId: appt.serviceTypeId,
+        serviceTypeName: appt.serviceType.name, event: { type: "APPOINTMENT_RESCHEDULED" },
+        appointmentId: id, scheduledStart: updated.scheduledStart,
+      });
+    }
     return this.toDto(updated);
   }
 
   async cancel(u: AbilityUser, id: string): Promise<AppointmentDto> {
-    const appt = await this.prisma.appointment.findUnique({ where: { id }, include: { serviceType: true } });
+    const appt = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: { serviceType: true, vehicle: { select: { ownerUserId: true } } },
+    });
     if (!appt) throw new DomainError("SLOT_UNAVAILABLE", "appointment not found", 404);
     await this.assertOwnerOrStaff(u, appt.vehicleId);
     if (appt.status === "CANCELLED") return this.toDto(appt);
@@ -159,7 +185,47 @@ export class AppointmentsService {
     }
 
     const updated = await this.prisma.appointment.update({ where: { id }, data: { status: "CANCELLED" } });
+
+    // Falls the thread back to SERVICE_DUE — the service itself is still needed.
+    if (appt.vehicle.ownerUserId) {
+      await this.announcements.applyThreadEvent({
+        userId: appt.vehicle.ownerUserId, vehicleId: appt.vehicleId, serviceTypeId: appt.serviceTypeId,
+        serviceTypeName: appt.serviceType.name, event: { type: "APPOINTMENT_CANCELLED" },
+      });
+    }
     return this.toDto(updated);
+  }
+
+  /**
+   * In-app half of FR-090's appointment reminders — the client doc's "the app sends a reminder
+   * before the appointment". Runs hourly and sweeps the next 24h; the thread state machine
+   * collapses repeats, so an appointment is reminded once per scheduled date. A reschedule
+   * re-arms it, because the date the member was told has changed.
+   *
+   * IN_PROGRESS is excluded deliberately: the member is already at the shop.
+   */
+  async remindUpcoming(now: Date): Promise<{ reminded: number }> {
+    const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const upcoming = await this.prisma.appointment.findMany({
+      where: { status: { in: ["BOOKED", "CONFIRMED"] }, scheduledStart: { gt: now, lte: horizon } },
+      include: { serviceType: { select: { name: true } }, vehicle: { select: { ownerUserId: true } } },
+    });
+
+    let reminded = 0;
+    for (const a of upcoming) {
+      if (!a.vehicle.ownerUserId) continue; // org-owned — no single member to remind
+      await this.announcements.applyThreadEvent({
+        userId: a.vehicle.ownerUserId,
+        vehicleId: a.vehicleId,
+        serviceTypeId: a.serviceTypeId,
+        serviceTypeName: a.serviceType.name,
+        event: { type: "APPOINTMENT_REMINDER_DUE" },
+        appointmentId: a.id,
+        scheduledStart: a.scheduledStart,
+      });
+      reminded++;
+    }
+    return { reminded };
   }
 
   /** Decrements current-period usage by one (floored at 0) — the inverse of a single consume. */

@@ -99,6 +99,7 @@ model Vehicle {
   vin               String?
   color             String?
   currentOdometerKm Int               @default(0) @map("current_odometer_km")
+  lastServiceAt     DateTime?         @map("last_service_at")
   status            String            @default("ACTIVE")
   createdAt         DateTime          @default(now()) @map("created_at")
   odometerReadings  OdometerReading[]
@@ -108,12 +109,12 @@ model Vehicle {
   orCrUrls          String[]          @default([]) @map("or_cr_urls")
   subscriptions     Subscription[]
   appointments      Appointment[]
-  serviceReminders  ServiceReminder[]
   inspections       Inspection[]
   healthScores      HealthScore[]
   certificates      Certificate[]
   workOrders        WorkOrder[]
   recommendations   Recommendation[]
+  announcements     Announcement[]
 
   @@index([ownerUserId, status])
   @@map("vehicles")
@@ -427,7 +428,6 @@ model ServiceType {
   isActive            Boolean          @default(true) @map("is_active")
   createdAt           DateTime         @default(now()) @map("created_at")
   appointments        Appointment[]
-  serviceReminders    ServiceReminder[]
 
   @@map("service_types")
 }
@@ -505,19 +505,6 @@ model Appointment {
 
 // Phase 3 — in-app due-service reminders (FR-047). A minimal, scheduling-scoped table; the general
 // notification centre + channel dispatch (SMS/push) arrives in Phase 7 and can read/dispatch these.
-model ServiceReminder {
-  id            String      @id @default(uuid()) @db.Uuid
-  vehicleId     String      @map("vehicle_id") @db.Uuid
-  serviceTypeId String      @map("service_type_id") @db.Uuid
-  reason        String // TIME | ODOMETER
-  createdAt     DateTime    @default(now()) @map("created_at")
-  dismissedAt   DateTime?   @map("dismissed_at")
-  vehicle       Vehicle     @relation(fields: [vehicleId], references: [id])
-  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
-
-  @@unique([vehicleId, serviceTypeId])
-  @@map("service_reminders")
-}
 
 // ===== Phase 4 — Inspection & Vehicle Health Score =====
 
@@ -634,6 +621,10 @@ model ChecklistPoint {
   templates              Json?
   requiresPhotoOnAdverse Boolean             @default(false) @map("requires_photo_on_adverse")
   notApplicableWhen      String?             @map("not_applicable_when")
+  // Where this point physically sits on the vehicle (FR-116). Nullable: a point
+  // whose position is ambiguous stays null rather than being guessed. Values are
+  // the DiagramZone union in @autocare/contracts.
+  diagramZoneId          String?             @map("diagram_zone_id")
   sortOrder              Int                 @default(0) @map("sort_order")
   results                InspectionResult[]
 
@@ -741,7 +732,7 @@ model Recommendation {
   status                RecommendationStatus @default(OPEN)
   resurfacedCount       Int                  @default(0) @map("resurfaced_count")
   createdAt             DateTime             @default(now()) @map("created_at")
-  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at")
+  updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at")
   workOrderItems        WorkOrderItem[]
 
   @@index([healthScoreId])
@@ -850,24 +841,24 @@ model Part {
 }
 
 model WorkOrder {
-  id                String          @id @default(uuid()) @db.Uuid
-  number            String          @unique
-  vehicleId         String          @map("vehicle_id") @db.Uuid
-  vehicle           Vehicle         @relation(fields: [vehicleId], references: [id])
-  appointmentId     String?         @map("appointment_id") @db.Uuid
-  status            WorkOrderStatus @default(DRAFT)
-  customerComplaint String?         @map("customer_complaint")
-  technicianSummary String?         @map("technician_summary")
-  advisorUserId     String          @map("advisor_user_id") @db.Uuid
-  inspectionId      String?         @map("inspection_id") @db.Uuid
-  stockOverride     Boolean         @default(false) @map("stock_override")
-  stockOverrideReason String?       @map("stock_override_reason")
-  openedAt          DateTime        @default(now()) @map("opened_at")
-  closedAt          DateTime?       @map("closed_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  items             WorkOrderItem[]
-  wasteRecords      WasteRecord[]
-  invoices          Invoice[]
+  id                  String          @id @default(uuid()) @db.Uuid
+  number              String          @unique
+  vehicleId           String          @map("vehicle_id") @db.Uuid
+  vehicle             Vehicle         @relation(fields: [vehicleId], references: [id])
+  appointmentId       String?         @map("appointment_id") @db.Uuid
+  status              WorkOrderStatus @default(DRAFT)
+  customerComplaint   String?         @map("customer_complaint")
+  technicianSummary   String?         @map("technician_summary")
+  advisorUserId       String          @map("advisor_user_id") @db.Uuid
+  inspectionId        String?         @map("inspection_id") @db.Uuid
+  stockOverride       Boolean         @default(false) @map("stock_override")
+  stockOverrideReason String?         @map("stock_override_reason")
+  openedAt            DateTime        @default(now()) @map("opened_at")
+  closedAt            DateTime?       @map("closed_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  items               WorkOrderItem[]
+  wasteRecords        WasteRecord[]
+  invoices            Invoice[]
 
   @@index([vehicleId, status])
   @@index([status])
@@ -911,4 +902,70 @@ model WasteRecord {
 
   @@index([workOrderId])
   @@map("waste_records")
+}
+
+// ===== Announcements — member-facing feed of stateful threads =====
+// A thread carries one service through its whole lifecycle, updating in place:
+// "Oil change due" -> "Oil change scheduled for Sep 12" -> "Oil change completed".
+// Replaces ServiceReminder as the single source of SERVICE_DUE (see design spec §7).
+
+enum AnnouncementKind {
+  SERVICE_DUE
+  APPOINTMENT_BOOKED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_CANCELLED
+  SERVICE_COMPLETED
+  ADMIN_BROADCAST
+}
+
+enum AnnouncementStatus {
+  ACTIVE
+  SUPERSEDED
+  DISMISSED
+}
+
+model Announcement {
+  id            String             @id @default(uuid()) @db.Uuid
+  // null = broadcast visible to every member (FR-107)
+  userId        String?            @map("user_id") @db.Uuid
+  kind          AnnouncementKind
+  status        AnnouncementStatus @default(ACTIVE)
+  title         String
+  body          String
+  vehicleId     String?            @map("vehicle_id") @db.Uuid
+  serviceTypeId String?            @map("service_type_id") @db.Uuid
+  appointmentId String?            @map("appointment_id") @db.Uuid
+  // TIME | ODOMETER, for SERVICE_DUE threads
+  reason        String?
+  publishedAt   DateTime           @default(now()) @map("published_at")
+  expiresAt     DateTime?          @map("expires_at")
+  createdBy     String?            @map("created_by") @db.Uuid
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  reads         AnnouncementRead[]
+  // Optional because a broadcast has no vehicle. The relation (rather than a bare column)
+  // gives referential integrity and lets test fixtures scope cleanup through the vehicle,
+  // the same way every other vehicle-owned model in the cleanup chain does.
+  //
+  // Cascade, NOT the default SetNull: a thread is about one vehicle's service, so once that
+  // vehicle is gone the thread is unactionable — SetNull left it in the member's feed forever,
+  // still saying "Oil Change due" for a car they no longer own. Broadcasts are unaffected:
+  // they have no vehicle row to cascade from.
+  vehicle       Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, publishedAt])
+  @@map("announcements")
+}
+
+// Read state lives here, not as a column: broadcasts have userId = null and so
+// cannot carry a per-viewer readAt.
+model AnnouncementRead {
+  announcementId String       @map("announcement_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  readAt         DateTime     @default(now()) @map("read_at")
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+  @@map("announcement_reads")
 }

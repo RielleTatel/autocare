@@ -74,4 +74,24 @@ describe("PointEntryScreen (F-06)", () => {
     );
     expect(screen.getByText("1 photo attached")).toBeTruthy();
   });
+
+  it("offers a way back to the category list", () => {
+    const onBack = jest.fn();
+    render(<PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={noop} onNext={noop} onBack={onBack} />);
+    fireEvent.press(screen.getByLabelText("Back"));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it("shows how far through the inspection the mechanic is", () => {
+    render(
+      <PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={noop} onNext={noop} progress={{ answered: 12, total: 50 }} />,
+    );
+    expect(screen.getByText("12 of 50 points recorded")).toBeTruthy();
+    expect(screen.getByRole("progressbar").props.accessibilityValue).toEqual({ min: 0, max: 50, now: 12 });
+  });
+
+  it("omits the progress bar when no progress is supplied", () => {
+    render(<PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={noop} onNext={noop} />);
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
 });

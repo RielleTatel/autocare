@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { QueueModule } from "../../common/queue/queue.module";
 import { EntitlementsModule } from "../entitlements/entitlements.module";
+import { AnnouncementsModule } from "../announcements/announcements.module";
 import { SchedulingController } from "./scheduling.controller";
 import { AppointmentsController } from "./appointments.controller";
 import { SchedulingConfigController } from "./scheduling-config.controller";
@@ -15,7 +16,7 @@ import { SchedulingProcessor } from "./scheduling.processor";
 import { SchedulingScheduler } from "./scheduling.scheduler";
 
 @Module({
-  imports: [QueueModule, EntitlementsModule],
+  imports: [QueueModule, EntitlementsModule, AnnouncementsModule],
   controllers: [SchedulingController, AppointmentsController, SchedulingConfigController, UtilisationController],
   providers: [SchedulingService, HoldsService, AppointmentsService, RemindersService, SchedulingConfigService, UtilisationService, SchedulingProcessor, SchedulingScheduler],
   exports: [SchedulingService, HoldsService, AppointmentsService, RemindersService, UtilisationService],

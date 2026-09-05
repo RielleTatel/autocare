@@ -27,4 +27,14 @@ describe("vehicle contracts", () => {
     expect(odometerCreateSchema.parse({ km: 100 }).justification).toBeUndefined();
     expect(() => odometerCreateSchema.parse({ km: 100, justification: "x" })).toThrow();
   });
+  it("accepts an optional ISO last-service date", () => {
+    const parsed = vehicleCreateSchema.parse({ ...base, plateNo: "ABA1234", lastServiceAt: "2026-03-01" });
+    expect(parsed.lastServiceAt).toBe("2026-03-01");
+    expect(vehicleCreateSchema.parse({ ...base, plateNo: "ABA1234" }).lastServiceAt).toBeUndefined();
+  });
+
+  it("rejects a future last-service date", () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    expect(() => vehicleCreateSchema.parse({ ...base, plateNo: "ABA1234", lastServiceAt: future })).toThrow();
+  });
 });

@@ -12,6 +12,7 @@ const score = {
 const results: InspectionResultDetail[] = [
   {
     pointCode: "BRAKE_PAD_FRONT", label: "Front brake pads", labelFil: null, categoryId: "c1", categoryCode: "BRAKES",
+    diagramZone: "AXLE_FRONT",
     status: "ATTENTION", measuredValue: 3, unit: "mm",
     thresholds: { direction: "HIGHER_BETTER", good: 7, monitor: 4, attention: 2 },
     templates: { ATTENTION: "{component} needs attention soon ({measured} {unit})." },
@@ -19,6 +20,7 @@ const results: InspectionResultDetail[] = [
   },
   {
     pointCode: "HEADLIGHTS", label: "Headlights", labelFil: null, categoryId: "c2", categoryCode: "LIGHTS",
+    diagramZone: "LIGHTS_FRONT",
     status: "GOOD", measuredValue: null, unit: null, thresholds: null,
     templates: { GOOD: "{component} is working correctly. No action needed." },
     recommendation: "", isSafetyCritical: true, notes: null, photoUrls: [],

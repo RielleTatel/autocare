@@ -8,6 +8,7 @@ import { Button } from "../../components/Button";
 import { Icon } from "../../components/Icon";
 import { FormField } from "../../components/FormField";
 import { FieldNav } from "../../components/FieldNav";
+import { ProgressBar } from "../../components/ProgressBar";
 import { StatusChip } from "../../components/StatusChip";
 import { StatusChoice } from "../../components/StatusChoice";
 import type { LocalResult } from "../../shared/db/inspections.repo";
@@ -25,11 +26,13 @@ export interface PointEntryProps {
   onAdverseHaptic?: () => void;
   onBack?(): void;
   title?: string;
+  /** Overall inspection completion. Optional — omitted, no bar renders. */
+  progress?: { answered: number; total: number };
 }
 
 /** F-06 — one point per screen: giant chips (≥56dp), numeric pad + live derived
  *  chip for measured points, blocking photo affordance on adverse findings. */
-export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, onAdverseHaptic, onBack, title }: PointEntryProps) {
+export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, onAdverseHaptic, onBack, title, progress }: PointEntryProps) {
   const t = fieldTheme;
   const [status, setStatus] = useState<PointStatus | undefined>(initial?.status as PointStatus | undefined);
   const [value, setValue] = useState<string>(initial?.measuredValue?.toString() ?? "");
@@ -65,6 +68,17 @@ export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, o
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
       <FieldNav title={title ?? point.label} onBack={onBack} />
       <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md }}>
+        {/* One point per screen means no sense of how much is left without
+            this — the category list is several taps away mid-inspection. */}
+        {progress ? (
+          <View style={{ gap: 6 }}>
+            <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
+              {progress.answered} of {progress.total} points recorded
+            </Text>
+            <ProgressBar answered={progress.answered} total={progress.total} />
+          </View>
+        ) : null}
+
         <View>
           <Text style={{ ...t.text("h1"), color: t.colors.ink }}>{point.label}</Text>
           {point.labelFil ? (
