@@ -81,4 +81,35 @@ describe("announcements schema", () => {
     });
     expect(a.id).not.toBe(b.id);
   });
+
+  it("deletes a vehicle's threads with the vehicle, but never a broadcast", async () => {
+    const owner = await prisma.user.create({ data: { firebaseUid: `${TAG}-owner2`, role: "MEMBER" } });
+    const doomed = await prisma.vehicle.create({
+      data: {
+        ownerUserId: owner.id, plateNo: `AX${randomUUID().slice(0, 5).toUpperCase()}`,
+        make: "Toyota", model: "Vios", year: 2022,
+        fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0,
+      },
+    });
+    const thread = await prisma.announcement.create({
+      data: {
+        userId: owner.id, vehicleId: doomed.id, serviceTypeId: randomUUID(),
+        kind: "SERVICE_DUE", status: "ACTIVE", title: `${TAG} doomed`, body: "x",
+      },
+    });
+    const broadcast = await prisma.announcement.create({
+      data: { kind: "ADMIN_BROADCAST", status: "ACTIVE", title: `${TAG} survives`, body: "x" },
+    });
+
+    await prisma.vehicle.delete({ where: { id: doomed.id } });
+
+    // Before the cascade this row survived with vehicle_id NULL and kept telling the member a
+    // service was due on a car they no longer owned.
+    expect(await prisma.announcement.findUnique({ where: { id: thread.id } })).toBeNull();
+    expect(await prisma.announcement.findUnique({ where: { id: broadcast.id } })).not.toBeNull();
+
+    await prisma.announcement.delete({ where: { id: broadcast.id } });
+    await prisma.user.delete({ where: { id: owner.id } });
+  });
+
 });

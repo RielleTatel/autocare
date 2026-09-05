@@ -947,7 +947,12 @@ model Announcement {
   // Optional because a broadcast has no vehicle. The relation (rather than a bare column)
   // gives referential integrity and lets test fixtures scope cleanup through the vehicle,
   // the same way every other vehicle-owned model in the cleanup chain does.
-  vehicle       Vehicle?           @relation(fields: [vehicleId], references: [id])
+  //
+  // Cascade, NOT the default SetNull: a thread is about one vehicle's service, so once that
+  // vehicle is gone the thread is unactionable — SetNull left it in the member's feed forever,
+  // still saying "Oil Change due" for a car they no longer own. Broadcasts are unaffected:
+  // they have no vehicle row to cascade from.
+  vehicle       Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, publishedAt])
   @@map("announcements")

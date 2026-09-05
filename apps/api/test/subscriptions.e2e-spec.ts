@@ -5,7 +5,6 @@ import { createHmac } from "crypto";
 import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
-import { purgeFixtures } from "./fixtures";
 import { FAKE_WEBHOOK_SECRET, FakePspPayload } from "../src/modules/payments/fake-provider.adapter";
 
 function sign(body: string): string {
@@ -14,12 +13,24 @@ function sign(body: string): string {
 
 describe("subscriptions (e2e)", () => {
   let app: any, prisma: PrismaService;
-  const basicCode = "E2E-SUB-BASIC";
-  const premiumCode = "E2E-SUB-PREMIUM";
-  const eliteCode = "E2E-SUB-ELITE";
+
+  // Every fixture id is scoped to a per-run TAG, like the other e2e suites. With fixed ids this
+  // suite collided with anything an aborted run left behind: plate_no is UNIQUE, so re-inserting
+  // a leftover plate blocks on the previous holder's row lock and the test dies on the 30s
+  // timeout rather than failing usefully. TAG scoping makes a collision impossible.
+  const TAG = `sub-${randomUUID().slice(0, 8)}`;
+  const ownerA = `${TAG}-owner-a`;
+  const ownerB = `${TAG}-owner-b`;
+  const mechUid = `${TAG}-mech`;
+  const advisorUid = `${TAG}-advisor`;
+  const basicCode = `${TAG}-BASIC`;
+  const premiumCode = `${TAG}-PREMIUM`;
+  const eliteCode = `${TAG}-ELITE`;
+  /** 1-indexed to match the old SUB0001..SUB0009 naming the tests read like. */
+  const plate = (n: number) => `${TAG}-V${n}`;
   let basicPlanId: string, premiumPlanId: string, elitePlanId: string;
   let vehicleAId: string, vehicleBId: string;
-  const uids = ["sub-owner-a", "sub-owner-b", "sub-mech", "sub-advisor"];
+  const uids = [ownerA, ownerB, mechUid, advisorUid];
 
   beforeAll(async () => {
     process.env.POLICY_VERSION = "2026-08-privacy-v1";
@@ -31,13 +42,8 @@ describe("subscriptions (e2e)", () => {
     app = mod.createNestApplication({ rawBody: true }); app.setGlobalPrefix("api/v1"); await app.init();
     prisma = app.get(PrismaService);
 
-    // Idempotent setup: clear anything a previously-aborted run left behind,
-    // whose afterAll never got to execute.
-    await purgeFixtures(prisma, { firebaseUids: ["sub-owner-a", "sub-owner-b", "sub-mech", "sub-advisor"],
-      planCodes: ["E2E-SUB-BASIC"],
-      plateNos: ["SUB0001", "SUB0002", "SUB0003", "SUB0004", "SUB0005", "SUB0006", "SUB0007", "SUB0008", "SUB0009"] });
-
-    for (const [uid, role] of [["sub-owner-a", "MEMBER"], ["sub-owner-b", "MEMBER"], ["sub-mech", "MECHANIC"], ["sub-advisor", "ADVISOR"]] as const) {
+    // No pre-purge needed: the TAG is unique per run, so there is nothing of ours to collide with.
+    for (const [uid, role] of [[ownerA, "MEMBER"], [ownerB, "MEMBER"], [mechUid, "MECHANIC"], [advisorUid, "ADVISOR"]] as const) {
       await prisma.user.create({ data: { firebaseUid: uid, role,
         consents: role === "MEMBER" ? { create: { policyVersion: "2026-08-privacy-v1" } } : undefined } });
     }
@@ -48,30 +54,37 @@ describe("subscriptions (e2e)", () => {
       entitlements: { create: [{ entitlementType: "INSPECTION", quantityPerCycle: 2, overagePriceCentavos: 15000n }] } } });
     basicPlanId = basic.id; premiumPlanId = premium.id; elitePlanId = elite.id;
 
-    const va = await prisma.vehicle.create({ data: { ownerUserId: (await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } })).id,
-      plateNo: "SUB0001", make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 1000 } });
-    const vb = await prisma.vehicle.create({ data: { ownerUserId: (await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-b" } })).id,
-      plateNo: "SUB0002", make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 1000 } });
+    const va = await prisma.vehicle.create({ data: { ownerUserId: (await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } })).id,
+      plateNo: plate(1), make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 1000 } });
+    const vb = await prisma.vehicle.create({ data: { ownerUserId: (await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerB } })).id,
+      plateNo: plate(2), make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 1000 } });
     vehicleAId = va.id; vehicleBId = vb.id;
   });
 
   afterAll(async () => {
-    await prisma.entitlementUsage.deleteMany({ where: { subscription: { vehicleId: { in: [vehicleAId, vehicleBId] } } } });
-    await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: { vehicleId: { in: [vehicleAId, vehicleBId] } } } } });
-    await prisma.invoice.deleteMany({ where: { subscription: { vehicleId: { in: [vehicleAId, vehicleBId] } } } });
-    await prisma.subscription.deleteMany({ where: { vehicleId: { in: [vehicleAId, vehicleBId] } } });
-    await prisma.vehicle.deleteMany({ where: { id: { in: [vehicleAId, vehicleBId] } } });
-    await prisma.planEntitlement.deleteMany({ where: { plan: { code: { in: [basicCode, premiumCode, eliteCode] } } } });
-    await prisma.plan.deleteMany({ where: { code: { in: [basicCode, premiumCode, eliteCode] } } });
-    await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { in: uids } } } });
-    await prisma.user.deleteMany({ where: { firebaseUid: { in: uids } } });
-    await app.close();
+    // Scoped to this run's TAG rather than to two known vehicle ids: individual tests create
+    // their own vehicles too, and the previous version leaked every one of them.
+    const owned = { vehicle: { plateNo: { startsWith: TAG } } };
+    try {
+      await prisma.payment.deleteMany({ where: { invoice: { subscription: owned } } });
+      await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: owned } } });
+      await prisma.invoice.deleteMany({ where: { subscription: owned } });
+      await prisma.entitlementUsage.deleteMany({ where: { subscription: owned } });
+      await prisma.subscription.deleteMany({ where: owned });
+      await prisma.vehicle.deleteMany({ where: { plateNo: { startsWith: TAG } } });
+      await prisma.planEntitlement.deleteMany({ where: { plan: { code: { startsWith: TAG } } } });
+      await prisma.plan.deleteMany({ where: { code: { startsWith: TAG } } });
+      await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { startsWith: TAG } } } });
+      await prisma.user.deleteMany({ where: { firebaseUid: { startsWith: TAG } } });
+    } finally {
+      await app.close();
+    }
   });
 
   const as = (uid: string) => request.agent(app.getHttpServer()).set("Authorization", `Bearer ${uid}`);
 
   it("400 IDEMPOTENCY_KEY_REQUIRED when Idempotency-Key header is missing on POST /subscriptions", async () => {
-    const res = await as("sub-owner-a").post("/api/v1/subscriptions")
+    const res = await as(ownerA).post("/api/v1/subscriptions")
       .send({ vehicleId: vehicleAId, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(400);
     expect(res.body.error.code).toBe("IDEMPOTENCY_KEY_REQUIRED");
   });
@@ -79,7 +92,7 @@ describe("subscriptions (e2e)", () => {
   let subscriptionId: string;
   it("creates a subscription: ACTIVE, lock-in set, first Invoice issued (FR-017..019)", async () => {
     const key = randomUUID();
-    const res = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", key)
+    const res = await as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", key)
       .send({ vehicleId: vehicleAId, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
     subscriptionId = res.body.data.id;
     expect(res.body.data.status).toBe("ACTIVE");
@@ -100,12 +113,12 @@ describe("subscriptions (e2e)", () => {
 
   it("replays the exact same response on a repeated Idempotency-Key without creating a second subscription", async () => {
     const key = randomUUID();
-    const first = await as("sub-owner-b").post("/api/v1/subscriptions").set("Idempotency-Key", key)
+    const first = await as(ownerB).post("/api/v1/subscriptions").set("Idempotency-Key", key)
       .send({ vehicleId: vehicleBId, planId: basicPlanId, paymentMethod: "COD" }).expect(201);
     const secondSubCount = await prisma.subscription.count({ where: { vehicleId: vehicleBId } });
     expect(secondSubCount).toBe(1);
 
-    const replay = await as("sub-owner-b").post("/api/v1/subscriptions").set("Idempotency-Key", key)
+    const replay = await as(ownerB).post("/api/v1/subscriptions").set("Idempotency-Key", key)
       .send({ vehicleId: vehicleBId, planId: basicPlanId, paymentMethod: "COD" }).expect(200);
     expect(replay.headers["x-idempotent-replay"]).toBe("true");
     expect(replay.body.data.id).toBe(first.body.data.id);
@@ -120,45 +133,45 @@ describe("subscriptions (e2e)", () => {
   });
 
   it("rejects a second ACTIVE subscription for the same vehicle — 409 SUBSCRIPTION_ALREADY_ACTIVE", async () => {
-    const res = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+    const res = await as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
       .send({ vehicleId: vehicleAId, planId: premiumPlanId, paymentMethod: "E_PAYMENT" }).expect(409);
     expect(res.body.error.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
   });
 
   it("another member cannot subscribe someone else's vehicle — 403", async () => {
-    await as("sub-owner-b").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+    await as(ownerB).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
       .send({ vehicleId: vehicleAId, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(403);
   });
 
   it("GET /subscriptions lists the owner's subscriptions with plan summary", async () => {
-    const res = await as("sub-owner-a").get("/api/v1/subscriptions").expect(200);
+    const res = await as(ownerA).get("/api/v1/subscriptions").expect(200);
     const found = res.body.data.find((s: any) => s.id === subscriptionId);
     expect(found).toBeDefined();
     expect(found.plan.code).toBe(basicCode);
   });
 
   it("GET /subscriptions/:id is ownership-checked", async () => {
-    await as("sub-owner-a").get(`/api/v1/subscriptions/${subscriptionId}`).expect(200);
-    await as("sub-owner-b").get(`/api/v1/subscriptions/${subscriptionId}`).expect(403);
+    await as(ownerA).get(`/api/v1/subscriptions/${subscriptionId}`).expect(200);
+    await as(ownerB).get(`/api/v1/subscriptions/${subscriptionId}`).expect(403);
   });
 
   it("GET /subscriptions/:id/entitlements returns quota with usedQty 0 (no usage yet)", async () => {
-    const created = await as("sub-owner-b").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+    const created = await as(ownerB).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
       .send({ vehicleId: vehicleBId, planId: elitePlanId, paymentMethod: "E_PAYMENT" }).expect(201);
     const subId = created.body.data.id;
-    const res = await as("sub-owner-b").get(`/api/v1/subscriptions/${subId}/entitlements`).expect(200);
+    const res = await as(ownerB).get(`/api/v1/subscriptions/${subId}/entitlements`).expect(200);
     expect(res.body.data).toEqual([{ entitlementType: "INSPECTION", quantityPerCycle: 2, usedQty: 0, remaining: 2 }]);
   });
 
   it("upgrade: rejects a lower/equal-priced target — 422 SUBSCRIPTION_NOT_UPGRADE", async () => {
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subscriptionId}/upgrade`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/upgrade`)
       .send({ planId: basicPlanId }).expect(422);
     expect(res.body.error.code).toBe("SUBSCRIPTION_NOT_UPGRADE");
   });
 
   it("upgrade: pro-rates the delta, switches planId, issues a new invoice", async () => {
     const before = await prisma.invoice.count({ where: { subscriptionId } });
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subscriptionId}/upgrade`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/upgrade`)
       .send({ planId: premiumPlanId }).expect(201);
     expect(res.body.data.planId).toBe(premiumPlanId);
     expect(res.body.data.proratedChargeCentavos).toBeGreaterThan(0);
@@ -167,33 +180,33 @@ describe("subscriptions (e2e)", () => {
   });
 
   it("downgrade: rejects a higher/equal-priced target — 422 SUBSCRIPTION_NOT_DOWNGRADE", async () => {
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subscriptionId}/downgrade`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/downgrade`)
       .send({ planId: premiumPlanId }).expect(422);
     expect(res.body.error.code).toBe("SUBSCRIPTION_NOT_DOWNGRADE");
   });
 
   it("downgrade: flags pendingPlanId without switching planId immediately", async () => {
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subscriptionId}/downgrade`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/downgrade`)
       .send({ planId: basicPlanId }).expect(201);
     expect(res.body.data.pendingPlanId).toBe(basicPlanId);
     expect(res.body.data.planId).toBe(premiumPlanId); // unchanged until next cycle
   });
 
   it("cancellation-quote returns etfCentavos, lockInEndsAt, remainingMonths", async () => {
-    const res = await as("sub-owner-a").get(`/api/v1/subscriptions/${subscriptionId}/cancellation-quote`).expect(200);
+    const res = await as(ownerA).get(`/api/v1/subscriptions/${subscriptionId}/cancellation-quote`).expect(200);
     expect(res.body.data.etfCentavos).toBeGreaterThan(0);
     expect(res.body.data.remainingMonths).toBeGreaterThan(0);
     expect(res.body.data.lockInEndsAt).toBeDefined();
   });
 
   it("cancel inside lock-in without acceptEtf — 409 SUBSCRIPTION_LOCKED_IN", async () => {
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subscriptionId}/cancel`).send({}).expect(409);
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/cancel`).send({}).expect(409);
     expect(res.body.error.code).toBe("SUBSCRIPTION_LOCKED_IN");
   });
 
   it("cancel inside lock-in with acceptEtf: issues ETF invoice and sets CANCELLED (BR-08)", async () => {
     const before = await prisma.invoice.count({ where: { subscriptionId } });
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subscriptionId}/cancel`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/cancel`)
       .send({ acceptEtf: true }).expect(201);
     expect(res.body.data.status).toBe("CANCELLED");
     expect(res.body.data.etfCentavos).toBeGreaterThan(0);
@@ -202,8 +215,8 @@ describe("subscriptions (e2e)", () => {
   });
 
   it("cancel outside lock-in sets cancelRequestedAt and keeps status ACTIVE until period end", async () => {
-    const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-    const vNoLockIn = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0003",
+    const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+    const vNoLockIn = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(3),
       make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
     const sub = await prisma.subscription.create({ data: {
       vehicleId: vNoLockIn.id, planId: basicPlanId, userId: owner.id, status: "ACTIVE",
@@ -212,7 +225,7 @@ describe("subscriptions (e2e)", () => {
       paymentMethod: "E_PAYMENT",
     } });
 
-    const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${sub.id}/cancel`).send({}).expect(201);
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${sub.id}/cancel`).send({}).expect(201);
     expect(res.body.data.status).toBe("ACTIVE");
     expect(res.body.data.cancelRequestedAt).not.toBeNull();
 
@@ -222,15 +235,15 @@ describe("subscriptions (e2e)", () => {
 
   describe("real concurrency (race-condition fixes from code review)", () => {
     it("idempotency race guard: two truly concurrent requests with the SAME key create exactly one subscription and one invoice", async () => {
-      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0004",
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(4),
         make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
       const key = randomUUID();
       const body = { vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" };
 
       const [r1, r2] = await Promise.all([
-        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", key).send(body),
-        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", key).send(body),
+        as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", key).send(body),
+        as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", key).send(body),
       ]);
 
       // One request wins the reservation race (201 Created); the other polls and replays (200).
@@ -251,14 +264,14 @@ describe("subscriptions (e2e)", () => {
     });
 
     it("one-ACTIVE-per-vehicle DB backstop: two truly concurrent requests with DIFFERENT keys for the same vehicle leave exactly one ACTIVE subscription", async () => {
-      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0005",
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(5),
         make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
       const body = { vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" };
 
       const [r1, r2] = await Promise.all([
-        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID()).send(body),
-        as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID()).send(body),
+        as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID()).send(body),
+        as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID()).send(body),
       ]);
 
       const statuses = [r1.status, r2.status].sort((a, b) => a - b);
@@ -278,18 +291,18 @@ describe("subscriptions (e2e)", () => {
 
   describe("status pre-check guards (Minor 2 — double-submit money-adjacent mint)", () => {
     it("cancel on an already-CANCELLED subscription — 409 SUBSCRIPTION_ALREADY_CANCELLED, no second ETF invoice", async () => {
-      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0008",
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(8),
         make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
-      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+      const created = await as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
         .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
       const subId = created.body.data.id;
 
-      const first = await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
+      const first = await as(ownerA).post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
       expect(first.body.data.status).toBe("CANCELLED");
       const invoiceCountAfterFirst = await prisma.invoice.count({ where: { subscriptionId: subId } });
 
-      const second = await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(409);
+      const second = await as(ownerA).post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(409);
       expect(second.body.error.code).toBe("SUBSCRIPTION_ALREADY_CANCELLED");
 
       const invoiceCountAfterSecond = await prisma.invoice.count({ where: { subscriptionId: subId } });
@@ -302,16 +315,16 @@ describe("subscriptions (e2e)", () => {
     });
 
     it("upgrade on a CANCELLED subscription — 409 SUBSCRIPTION_NOT_ACTIVE, no second pro-rated invoice", async () => {
-      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0009",
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(9),
         make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
-      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+      const created = await as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
         .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
       const subId = created.body.data.id;
-      await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
+      await as(ownerA).post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
       const invoiceCountAfterCancel = await prisma.invoice.count({ where: { subscriptionId: subId } });
 
-      const res = await as("sub-owner-a").post(`/api/v1/subscriptions/${subId}/upgrade`).send({ planId: premiumPlanId }).expect(409);
+      const res = await as(ownerA).post(`/api/v1/subscriptions/${subId}/upgrade`).send({ planId: premiumPlanId }).expect(409);
       expect(res.body.error.code).toBe("SUBSCRIPTION_NOT_ACTIVE");
 
       const invoiceCountAfterUpgradeAttempt = await prisma.invoice.count({ where: { subscriptionId: subId } });
@@ -329,12 +342,12 @@ describe("subscriptions (e2e)", () => {
   // payable end-to-end. Before the fix it was left at INVOICE_ISSUED forever.
   describe("initial invoice is payable end-to-end (whole-branch review Critical fix)", () => {
     it("real COD subscribe -> cash payment against the first invoice settles it to PAID and the subscription to ACTIVE", async () => {
-      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-      const advisor = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-advisor" } });
-      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0006",
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+      const advisor = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: advisorUid } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(6),
         make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
 
-      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+      const created = await as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
         .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "COD" }).expect(201);
       const subId = created.body.data.id;
 
@@ -345,10 +358,10 @@ describe("subscriptions (e2e)", () => {
       // in a separate app instance/db-scoped user, so this advisor never has one yet).
       const openShift = await prisma.cashShift.findFirst({ where: { userId: advisor.id, closedAt: null } });
       if (!openShift) {
-        await as("sub-advisor").post("/api/v1/cash-shifts/open").expect(201);
+        await as(advisorUid).post("/api/v1/cash-shifts/open").expect(201);
       }
 
-      const pay = await as("sub-advisor").post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID())
+      const pay = await as(advisorUid).post("/api/v1/payments/cash").set("Idempotency-Key", randomUUID())
         .send({ invoiceId: invoice.id, amountTendered: Number(invoice.totalCentavos), clientUuid: randomUUID() }).expect(201);
       expect(pay.body.data.paymentId).toBeDefined();
 
@@ -367,11 +380,11 @@ describe("subscriptions (e2e)", () => {
     });
 
     it("real E_PAYMENT subscribe -> webhook success settles the first invoice to PAID and the subscription to ACTIVE", async () => {
-      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: "sub-owner-a" } });
-      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: "SUB0007",
+      const owner = await prisma.user.findUniqueOrThrow({ where: { firebaseUid: ownerA } });
+      const v = await prisma.vehicle.create({ data: { ownerUserId: owner.id, plateNo: plate(7),
         make: "Toyota", model: "Vios", year: 2022, fuelType: "GASOLINE", transmission: "AT", currentOdometerKm: 0 } });
 
-      const created = await as("sub-owner-a").post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
+      const created = await as(ownerA).post("/api/v1/subscriptions").set("Idempotency-Key", randomUUID())
         .send({ vehicleId: v.id, planId: basicPlanId, paymentMethod: "E_PAYMENT" }).expect(201);
       const subId = created.body.data.id;
 
