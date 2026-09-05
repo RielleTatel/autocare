@@ -58,12 +58,18 @@ describe("attention dashboard (e2e)", () => {
     await prisma.recommendation.create({ data: { healthScoreId: score.id, vehicleId, pointCode: "WIPERS", label: "Wipers", severity: "MONITOR", recommendation: "Replace blades", status: "OPEN" } });
     // A service reminder (Phase 3 feed).
     const st = await prisma.serviceType.findFirst();
-    if (st) await prisma.serviceReminder.create({ data: { vehicleId, serviceTypeId: st.id, reason: "TIME" } });
+    if (st)
+      await prisma.announcement.create({
+        data: {
+          userId: memberId, vehicleId, serviceTypeId: st.id, kind: "SERVICE_DUE", status: "ACTIVE",
+          reason: "TIME", title: `${st.name} due`, body: "It has been long enough to book the next one.",
+        },
+      });
   });
 
   afterAll(async () => {
     try {
-      await prisma.serviceReminder.deleteMany({ where: { vehicleId } });
+      await prisma.announcement.deleteMany({ where: { vehicleId } });
       await prisma.recommendation.deleteMany({ where: { vehicleId } });
       const ids = (await prisma.inspection.findMany({ where: { vehicleId } })).map((i) => i.id);
       await prisma.healthScore.deleteMany({ where: { vehicleId } });
@@ -95,7 +101,7 @@ describe("attention dashboard (e2e)", () => {
 
   it("resolving a recommendation removes it and a member with nothing returns [] (FR-113)", async () => {
     await prisma.recommendation.updateMany({ where: { vehicleId }, data: { status: "RESOLVED" } });
-    await prisma.serviceReminder.updateMany({ where: { vehicleId }, data: { dismissedAt: new Date() } });
+    await prisma.announcement.updateMany({ where: { vehicleId }, data: { status: "DISMISSED" } });
     // also clear the component finding by making the result non-adverse via a superseding score is heavy;
     // instead assert recommendations no longer surface.
     const res = await member().get("/api/v1/me/attention").expect(200);
