@@ -18,6 +18,13 @@ export interface OutboxEntry {
   lastAttemptAt?: number;
 }
 
+/** True for the entry itself, or for one whose payload names it as its parent
+ *  inspection. The create→submit link is payload-level only (the outbox schema
+ *  records no relationship), so this predicate is where that knowledge lives. */
+export const dependsOn = (e: OutboxEntry, clientUuid: string): boolean =>
+  e.clientUuid === clientUuid ||
+  (e.payload as { inspectionClientUuid?: string }).inspectionClientUuid === clientUuid;
+
 export interface OutboxRepo {
   enqueue(e: { clientUuid: string; entityType: SyncEntityType; op: SyncOp; payload: Record<string, unknown> }): Promise<void>;
   /** PENDING entries in strict createdAt (enqueue) order. */
@@ -28,6 +35,17 @@ export interface OutboxRepo {
   /** Record a failed delivery attempt (network) for backoff. */
   recordAttempt(clientUuid: string, at: number, error: string): Promise<void>;
   rejectedInOrder(): Promise<OutboxEntry[]>;
+  /** Permanently drop an entry and anything that depends on it. A server
+   *  rejection is terminal on the client (nothing moves REJECTED back to
+   *  PENDING), so without this a rejected item is unclearable short of wiping
+   *  app data.
+   *
+   *  Cascades because an inspection `submit` references its `create` only by
+   *  `payload.inspectionClientUuid`: once the create is gone the submit can
+   *  never apply, and leaving it behind strands a second card the technician
+   *  has to reason about. Returns every clientUuid removed so the caller can
+   *  clean up the matching local rows. */
+  discard(clientUuid: string): Promise<string[]>;
   counts(): Promise<{ pending: number; rejected: number }>;
 }
 
@@ -73,4 +91,8 @@ export interface SyncStatusSnapshot {
   rejectedCount: number;
   lastSyncAt: number | null;
   isDraining: boolean;
+  /** Message from the most recent failed delivery, cleared once a drain gets
+   *  through. Drain callers fire-and-forget, so this is the only way a network
+   *  or auth failure reaches the technician instead of dying in a .catch(). */
+  lastError: string | null;
 }

@@ -248,17 +248,23 @@ function HomeTabContainer({ navigation }: any) {
   const [attention, setAttention] = useState<AttentionItem[]>([]);
   const [planLabel, setPlanLabel] = useState<string | undefined>(undefined);
   const [health, setHealth] = useState<{ score: number; band: HealthScore["band"] } | null>(null);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const parent = navigation.getParent();
   const primary = vehicles[0] ?? null;
 
-  const loadAttention = useCallback(() => {
+  // Both refresh on focus, so returning from the feed with everything read
+  // clears the masthead badge rather than leaving a stale count on Home.
+  const loadHome = useCallback(() => {
     attentionApi.mine().then(setAttention).catch(() => undefined);
+    announcementsApi.mine()
+      .then((f) => setUnreadAnnouncements(f.unreadCount))
+      .catch(() => undefined);
   }, []);
   useEffect(() => {
-    const unsub = navigation.addListener("focus", loadAttention);
-    loadAttention();
+    const unsub = navigation.addListener("focus", loadHome);
+    loadHome();
     return unsub;
-  }, [navigation, loadAttention]);
+  }, [navigation, loadHome]);
 
   // Subscription line under the greeting ("Care Plus · next billing 15 Sep 2026").
   useEffect(() => {
@@ -271,13 +277,21 @@ function HomeTabContainer({ navigation }: any) {
   }, []);
 
   // Band + stars + score on the vehicle card, if the primary vehicle is inspected.
-  useEffect(() => {
-    setHealth(null);
-    if (!primary) return;
+  // Refreshes on focus so a review completed elsewhere (e.g. field app) shows up on return.
+  const loadHealth = useCallback(() => {
+    if (!primary) {
+      setHealth(null);
+      return;
+    }
     healthScoreApi.getScore(primary.id)
       .then((s) => setHealth({ score: s.score, band: s.band }))
       .catch(() => undefined);
   }, [primary?.id]);
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", loadHealth);
+    loadHealth();
+    return unsub;
+  }, [navigation, loadHealth]);
 
   return (
     <HomeScreen
@@ -294,6 +308,8 @@ function HomeTabContainer({ navigation }: any) {
       onBookService={primary ? () => parent?.navigate("Bookings") : undefined}
       onOpenHealthScore={primary ? () => parent?.navigate("VehicleDetail", { vehicle: primary }) : undefined}
       onRoadside={() => parent?.navigate("Bookings")}
+      onAnnouncements={() => parent?.navigate("Announcements")}
+      unreadAnnouncements={unreadAnnouncements}
       attentionSlot={
         <AttentionCard
           items={attention}
@@ -475,13 +491,11 @@ function AccountTabContainer({ navigation }: any) {
   const [entitlements, setEntitlements] = useState<EntitlementSummary[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
 
   const load = useCallback(async () => {
     await Promise.all([
       api.get("/users/me").then(setProfile).catch(() => setProfile({})),
       subApi.listPlans().then(setPlans).catch(() => setPlans([])),
-      announcementsApi.mine().then((f) => setUnreadAnnouncements(f.unreadCount)).catch(() => setUnreadAnnouncements(0)),
       (async () => {
         if (!vehicle) return;
         const subs = await subApi.listSubscriptions().catch(() => []);
@@ -512,8 +526,6 @@ function AccountTabContainer({ navigation }: any) {
       // the proration preview and the lock-in ETF rules — the inline cards are
       // an entry point to it, not a second way to mutate a subscription.
       onChangePlan={() => subscription && parent().navigate("UpgradeDowngrade", { subscriptionId: subscription.id })}
-      onAnnouncements={() => parent().navigate("Announcements")}
-      unreadAnnouncements={unreadAnnouncements}
       onPersonalDetails={() => parent().navigate("PersonalDetails")}
       onSubscriptionDetails={() => subscription && parent().navigate("SubscriptionDashboard", { subscriptionId: subscription.id })}
       onInvoices={() => parent().navigate("Invoices")}
@@ -580,11 +592,17 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
 
   // A vehicle with no inspection yet legitimately has no score — that is the
   // "Coming with your first inspection" case, not an error worth surfacing.
-  useEffect(() => {
+  // Refreshes on focus so a review completed elsewhere shows up on return.
+  const loadHealth = useCallback(() => {
     healthScoreApi.getScore(vehicle.id)
       .then((s) => setHealth({ score: s.score, band: s.band }))
       .catch(() => setHealth(null));
   }, [vehicle.id]);
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", loadHealth);
+    loadHealth();
+    return unsub;
+  }, [navigation, loadHealth]);
 
   return (
     <VehicleDetailScreen
@@ -617,15 +635,22 @@ function HealthScoreContainer({ navigation, route }: any) {
   const [results, setResults] = useState<InspectionResultDetail[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Refreshes on focus so a review completed elsewhere (e.g. field app) shows up on return.
+  const loadScore = useCallback(() => {
     healthScoreApi.getScore(vehicleId).then(async (s) => {
       setScore(s);
+      setError(null);
       // Per-point results power the diagram view (M-39). Secondary to the score:
       // if this fails the screen still renders, just without the Diagram toggle.
       const detail = await healthScoreApi.getInspection(vehicleId, s.inspectionId).catch(() => null);
       if (detail) setResults(detail.results);
     }).catch((e) => setError(e instanceof Error ? e.message : "No score yet"));
   }, [vehicleId]);
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", loadScore);
+    loadScore();
+    return unsub;
+  }, [navigation, loadScore]);
 
   if (error) {
     return (

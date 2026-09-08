@@ -1,7 +1,7 @@
 import {
   Wrench, RefreshCw, ChevronLeft, ChevronRight, ClipboardCheck, Camera, Image,
   ArrowUpDown, Check, ArrowUpRight, Droplet, Battery, Filter, CircleDot,
-  Truck, ClipboardList, Banknote, Package,
+  Truck, ClipboardList, Banknote, Package, Trash2, AlertTriangle,
 } from "lucide-react-native";
 import { fieldTheme } from "../theme";
 
@@ -17,6 +17,7 @@ import { fieldTheme } from "../theme";
 const GLYPHS = {
   "wrench": Wrench,
   "refresh-cw": RefreshCw,
+  "alert-triangle": AlertTriangle,
   "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight,
   "clipboard-check": ClipboardCheck,
@@ -35,6 +36,7 @@ const GLYPHS = {
   "clipboard-list": ClipboardList,
   "banknote": Banknote,
   "package": Package,
+  "trash-2": Trash2,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;

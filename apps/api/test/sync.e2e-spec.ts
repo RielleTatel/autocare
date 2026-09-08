@@ -65,6 +65,9 @@ describe("/sync/batch (e2e)", () => {
       await prisma.inspectionResult.deleteMany({ where: { inspectionId: { in: ids } } });
       await prisma.inspection.deleteMany({ where: { id: { in: ids } } });
       await prisma.syncOutboxReceipt.deleteMany({ where: { userId: { in: (await prisma.user.findMany({ where: { firebaseUid: { startsWith: TAG } } })).map((u) => u.id) } } });
+      // Appointments reference the vehicle, so they must go before it.
+      await prisma.appointment.deleteMany({ where: { vehicle: { plateNo: { startsWith: TAG } } } });
+      await prisma.serviceType.deleteMany({ where: { code: { startsWith: TAG } } });
       await prisma.vehicle.deleteMany({ where: { plateNo: { startsWith: TAG } } });
       await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { startsWith: TAG } } } });
       await prisma.user.deleteMany({ where: { firebaseUid: { startsWith: TAG } } });
@@ -132,6 +135,22 @@ describe("/sync/batch (e2e)", () => {
     void badItem;
   });
 
+  it("an unknown checklist version names both the id received and the active one", async () => {
+    // A device that cached a checklist from an earlier seed sends a version id
+    // this database has never had. "unknown checklist version" alone cannot be
+    // told apart from a genuine config problem, so the ids go in the message —
+    // it is the only copy the technician's sync queue ever shows.
+    const id = randomUUID();
+    const stale = randomUUID();
+    const res = await mech().post("/api/v1/sync/batch")
+      .send({ items: [createItem(id, { checklistVersionId: stale })] })
+      .expect(201);
+    const [result] = res.body.data.results;
+    expect(result).toMatchObject({ status: "REJECTED", error: { code: "CHECKLIST_INVALID" } });
+    expect(result.error.message).toContain(stale);
+    expect(result.error.message).toContain(checklistVersionId);
+  });
+
   it("a non-certified mechanic is rejected with NOT_CERTIFIED_TECHNICIAN (BR-06)", async () => {
     const id = randomUUID();
     const res = await uncert().post("/api/v1/sync/batch").send({ items: [createItem(id)] }).expect(201);
@@ -151,6 +170,62 @@ describe("/sync/batch (e2e)", () => {
     expect(res.body.data.results.map((r: any) => r.status)).toEqual(["APPLIED", "APPLIED"]);
     const inspection = await prisma.inspection.findUniqueOrThrow({ where: { clientUuid: createUuid } });
     expect(inspection.submittedAt).not.toBeNull();
+  });
+
+  /** Books an appointment for the test vehicle so submit has something to complete. */
+  const bookAppointment = async (status: "BOOKED" | "CANCELLED") => {
+    const serviceType = await prisma.serviceType.upsert({
+      where: { code: `${TAG}-ST` },
+      update: {},
+      create: { code: `${TAG}-ST`, name: "Test Service", standardDurationMin: 60, requiredSkills: [], priceCentavos: 1000n },
+    });
+    return prisma.appointment.create({
+      data: {
+        vehicleId, serviceTypeId: serviceType.id, status,
+        scheduledStart: new Date("2026-09-01T01:00:00Z"), scheduledEnd: new Date("2026-09-01T02:00:00Z"),
+        createdBy: vehicleId, // any uuid; not FK-constrained
+      },
+    });
+  };
+
+  const createAndSubmit = async (appointmentId: string) => {
+    const createUuid = randomUUID();
+    return mech().post("/api/v1/sync/batch").send({
+      items: [
+        createItem(createUuid, { appointmentId }),
+        { clientUuid: randomUUID(), entityType: "inspection", op: "submit", payload: { inspectionClientUuid: createUuid } },
+      ],
+    }).expect(201);
+  };
+
+  it("submitting an inspection completes the appointment it was booked for", async () => {
+    const appt = await bookAppointment("BOOKED");
+    const res = await createAndSubmit(appt.id);
+
+    expect(res.body.data.results.map((r: any) => r.status)).toEqual(["APPLIED", "APPLIED"]);
+    const after = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } });
+    expect(after.status).toBe("COMPLETED");
+  });
+
+  it("does not resurrect a cancelled appointment, and still applies the inspection", async () => {
+    const appt = await bookAppointment("CANCELLED");
+    const res = await createAndSubmit(appt.id);
+
+    // The inspection is valid work and must be recorded regardless.
+    expect(res.body.data.results.map((r: any) => r.status)).toEqual(["APPLIED", "APPLIED"]);
+    const after = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } });
+    expect(after.status).toBe("CANCELLED");
+  });
+
+  it("a walk-in inspection with no appointment submits cleanly", async () => {
+    const createUuid = randomUUID();
+    const res = await mech().post("/api/v1/sync/batch").send({
+      items: [
+        createItem(createUuid),
+        { clientUuid: randomUUID(), entityType: "inspection", op: "submit", payload: { inspectionClientUuid: createUuid } },
+      ],
+    }).expect(201);
+    expect(res.body.data.results.map((r: any) => r.status)).toEqual(["APPLIED", "APPLIED"]);
   });
 
   it("members get 403; GET /sync/status returns the caller's receipt stats", async () => {

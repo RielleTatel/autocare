@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { SyncProcessor } from "./processor";
 import type { SyncStatusSnapshot } from "./types";
 
-const EMPTY: SyncStatusSnapshot = { pendingCount: 0, rejectedCount: 0, lastSyncAt: null, isDraining: false };
+const EMPTY: SyncStatusSnapshot = { pendingCount: 0, rejectedCount: 0, lastSyncAt: null, isDraining: false, lastError: null };
 
 /** Live outbox status feeding the Phase 0 SyncBanner and the F-03 queue screen. */
 export function useSyncStatus(processor: SyncProcessor): SyncStatusSnapshot {

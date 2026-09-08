@@ -148,4 +148,30 @@ describe("SyncProcessor.drain", () => {
     const last = snapshots[snapshots.length - 1];
     expect(last).toMatchObject({ pendingCount: 0, isDraining: false, lastSyncAt: 42_000 });
   });
+
+  it("surfaces a transport failure in the status snapshot instead of failing silently", async () => {
+    const outbox = new MemoryOutboxRepo();
+    await outbox.enqueue(item(1));
+    const transport = fakeTransport(() => new Error("Missing bearer token"));
+    const proc = new SyncProcessor({ outbox, transport, now: () => 0 });
+    await proc.drain();
+    expect((await proc.snapshot()).lastError).toBe("Missing bearer token");
+  });
+
+  it("clears a recorded transport failure once a later drain succeeds", async () => {
+    const outbox = new MemoryOutboxRepo();
+    await outbox.enqueue(item(1));
+    let fail = true;
+    let clock = 0;
+    const transport = fakeTransport((items) =>
+      fail ? new Error("Network request failed") : items.map((i) => ({ clientUuid: i.clientUuid, status: "APPLIED" as const })),
+    );
+    const proc = new SyncProcessor({ outbox, transport, now: () => clock });
+    await proc.drain();
+    expect((await proc.snapshot()).lastError).toBe("Network request failed");
+    fail = false;
+    clock = backoffMs(1); // past the first retry's backoff window, so it is eligible again
+    await proc.drain();
+    expect((await proc.snapshot()).lastError).toBeNull();
+  });
 });

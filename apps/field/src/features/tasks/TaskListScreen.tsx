@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { fieldTheme } from "../../theme";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -25,7 +26,7 @@ const STATUS_TONE: Record<string, Tone> = {
 };
 
 const manilaTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false });
+  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true });
 
 const manilaDay = () =>
   new Date().toLocaleDateString("en-PH", { timeZone: "Asia/Manila", day: "numeric", month: "short" });
@@ -37,7 +38,10 @@ export function TaskListScreen({
 }: {
   name: string | null;
   role: string;
-  onStartInspection?: () => void;
+  /** Called with the booking's context when started from a task card, and with
+   *  nothing for a walk-in (the technician then picks the vehicle by plate). An
+   *  object rather than positional args so adding context can't silently shift. */
+  onStartInspection?: (from?: { vehicleId: string; appointmentId: string }) => void;
   onOpenSyncQueue?: () => void;
 }) {
   const t = fieldTheme;
@@ -58,7 +62,14 @@ export function TaskListScreen({
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  // On focus, not just on mount: returning from a finished inspection reuses
+  // this screen instance, so a plain useEffect would re-render the same stale
+  // list and the task would still look outstanding.
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  // A sync landing while this screen is open is the other moment the board
+  // changes underneath us — that is when the appointment flips to COMPLETED.
+  useEffect(() => { if (sync.lastSyncAt) void load(); }, [sync.lastSyncAt, load]);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
@@ -70,7 +81,12 @@ export function TaskListScreen({
           </Text>
         }
       />
-      <SyncBanner pendingCount={sync.pendingCount} onPress={onOpenSyncQueue} />
+      <SyncBanner
+        pendingCount={sync.pendingCount}
+        rejectedCount={sync.rejectedCount}
+        lastError={sync.lastError}
+        onPress={onOpenSyncQueue}
+      />
       <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.sm }}>
         {stale ? (
           <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
@@ -91,7 +107,7 @@ export function TaskListScreen({
           <EmptyState title="Nothing booked today" body="Walk-ins will appear here once an advisor books them." />
         ) : (
           tasks.map((task) => (
-            <Card key={task.id} interactive onPress={onStartInspection} accessibilityLabel={`Open ${task.serviceTypeName} for ${task.vehiclePlateNo}`} style={{ gap: 6 }}>
+            <Card key={task.id} interactive onPress={() => onStartInspection?.({ vehicleId: task.vehicleId, appointmentId: task.id })} accessibilityLabel={`Open ${task.serviceTypeName} for ${task.vehiclePlateNo}`} style={{ gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}>
                 <Text style={{ ...t.text("code"), color: t.colors.ink }}>{manilaTime(task.scheduledStart)}</Text>
                 <Plate variant="plain">{task.vehiclePlateNo}</Plate>
@@ -106,7 +122,7 @@ export function TaskListScreen({
           ))
         )}
 
-        <Button icon="wrench" onPress={onStartInspection} style={{ marginTop: t.spacing.sm }}>
+        <Button icon="wrench" onPress={() => onStartInspection?.()} style={{ marginTop: t.spacing.sm }}>
           Start inspection
         </Button>
         <Button variant="secondary" icon="refresh-cw" onPress={onOpenSyncQueue}>
