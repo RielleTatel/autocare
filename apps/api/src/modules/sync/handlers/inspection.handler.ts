@@ -38,7 +38,17 @@ export class InspectionSyncHandler implements SyncEntityHandler {
     const p = parsed.data;
 
     const version = await tx.checklistVersion.findUnique({ where: { id: p.checklistVersionId } });
-    if (!version) throw new DomainError("CHECKLIST_INVALID", "unknown checklist version", 422);
+    if (!version) {
+      // Names both ids: this rejection is almost always a device that cached a
+      // checklist from an earlier seed of this database, and the message is the
+      // only diagnostic the technician's sync queue ever surfaces.
+      const active = await tx.checklistVersion.findFirst({ where: { isActive: true }, select: { id: true } });
+      throw new DomainError(
+        "CHECKLIST_INVALID",
+        `unknown checklist version ${p.checklistVersionId}; active version is ${active?.id ?? "none"}`,
+        422,
+      );
+    }
     const points = await tx.checklistPoint.findMany({ where: { category: { checklistVersionId: p.checklistVersionId } } });
     const byCode = new Map(points.map((pt) => [pt.code, pt]));
 
@@ -96,5 +106,19 @@ export class InspectionSyncHandler implements SyncEntityHandler {
       data: { submittedAt: p.submittedAt ? new Date(p.submittedAt) : new Date() },
     });
     if (this.scoring) await this.scoring.onSubmitted(tx, inspection.id);
+
+    // A submitted inspection is the completion signal for the booking it was
+    // done for — there is no separate "mark done" step, which keeps the field
+    // app offline-first (this rides the same sync batch).
+    //
+    // updateMany, not update: a missing appointment must not throw and roll back
+    // an otherwise-valid inspection. The status filter is what stops a CANCELLED
+    // or NO_SHOW booking being resurrected by a late-syncing device.
+    if (inspection.appointmentId) {
+      await tx.appointment.updateMany({
+        where: { id: inspection.appointmentId, status: { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] } },
+        data: { status: "COMPLETED" },
+      });
+    }
   }
 }

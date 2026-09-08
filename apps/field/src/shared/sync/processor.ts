@@ -24,6 +24,7 @@ interface Deps {
 export class SyncProcessor {
   private draining = false;
   private lastSyncAt: number | null = null;
+  private lastError: string | null = null;
   private listeners = new Set<(s: SyncStatusSnapshot) => void>();
 
   constructor(private deps: Deps) {}
@@ -35,7 +36,13 @@ export class SyncProcessor {
 
   async snapshot(): Promise<SyncStatusSnapshot> {
     const counts = await this.deps.outbox.counts();
-    return { pendingCount: counts.pending, rejectedCount: counts.rejected, lastSyncAt: this.lastSyncAt, isDraining: this.draining };
+    return { pendingCount: counts.pending, rejectedCount: counts.rejected, lastSyncAt: this.lastSyncAt, isDraining: this.draining, lastError: this.lastError };
+  }
+
+  /** Re-broadcast the snapshot after the outbox was mutated outside a drain
+   *  (e.g. a screen discarding a rejected entry), so subscribed counts follow. */
+  async refreshStatus(): Promise<void> {
+    await this.notify();
   }
 
   private async notify(): Promise<void> {
@@ -64,10 +71,12 @@ export class SyncProcessor {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         for (const e of eligible) await this.deps.outbox.recordAttempt(e.clientUuid, now, msg);
+        this.lastError = msg;
         report.failed = eligible.length;
         return report;
       }
       report.sent = items.length;
+      this.lastError = null;
 
       const byUuid = new Map(results.map((r) => [r.clientUuid, r]));
       for (const e of eligible) {
