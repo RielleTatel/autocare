@@ -11,6 +11,7 @@ import { DomainError } from "../../common/errors/domain-error";
 import type { AbilityUser } from "../../common/policies/ability.factory";
 import { PrismaService } from "../prisma/prisma.service";
 import { CLOCK, type Clock } from "../../common/clock/clock";
+import { routeDistanceKm, workshopOrigin } from "./route-distance";
 
 /**
  * BR-02 waiting period, in days, measured from the first cleared payment.
@@ -104,6 +105,7 @@ export class RoadsideService {
     etaMinutes: number | null;
     createdAt: Date;
     resolvedAt: Date | null;
+    distanceKm?: number | null;
   }): RoadsideRequestView {
     return {
       id: r.id,
@@ -118,6 +120,7 @@ export class RoadsideService {
       etaMinutes: r.etaMinutes,
       createdAt: r.createdAt.toISOString(),
       resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+      distanceKm: r.distanceKm ?? null,
     };
   }
 
@@ -251,10 +254,15 @@ export class RoadsideService {
     if (current.status === "RESOLVED")
       throw new DomainError("DUPLICATE_REQUEST", "That request is already resolved.", 409);
 
+    // Best-effort (FR-039): a maps outage must not block closing the call.
+    const origin = workshopOrigin();
+    const distanceKm = origin ? await routeDistanceKm(origin, { lat: current.lat, lng: current.lng }) : null;
+
     const updated = await this.prisma.roadsideRequest.update({
       where: { id },
       data: {
         status: "RESOLVED",
+        distanceKm,
         resolutionNotes: dto.resolutionNotes,
         costCentavos: BigInt(dto.costCentavos),
         resolvedAt: this.clock.now(),

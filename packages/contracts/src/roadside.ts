@@ -52,6 +52,9 @@ export const roadsideDispatchSchema = z.object({
 });
 export type RoadsideDispatchInput = z.infer<typeof roadsideDispatchSchema>;
 
+/** FR-039 — driving distance, null whenever the Directions call could not answer. */
+export const roadsideDistanceSchema = z.object({ distanceKm: z.number().nullable().optional() });
+
 export const roadsideResolveSchema = z.object({
   resolutionNotes: z.string().min(3).max(1000),
   costCentavos: z.number().int().min(0),
@@ -84,4 +87,6 @@ export type RoadsideRequestView = {
   etaMinutes: number | null;
   createdAt: string;
   resolvedAt: string | null;
+  /** FR-039, advisor-facing. Null when Directions could not answer. */
+  distanceKm?: number | null;
 };

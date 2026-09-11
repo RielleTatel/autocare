@@ -1012,6 +1012,9 @@ model RoadsideRequest {
   etaMinutes         Int?           @map("eta_minutes")
   resolutionNotes    String?        @map("resolution_notes")
   costCentavos       BigInt?        @map("cost_centavos")
+  // Nullable like `address`: the Directions call is best-effort, and a
+  // resolution must never fail because a maps API was down.
+  distanceKm         Float?         @map("distance_km")
   createdAt          DateTime       @default(now()) @map("created_at")
   acknowledgedAt     DateTime?      @map("acknowledged_at")
   resolvedAt         DateTime?      @map("resolved_at")
