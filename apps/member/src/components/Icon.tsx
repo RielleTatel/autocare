@@ -2,6 +2,9 @@ import {
   House, User, CarFront, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight,
   Share2, TrendingUp, ListTree, Plus, MapPin, Phone, Camera, TriangleAlert,
   BatteryWarning, Disc3, Fuel, CircleQuestionMark, Eye, EyeOff, Wrench, Ellipsis,
+  Bell, ClipboardCheck, Disc, Snowflake, X, Sunrise, Sun, Sunset,
+  Droplet, RotateCw, Battery, Zap, Wind, Gauge, Sparkles, Cog, ArrowUpRight,
+  CircleAlert, Crosshair, PhoneCall, Truck, CircleCheck,
 } from "lucide-react-native";
 import { theme } from "../theme";
 
@@ -28,6 +31,11 @@ const GLYPHS = {
   "list-tree": ListTree,
   "plus": Plus,
   "map-pin": MapPin,
+  "circle-alert": CircleAlert,
+  crosshair: Crosshair,
+  "phone-call": PhoneCall,
+  truck: Truck,
+  "circle-check": CircleCheck,
   "phone": Phone,
   "camera": Camera,
   "triangle-alert": TriangleAlert,
@@ -41,6 +49,23 @@ const GLYPHS = {
   "eye-off": EyeOff,
   "wrench": Wrench,
   "ellipsis": Ellipsis,
+  "bell": Bell,
+  "clipboard-check": ClipboardCheck,
+  "disc": Disc,
+  "snowflake": Snowflake,
+  "x": X,
+  "sunrise": Sunrise,
+  "sun": Sun,
+  "sunset": Sunset,
+  "droplet": Droplet,
+  "rotate-cw": RotateCw,
+  "battery": Battery,
+  "zap": Zap,
+  "wind": Wind,
+  "gauge": Gauge,
+  "sparkles": Sparkles,
+  "cog": Cog,
+  "arrow-up-right": ArrowUpRight,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;
