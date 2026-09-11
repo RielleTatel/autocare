@@ -50,6 +50,7 @@ import { makeAttentionApi, type AttentionItem } from "../features/attention/atte
 import { AnnouncementsScreen } from "../features/announcements/AnnouncementsScreen";
 import { makeAnnouncementsApi, type AnnouncementFeed } from "../features/announcements/announcementsApi";
 import { AttentionCard } from "../features/attention/AttentionCard";
+import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { AttentionListScreen } from "../features/attention/AttentionListScreen";
 
 const logoMark = require("../../assets/logo-mark.png");
@@ -307,7 +308,7 @@ function HomeTabContainer({ navigation }: any) {
       }
       onBookService={primary ? () => parent?.navigate("Bookings") : undefined}
       onOpenHealthScore={primary ? () => parent?.navigate("VehicleDetail", { vehicle: primary }) : undefined}
-      onRoadside={() => parent?.navigate("Bookings")}
+      onRoadside={primary ? () => parent?.navigate("Roadside", { vehicleId: primary.id }) : undefined}
       onAnnouncements={() => parent?.navigate("Announcements")}
       unreadAnnouncements={unreadAnnouncements}
       attentionSlot={
@@ -944,6 +945,9 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="ServiceHistory2" component={ServiceHistoryContainer} />
       <Stack.Screen name="Attention" component={AttentionContainer} />
       <Stack.Screen name="Announcements" component={AnnouncementsContainer} />
+      <Stack.Screen name="Roadside">
+        {({ route }: any) => <RoadsideContainer vehicleId={route.params?.vehicleId} />}
+      </Stack.Screen>
     </Stack.Navigator>
     </ReadyContext.Provider>
   );

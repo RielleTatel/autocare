@@ -9,7 +9,7 @@ const Location = require("expo-location");
 
 // Mapbox Geocoding is a plain REST call (plan D-2), so it is mocked at `fetch`.
 const mockGeocode = (body: unknown, ok = true) => {
-  global.fetch = jest.fn().mockResolvedValue({ ok, json: async () => body }) as unknown as typeof fetch;
+  globalThis.fetch = jest.fn().mockResolvedValue({ ok, json: async () => body }) as unknown as typeof fetch;
 };
 
 describe("captureLocation", () => {
@@ -41,7 +41,7 @@ describe("captureLocation", () => {
     await captureLocation();
     // Mapbox takes lng,lat — in that order. Reversing them silently returns a
     // location in the wrong hemisphere, so this assertion is load-bearing.
-    expect((global.fetch as jest.Mock).mock.calls[0][0]).toContain("/122.079,6.9214.json");
+    expect((globalThis.fetch as jest.Mock).mock.calls[0][0]).toContain("/122.079,6.9214.json");
   });
 
   it("reports a denied permission so the screen can ask for a landmark instead", async () => {
@@ -54,7 +54,7 @@ describe("captureLocation", () => {
   it("keeps the coordinates when the network call throws", async () => {
     Location.requestForegroundPermissionsAsync.mockResolvedValue({ status: "granted" });
     Location.getCurrentPositionAsync.mockResolvedValue({ coords: { latitude: 6.9, longitude: 122.0 } });
-    global.fetch = jest.fn().mockRejectedValue(new Error("offline")) as unknown as typeof fetch;
+    globalThis.fetch = jest.fn().mockRejectedValue(new Error("offline")) as unknown as typeof fetch;
 
     expect(await captureLocation()).toEqual({ ok: true, lat: 6.9, lng: 122.0, address: null });
   });
