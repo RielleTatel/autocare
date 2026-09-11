@@ -8,8 +8,8 @@ const ORDER = ["CRITICAL", "ATTENTION", "MONITOR", "INFO"];
  *  state; it is never hidden. */
 export function AttentionCard({ items = [], onSeeAll, onPressItem, style }) {
   const shell = {
-    background: "var(--ac-surface)", border: "1px solid var(--ac-line)", borderRadius: "var(--ac-radius-md)",
-    padding: "var(--ac-space-md)", display: "flex", flexDirection: "column", gap: "var(--ac-space-sm)",
+    background: "var(--ac-surface)", border: "1px solid var(--ac-line-soft)", boxShadow: "var(--ac-elevation-card)",
+    borderRadius: "var(--ac-radius-lg)", padding: "var(--ac-space-lg)", display: "flex", flexDirection: "column", gap: "var(--ac-space-sm)",
     boxSizing: "border-box", ...style,
   };
   if (items.length === 0) {
@@ -25,7 +25,7 @@ export function AttentionCard({ items = [], onSeeAll, onPressItem, style }) {
   return (
     <div style={shell}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--ac-space-sm)" }}>
-        <span style={{ font: "var(--type-h1)", color: "var(--ac-ink)" }}>Needs attention</span>
+        <span style={{ font: "var(--type-h1)", color: "var(--ac-ink)", whiteSpace: "nowrap" }}>Needs attention</span>
         <span style={{ display: "inline-flex", gap: "var(--ac-space-xs)" }}>
           {counts.map((c) => (
             <span key={c.sev} aria-label={`${c.n} ${c.sev.toLowerCase()}`} style={{

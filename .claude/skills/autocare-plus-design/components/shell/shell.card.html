@@ -1,31 +1,30 @@
-<!-- @dsCard group="Components" viewport="700x340" name="Shell" subtitle="TabBar + explain BottomSheet" -->
-<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<!-- @dsCard group="Components" viewport="700x380" name="Shell" subtitle="TabBar and BottomSheet with MeasuredRow" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Shell components</title>
+<link rel="stylesheet" href="../../styles.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="../../_ds_bundle.js"></script>
-<style>body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}#root{padding:16px;display:flex;gap:20px;align-items:flex-start}.lab{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label);margin-bottom:6px}</style>
-</head><body><div id="root"></div>
+<style>html,body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}
+#root{padding:20px;box-sizing:border-box}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.cap{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label)}
+a{color:var(--ac-primary)}a:hover{color:var(--action-primary-hover)}</style>
+</head><body><div id="root"></div><script>Object.assign(window, window.AutoCareDesignSystem_85f2c0);</script>
 <script type="text/babel">
-const { TabBar, BottomSheet, MeasuredRow, StarRating, Icon } = window.AutoCareDesignSystem_2155ba;
-const tabs=[{key:"home",label:"Home",icon:<Icon name="house" size={22}/>},{key:"vehicles",label:"Vehicles",icon:<Icon name="car-front" size={22}/>},{key:"bookings",label:"Bookings",icon:<Icon name="calendar-days" size={22}/>},{key:"account",label:"Account",icon:<Icon name="user" size={22}/>}];
-function Demo(){const [t,setT]=React.useState("home");return (<>
-<div style={{width:300}}><div class="lab">Explain sheet (FR-115)</div>
-  <div style={{position:"relative",height:250,background:"var(--ac-chassis)",border:"1px solid var(--ac-line)",borderRadius:12,overflow:"hidden"}}>
-    <BottomSheet title="Battery">
-      <StarRating band="GOOD" size={22}/>
-      <p style={{margin:0,font:"var(--type-body)",color:"var(--ac-ink-muted)"}}>Battery capacity is within the acceptable operational range but should be monitored at the next inspection.</p>
-      <MeasuredRow>Measured 12.3 V · good ≥ 12.4 V</MeasuredRow>
-    </BottomSheet>
-  </div>
-</div>
-<div style={{width:300}}><div class="lab">Member tab bar</div>
-  <div style={{border:"1px solid var(--ac-line)",borderRadius:12,overflow:"hidden",background:"var(--ac-surface)"}}>
-    <div style={{height:60,display:"flex",alignItems:"center",padding:"0 16px",font:"var(--type-h2)",color:"var(--ac-ink)"}}>Magandang araw, Rielle</div>
-    <TabBar tabs={tabs} active={t} onChange={setT}/>
-  </div>
-  <div style={{marginTop:10,font:"var(--type-label)",color:"var(--ac-ink-muted)"}}>Active tab: {t}</div>
-</div>
-</>);}
+const tabs=[{key:"home",label:"Home",icon:<Icon name="house" size={22}/>},
+ {key:"vehicles",label:"Vehicles",icon:<Icon name="car-front" size={22}/>},
+ {key:"bookings",label:"Bookings",icon:<Icon name="calendar-days" size={22}/>},
+ {key:"account",label:"Account",icon:<Icon name="user" size={22}/>}];
+function Demo(){const[t,setT]=React.useState("home");return(<div className="col">
+ <TabBar tabs={tabs} active={t} onChange={setT} style={{borderRadius:"var(--ac-radius-md)",overflow:"hidden",maxWidth:390}}/>
+ <div style={{position:"relative",height:250,maxWidth:390,background:"var(--ac-chassis)",borderRadius:"var(--ac-radius-md)",overflow:"hidden",border:"1px solid var(--ac-line-soft)"}}>
+  <BottomSheet title="Front brake pads" onClose={()=>{}}>
+   <div style={{font:"var(--type-body)",color:"var(--ac-ink-muted)"}}>Brake pads press against the disc to slow the car. Yours are worn close to the limit.</div>
+   <MeasuredRow>Measured 3.0 mm &middot; replace below 2.0 mm</MeasuredRow>
+  </BottomSheet>
+ </div>
+</div>);}
 ReactDOM.createRoot(document.getElementById("root")).render(<Demo/>);
 </script></body></html>

@@ -1,41 +1,62 @@
-<!-- @dsCard group="Components" viewport="700x400" name="Core" subtitle="Button, Card, StatusPill, Plate, FormField, EmptyState, Icon" -->
-<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<!-- @dsCard group="Components" viewport="700x420" name="Core" subtitle="Button, Card, StatusPill, Plate, FormField, EmptyState, Icon" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Core components</title>
+<link rel="stylesheet" href="../../styles.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="../../_ds_bundle.js"></script>
-<style>body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}#root{padding:16px;display:flex;flex-direction:column;gap:14px}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.lab{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label)}</style>
-</head><body><div id="root"></div>
+<style>html,body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}
+#root{padding:20px;box-sizing:border-box}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.cap{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label)}
+a{color:var(--ac-primary)}a:hover{color:var(--action-primary-hover)}</style>
+</head><body><div id="root"></div><script>Object.assign(window, window.AutoCareDesignSystem_85f2c0);</script>
 <script type="text/babel">
-const { Button, Card, StatusPill, Plate, FormField, EmptyState, Icon } = window.AutoCareDesignSystem_2155ba;
-function Demo(){return (<>
-<div><div class="lab">Buttons · 48dp member</div><div className="row" style={{marginTop:6}}>
+function Demo(){return(<div className="col">
+ <div className="row">
   <Button>Book a service</Button>
-  <Button variant="secondary">View history</Button>
-  <Button variant="deep">Approve work</Button>
-  <Button variant="danger">Cancel subscription</Button>
-  <Button disabled>Continue</Button>
-  <Button variant="ghost" icon={<Icon name="share-2" size={16}/>}>Share certificate</Button>
-</div></div>
-<div><div class="lab">56dp field</div><div className="row" style={{marginTop:6}}><Button size="field">Save &amp; next</Button><Button size="field" variant="danger" icon={<Icon name="camera" size={18}/>}>Add photo — required</Button></div></div>
-<div><div class="lab">Status pills</div><div className="row" style={{marginTop:6}}>
-  <StatusPill>DRAFT</StatusPill><StatusPill tone="info">AWAITING APPROVAL</StatusPill><StatusPill tone="info">IN PROGRESS</StatusPill>
-  <StatusPill tone="warn">PAST DUE</StatusPill><StatusPill tone="success">PAID</StatusPill><StatusPill tone="danger">SUSPENDED</StatusPill>
-</div></div>
-<div className="row" style={{alignItems:"stretch"}}>
-  <div style={{flex:"1 1 260px"}}><div class="lab">Plate &amp; card</div>
-    <Card style={{marginTop:6,display:"flex",flexDirection:"column",gap:8,alignItems:"flex-start"}}>
-      <Plate>ABC 1234</Plate><Plate variant="chip">ABC 1234</Plate>
-      <span style={{font:"var(--type-body)",color:"var(--ac-ink-muted)"}}>48,210 km</span>
-    </Card></div>
-  <div style={{flex:"1 1 300px"}}><div class="lab">Form field · error</div>
-    <div style={{marginTop:6}}><FormField id="p" label="Plate number" value="ABC 1234" mono error="This plate is already registered to another account. Check the number, or contact us if this is your vehicle."/></div></div>
-</div>
-<div className="row" style={{alignItems:"stretch"}}>
-  <EmptyState style={{flex:"1 1 220px"}} title="Nothing needs attention right now" body="Your vehicles are up to date."/>
-  <EmptyState style={{flex:"1 1 180px"}} tone="loading" title="Loading plans…"/>
-  <EmptyState style={{flex:"1 1 220px"}} tone="error" title="Couldn't load plans" body="Check your connection and try again."/>
-</div>
-</>);}
+  <Button variant="secondary">Update odometer</Button>
+  <Button variant="deep" icon={<Icon name="calendar-plus" size={18}/>}>Schedule</Button>
+  <Button variant="danger">Request roadside</Button>
+  <Button variant="ghost">Learn more</Button>
+  <Button disabled>Approve work</Button>
+ </div>
+ <div className="row">
+  <Button size="field" icon={<Icon name="camera" size={20}/>}>Take photo</Button>
+  <span className="cap">field size &mdash; 56dp</span>
+ </div>
+ <div className="row" style={{alignItems:"stretch"}}>
+  <Card style={{flex:1,minWidth:200}}><div style={{font:"var(--type-h2)"}}>Card</div><div style={{font:"var(--type-body)",color:"var(--ac-ink-muted)"}}>Radius 20, soft shadow.</div></Card>
+  <Card major style={{flex:1,minWidth:200}}><div style={{font:"var(--type-h2)"}}>Card major</div><div style={{font:"var(--type-body)",color:"var(--ac-ink-muted)"}}>Radius 28, hero surfaces.</div></Card>
+  <Card flat style={{flex:1,minWidth:200}}><div style={{font:"var(--type-h2)"}}>Card flat</div><div style={{font:"var(--type-body)",color:"var(--ac-ink-muted)"}}>Hairline, dense data.</div></Card>
+ </div>
+ <div className="row">
+  <StatusPill>SCHEDULED</StatusPill>
+  <StatusPill tone="info">IN PROGRESS</StatusPill>
+  <StatusPill tone="success">COMPLETED</StatusPill>
+  <StatusPill tone="warn">AWAITING APPROVAL</StatusPill>
+  <StatusPill tone="danger">CANCELLED</StatusPill>
+  <StatusPill tone="solid">ACTIVE</StatusPill>
+ </div>
+ <div className="row">
+  <Plate>ZMB 4821</Plate>
+  <Plate variant="chip">ZMB 4821</Plate>
+  <Plate variant="plain">MR0KX8CD1K0123456</Plate>
+ </div>
+ <div className="row" style={{alignItems:"flex-start"}}>
+  <FormField id="p" label="Plate number" value="ZMB 4821" mono style={{flex:1,minWidth:220}}/>
+  <FormField id="e" label="Plate number" value="ZMB 482" error="This plate is already registered to another account. Check the number, or contact us if this is your vehicle." style={{flex:1,minWidth:240}}/>
+ </div>
+ <div className="row" style={{alignItems:"stretch"}}>
+  <EmptyState style={{flex:1,minWidth:230}} title="Nothing needs attention right now" body="Your vehicles are up to date."/>
+  <EmptyState style={{flex:1,minWidth:230}} tone="loading" title="Loading your vehicles"/>
+  <EmptyState style={{flex:1,minWidth:230}} tone="error" title="We could not load this" body="Check your connection and try again."/>
+ </div>
+ <div className="row">
+  {["wrench","gauge","car-front","battery","droplet","disc","lightbulb","camera","bell","phone","calendar-days","user"].map(n=>(
+   <Icon key={n} name={n} size={22} color="var(--ac-ink)"/>))}
+ </div>
+</div>);}
 ReactDOM.createRoot(document.getElementById("root")).render(<Demo/>);
 </script></body></html>

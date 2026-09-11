@@ -7,8 +7,8 @@ export function EmptyState({ title, body, tone = "empty", action, style }) {
   const accent = tone === "error" ? "var(--ac-danger)" : tone === "loading" ? "var(--ac-ink-muted)" : "var(--ac-ink)";
   return (
     <div style={{
-      background: "var(--ac-surface)", border: "1px solid var(--ac-line)", borderRadius: "var(--ac-radius-md)",
-      padding: "var(--ac-space-md)", display: "flex", flexDirection: "column", gap: "var(--ac-space-xs)",
+      background: "var(--ac-surface)", border: "1px solid var(--ac-line-soft)", boxShadow: "var(--ac-elevation-card)", borderRadius: "var(--ac-radius-md)",
+      padding: "var(--ac-space-lg)", display: "flex", flexDirection: "column", gap: "var(--ac-space-xs)",
       alignItems: "flex-start", ...style,
     }}>
       {tone === "loading" && (

@@ -1,6 +1,12 @@
-/* 4-pt grid. Screen gutters 16, card padding 16–24. Radii: controls 6, cards and
-   sheets 12, pills and band chips full. Touch targets are a hard requirement, not
-   a guideline: 48dp member/web (NFR-027), 56dp field (gloved hands, sunlight). */
+/* 4-pt grid from tokens.ts. Touch targets are a hard requirement, not a
+   guideline: 48dp member/web (NFR-027), 56dp field (gloved hands, sunlight).
+
+   RADII ARE THE ONE PLACE THIS SYSTEM DEPARTS FROM tokens.ts. The shipped
+   values are 6 / 12 / 999; the client's 2026 visual direction asks for a
+   strongly rounded shape language, so controls move to 12 and cards to 20,
+   with 28 and 36 added for major and hero surfaces. The shipped values are
+   kept as --ac-radius-legacy-* so in-flight product code can be read against
+   them. See readme, "What departs from tokens.ts". */
 :root {
   --ac-space-xs: 4px;
   --ac-space-sm: 8px;
@@ -9,26 +15,32 @@
   --ac-space-xl: 32px;
   --ac-space-xxl: 48px;
 
-  --ac-radius-sm: 6px;
-  --ac-radius-md: 12px;
+  --ac-radius-xs: 8px;    /* chips, tags, photo thumbs */
+  --ac-radius-sm: 12px;   /* buttons, inputs, controls */
+  --ac-radius-md: 20px;   /* the default card */
+  --ac-radius-lg: 28px;   /* major cards, bottom sheets, modals */
+  --ac-radius-xl: 36px;   /* hero and vehicle-overview surfaces */
   --ac-radius-pill: 999px;
+  --ac-radius-legacy-sm: 6px;
+  --ac-radius-legacy-md: 12px;
 
   --ac-target-member: 48px;
   --ac-target-field: 56px;
 
   --ac-hairline: 1px;
   --ac-border-control: 1.5px;
-  --ac-border-accent: 4px;   /* AttentionCard top item */
+  --ac-border-accent: 4px;     /* AttentionCard top item */
   --ac-border-accent-row: 5px; /* AttentionItemRow left edge */
   --ac-gauge-stroke: 18px;
 
   /* semantic aliases */
-  --space-gutter: var(--ac-space-md);
-  --space-card-pad: var(--ac-space-md);
-  --space-card-pad-roomy: var(--ac-space-lg);
+  --space-gutter: var(--ac-space-lg);
+  --space-card-pad: var(--ac-space-lg);
+  --space-card-pad-roomy: var(--ac-space-xl);
   --space-stack: var(--ac-space-sm);
   --space-section: var(--ac-space-lg);
   --radius-control: var(--ac-radius-sm);
   --radius-card: var(--ac-radius-md);
+  --radius-card-major: var(--ac-radius-lg);
   --radius-pill: var(--ac-radius-pill);
 }

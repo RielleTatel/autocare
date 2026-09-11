@@ -14,7 +14,7 @@ export function AttentionItemRow({ title, body, plate, severity = "INFO", showPl
   return (
     <div role="button" tabIndex={0} onClick={onClick}
       style={{
-        background: "var(--ac-surface)", border: "1px solid var(--ac-line)",
+        background: "var(--ac-surface)", border: "1px solid var(--ac-line-soft)", boxShadow: "var(--ac-elevation-card)",
         borderLeft: `var(--ac-border-accent-row) solid ${s.color}`, borderRadius: "var(--ac-radius-md)",
         padding: "var(--ac-space-md)", display: "flex", flexDirection: "column", gap: "var(--ac-space-xs)",
         cursor: onClick ? "pointer" : undefined, boxSizing: "border-box", ...style,

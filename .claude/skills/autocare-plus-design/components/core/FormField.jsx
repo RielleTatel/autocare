@@ -18,9 +18,9 @@ export function FormField({ label, value, placeholder, error, hint, mono, size =
         style={{
           fontFamily: mono ? "var(--ac-font-mono)" : "var(--ac-font-body)",
           letterSpacing: mono ? "var(--ac-tracking-code)" : undefined,
-          fontSize: "16px", color: "var(--ac-ink)", background: "var(--ac-chassis)",
-          border: `var(--ac-border-control) solid ${error ? "var(--ac-danger)" : "var(--ac-line)"}`,
-          borderRadius: "var(--ac-radius-sm)", height, padding: "0 14px", boxSizing: "border-box", width: "100%",
+          fontSize: "16px", color: "var(--ac-ink)", background: "var(--ac-surface-soft)",
+          border: `var(--ac-border-control) solid ${error ? "var(--ac-danger)" : "var(--ac-line-soft)"}`,
+          borderRadius: "var(--ac-radius-sm)", height, padding: "0 18px", boxSizing: "border-box", width: "100%",
         }}
       />
       {error && <p style={{ margin: 0, color: "var(--ac-danger)", font: "var(--type-body)", fontSize: "14px" }}>{error}</p>}

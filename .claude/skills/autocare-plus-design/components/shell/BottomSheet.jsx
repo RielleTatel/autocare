@@ -12,8 +12,8 @@ export function BottomSheet({ open = true, title, children, onClose, closeLabel 
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
         width: "100%", background: "var(--ac-surface)",
-        borderTopLeftRadius: "var(--ac-radius-md)", borderTopRightRadius: "var(--ac-radius-md)",
-        padding: "var(--ac-space-lg)", display: "flex", flexDirection: "column", gap: "var(--ac-space-sm)",
+        borderTopLeftRadius: "var(--ac-radius-lg)", borderTopRightRadius: "var(--ac-radius-lg)",
+        padding: "var(--ac-space-lg) var(--ac-space-lg) var(--ac-space-xl)", display: "flex", flexDirection: "column", gap: "var(--ac-space-sm)",
         boxShadow: "var(--ac-elevation-sheet)", boxSizing: "border-box",
         animation: "ac-sheet-in var(--ac-duration-sheet) var(--ac-ease-out)", ...style,
       }}>
@@ -23,7 +23,7 @@ export function BottomSheet({ open = true, title, children, onClose, closeLabel 
         {children}
         {onClose && (
           <button type="button" onClick={onClose} style={{
-            minHeight: "var(--ac-target-member)", border: "none", borderRadius: "var(--ac-radius-md)",
+            minHeight: "var(--ac-target-member)", border: "none", borderRadius: "var(--ac-radius-pill)",
             background: "var(--ac-primary)", color: "var(--ac-on-primary)", font: "var(--type-h2)",
             marginTop: "var(--ac-space-xs)", cursor: "pointer",
           }}>{closeLabel}</button>

@@ -1,4 +1,4 @@
-const { Card, Button, Plate, StatusPill, Icon, FormField, AttentionCard, AttentionItemRow, ScoreGauge, StarRating, CategoryBar, BandChip, TabBar, BottomSheet, MeasuredRow, PlanCard, EmptyState } = window.AutoCareDesignSystem_2155ba;
+const { Card, Button, Plate, StatusPill, Icon, FormField, AttentionCard, AttentionItemRow, ScoreGauge, StarRating, CategoryBar, BandChip, TabBar, BottomSheet, MeasuredRow, PlanCard, EmptyState } = window.AutoCareDesignSystem_85f2c0;
 
 const ATTENTION = [
   { id: "1", severity: "CRITICAL", plate: "ABC 1234", title: "Front brake pads at 3.0 mm", body: "Replace within 1,000 km. Book a service and we'll collect the vehicle." },

@@ -8,8 +8,9 @@ export function PlanCard({ name, price, interval = "MONTHLY", lockInMonths = 0, 
   return (
     <div onClick={onSelect} role="button" tabIndex={0}
       style={{
-        background: "var(--ac-surface)", borderRadius: "var(--ac-radius-md)", padding: "var(--ac-space-md)",
-        border: selected ? "var(--ac-border-control) solid var(--ac-primary)" : "1px solid var(--ac-line)",
+        background: "var(--ac-surface)", borderRadius: "var(--ac-radius-lg)", padding: "var(--ac-space-lg)",
+        border: selected ? "var(--ac-border-control) solid var(--ac-primary)" : "1px solid var(--ac-line-soft)",
+        boxShadow: selected ? "var(--ac-elevation-raised)" : "var(--ac-elevation-card)",
         display: "flex", flexDirection: "column", cursor: "pointer", boxSizing: "border-box", ...style,
       }}>
       <div style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>{name}</div>
@@ -26,7 +27,7 @@ export function PlanCard({ name, price, interval = "MONTHLY", lockInMonths = 0, 
         ))}
       </ul>
       <div style={{
-        height: "var(--ac-target-member)", marginTop: "var(--ac-space-sm)", borderRadius: "var(--ac-radius-sm)",
+        height: "var(--ac-target-member)", marginTop: "var(--ac-space-sm)", borderRadius: "var(--ac-radius-pill)",
         background: "var(--ac-primary)", color: "var(--ac-on-primary)", display: "flex",
         alignItems: "center", justifyContent: "center", font: "var(--type-body)", fontWeight: 600,
       }}>{actionLabel}</div>

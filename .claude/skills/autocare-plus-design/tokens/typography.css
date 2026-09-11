@@ -1,31 +1,35 @@
-/* Three roles, three faces. Barlow Semi Condensed (600) has road-signage DNA and
-   carries every heading + the score numeral. Inter is UI text (native apps swap in
-   the system stack: SF Pro on iOS). IBM Plex Mono (500) is machine identity only —
-   plates, VINs, receipt and verification codes, status pills, clock columns. */
+/* Three faces, three jobs. Barlow Semi Condensed (600) has road-signage DNA and
+   carries every heading, the score numeral and the oversized display line the
+   2026 re-skin introduces. Inter is UI text (native apps swap in the system
+   stack: SF Pro on iOS). IBM Plex Mono (500) is machine identity only — plates,
+   VINs, receipt and verification codes, status pills, clock columns. */
 :root {
   --ac-font-display: "Barlow Semi Condensed", "Avenir Next Condensed", "Arial Narrow", system-ui, sans-serif;
   --ac-font-body: "Inter", -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --ac-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* rem scale from typeScale in tokens.ts; RN multiplies by 16.
+     --ac-size-display is an addition: the editorial card headline
+     ("Toyota Vios 1.3 XLE") the supplied visual direction asks for.
      The field app renders every role one step larger (x1.125). */
-  --ac-size-score: 4.5rem;   /* 72px — the 0–100 VHS numeral */
-  --ac-size-h1: 1.75rem;     /* 28px */
-  --ac-size-h2: 1.375rem;    /* 22px */
-  --ac-size-body: 1rem;      /* 16px */
-  --ac-size-label: 0.8125rem;/* 13px */
-  --ac-size-code: 0.9375rem; /* 15px */
+  --ac-size-score: 4.5rem;    /* 72px — the 0-100 VHS numeral */
+  --ac-size-display: 2.5rem;  /* 40px — editorial card headline */
+  --ac-size-h1: 1.75rem;      /* 28px */
+  --ac-size-h2: 1.375rem;     /* 22px */
+  --ac-size-body: 1rem;       /* 16px */
+  --ac-size-label: 0.8125rem; /* 13px */
+  --ac-size-code: 0.9375rem;  /* 15px */
 
   --ac-weight-display: 600;
   --ac-weight-body: 400;
   --ac-weight-label: 500;
   --ac-weight-strong: 600;
 
-  --ac-leading-tight: 1.1;
+  --ac-leading-tight: 1.05;
   --ac-leading-heading: 1.2;
   --ac-leading-body: 1.6;
 
-  --ac-tracking-display: 0.01em;
+  --ac-tracking-display: -0.015em;
   --ac-tracking-label: 0.03em;
   --ac-tracking-plate: 0.12em;
   --ac-tracking-code: 0.1em;
@@ -33,6 +37,7 @@
   --ac-field-scale: 1.125; /* @kind other */
 
   --type-score: var(--ac-weight-display) var(--ac-size-score) / var(--ac-leading-tight) var(--ac-font-display);
+  --type-display: var(--ac-weight-display) var(--ac-size-display) / var(--ac-leading-tight) var(--ac-font-display);
   --type-h1: var(--ac-weight-display) var(--ac-size-h1) / var(--ac-leading-heading) var(--ac-font-display);
   --type-h2: var(--ac-weight-display) var(--ac-size-h2) / var(--ac-leading-heading) var(--ac-font-display);
   --type-body: var(--ac-weight-body) var(--ac-size-body) / var(--ac-leading-body) var(--ac-font-body);
