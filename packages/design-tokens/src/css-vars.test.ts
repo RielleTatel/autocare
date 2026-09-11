@@ -5,7 +5,7 @@ describe("toCssVars", () => {
   const css = toCssVars();
   it("emits neutrals, brand, and band fill+text", () => {
     expect(css).toContain("--ac-ink: #16232E;");
-    expect(css).toContain("--ac-primary: #0E5AA7;");
+    expect(css).toContain("--ac-primary: #D9273F;");
     expect(css).toContain("--ac-band-excellent: #177245;");
     expect(css).toContain("--ac-band-excellent-text: #0F5C37;");
   });
@@ -24,7 +24,7 @@ describe("toCssVars", () => {
   it("emits a dark block overriding neutrals but not band fills", () => {
     const dark = css.slice(css.indexOf('[data-theme="dark"]'));
     expect(dark).toContain("--ac-chassis: #101820;");
-    expect(dark).toContain("--ac-primary: #4C95DB;");
+    expect(dark).toContain("--ac-primary: #F0576B;");
     expect(dark).not.toContain("--ac-band-excellent:");
   });
 });

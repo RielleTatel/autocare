@@ -54,6 +54,21 @@ export const shiftSchema = z.object({
 });
 export type ShiftInput = z.infer<typeof shiftSchema>;
 
+/** Partial edit of an existing roster entry. `userId` is deliberately absent:
+ *  reassigning a shift to a different person is a delete plus a create, not an
+ *  edit, so the audit trail keeps the two people distinct. */
+export const shiftUpdateSchema = z.object({
+  date: yyyymmdd.optional(),
+  startTime: hhmm.optional(),
+  endTime: hhmm.optional(),
+  skills: z.array(z.string()).optional(),
+});
+export type ShiftUpdate = z.infer<typeof shiftUpdateSchema>;
+
+/** Range for listing the roster; same shape the board and slots queries use. */
+export const shiftQuerySchema = z.object({ from: yyyymmdd, to: yyyymmdd });
+export type ShiftQuery = z.infer<typeof shiftQuerySchema>;
+
 export const blockSchema = z.object({
   bayId: z.string().uuid().nullable().optional(),
   date: yyyymmdd,
