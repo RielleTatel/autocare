@@ -42,29 +42,53 @@ export class AttentionService {
     return aggregateAttention(inputs);
   }
 
-  /** ATTENTION/CRITICAL results from each vehicle's latest health score. */
+  /**
+   * ATTENTION/CRITICAL results from each vehicle's latest health score.
+   *
+   * Two queries regardless of how many vehicles the member owns. This used to
+   * loop per vehicle with a four-level nested include, which Prisma expands
+   * into further queries — invisible at 0.1ms a round trip on localhost, and
+   * 3.2s against a hosted database. `distinct` with a descending `orderBy` is
+   * how Postgres gives "latest row per vehicle" in a single pass.
+   *
+   * The severity filter runs in SQL too, so the rows never crossed the wire.
+   */
   private async componentFindings(vehicleIds: string[]): Promise<AttentionInputs["componentFindings"]> {
+    const scores = await this.prisma.healthScore.findMany({
+      where: { vehicleId: { in: vehicleIds } },
+      orderBy: { computedAt: "desc" },
+      distinct: ["vehicleId"],
+      select: { vehicleId: true, inspectionId: true, computedAt: true },
+    });
+    if (scores.length === 0) return [];
+
+    const byInspection = new Map(scores.map((s) => [s.inspectionId, s]));
+    const results = await this.prisma.inspectionResult.findMany({
+      where: {
+        inspectionId: { in: [...byInspection.keys()] },
+        status: { in: ["ATTENTION", "CRITICAL"] },
+      },
+      select: {
+        inspectionId: true,
+        pointCode: true,
+        status: true,
+        point: { select: { label: true, category: { select: { code: true } } } },
+      },
+    });
+
     const out: AttentionInputs["componentFindings"] = [];
-    for (const vehicleId of vehicleIds) {
-      const score = await this.prisma.healthScore.findFirst({
-        where: { vehicleId },
-        orderBy: { computedAt: "desc" },
-        include: { inspection: { include: { results: { include: { point: { include: { category: true } } } } } } },
-      });
+    for (const r of results) {
+      const score = byInspection.get(r.inspectionId);
       if (!score) continue;
-      for (const r of score.inspection.results) {
-        if (r.status === "ATTENTION" || r.status === "CRITICAL") {
-          out.push({
-            vehicleId,
-            categoryCode: r.point.category.code,
-            pointCode: r.pointCode,
-            label: r.point.label,
-            severity: r.status,
-            inspectionId: score.inspectionId,
-            createdAt: score.computedAt,
-          });
-        }
-      }
+      out.push({
+        vehicleId: score.vehicleId,
+        categoryCode: r.point.category.code,
+        pointCode: r.pointCode,
+        label: r.point.label,
+        severity: r.status as "ATTENTION" | "CRITICAL",
+        inspectionId: r.inspectionId,
+        createdAt: score.computedAt,
+      });
     }
     return out;
   }

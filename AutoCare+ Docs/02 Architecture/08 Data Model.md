@@ -135,10 +135,10 @@ erDiagram
 | `service_types` | `id`, `code`, `name`, `standard_duration_min`, `required_skills[]`, `price_centavos` | Drives slot sizing |
 | `appointments` | `id`, `vehicle_id`, `service_type_id`, `bay_id?`, `scheduled_start/end`, `status`, `requires_pickup`, `created_by` | Status: `BOOKED`, `CONFIRMED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `NO_SHOW` |
 | `capacity_blocks` | `id`, `bay_id?`, `date`, `start/end`, `reason` | Holidays, maintenance, walk-in buffer |
-| `trips` | `id`, `appointment_id`, `type` (`PICKUP`\|`DELIVERY`), `driver_user_id`, `address`, `lat`, `lng`, `window_start/end`, `status`, `client_uuid` | Offline-creatable |
-| `trip_condition_records` | `id`, `trip_id`, `stage` (`PRE`\|`POST`), `odometer_km`, `fuel_level`, `photos[]`, `damage_notes`, `signature_url?` | Liability protection (FR-078, FR-079) |
-| `roadside_requests` | `id`, `user_id`, `vehicle_id`, `incident_type`, `lat`, `lng`, `address`, `landmark_note`, `status`, `dispatched_to?`, `resolution_notes`, `cost_centavos` | Cost tracked for FR-099 |
-| `service_zones` | `id`, `name`, `polygon`, `surcharge_centavos` | Out-of-zone pricing (FR-104) |
+| `trips` | `id`, `appointment_id`, `type` (`PICKUP`\|`DELIVERY`), `driver_user_id`, `address`, `lat`, `lng`, `window_start/end`, `status`, `client_uuid` | Offline-creatable. Phase 6 — **not built yet** |
+| `trip_condition_records` | `id`, `trip_id`, `stage` (`PRE`\|`POST`), `odometer_km`, `fuel_level`, `photos[]`, `damage_notes`, `signature_url?` | Liability protection (FR-078, FR-079). Phase 6 — **not built yet** |
+| `roadside_requests` | `id`, `user_id`, `vehicle_id`, `incident_type`, `lat`, `lng`, `address?`, `landmark_note?`, `status`, `dispatched_to?`, `responder_name?`, `eta_minutes?`, `resolution_notes?`, `cost_centavos?`, `distance_km?`, `created_at`, `acknowledged_at?`, `resolved_at?` | Cost tracked for FR-099. `lat`/`lng` are **member-confirmed**, not the raw GPS fix — the map lets them correct it before dispatch. `address` is nullable because reverse geocoding is best-effort; `landmark_note` is the human fallback (FR-032). `distance_km` is the driving distance from the workshop, computed at resolution (FR-039) |
+| `service_zones` | `id`, `name`, `polygon`, `surcharge_centavos` | Out-of-zone pricing (FR-104) — **not built yet** |
 
 ### Inspection and scoring entities
 
@@ -166,9 +166,40 @@ erDiagram
 | `parts` | `id`, `sku`, `name`, `category`, `cost_centavos`, `price_centavos`, `stock_qty`, `reorder_level` | Margin reporting (FR-098) |
 | `waste_records` | `id`, `work_order_id`, `waste_type` (`USED_OIL`\|`BATTERY`\|`FILTER`\|`TIRE`\|`COOLANT`), `quantity`, `unit`, `hauler_name?`, `manifest_no?`, `disposed_at?` | DENR reporting (FR-074, FR-102, C-08) |
 | `audit_log` | `id`, `actor_user_id`, `action`, `entity_type`, `entity_id`, `before` (jsonb), `after` (jsonb), `created_at` | Append-only (FR-103, NFR-021) |
-| `notifications` | `id`, `user_id`, `category`, `channel`, `title`, `body`, `status`, `sent_at?`, `read_at?`, `cost_centavos?` | SMS cost metering (FR-095) |
+| ~~`notifications`~~ | — | **Superseded by `announcements` (below).** The original shape existed for SMS cost metering (FR-095); SMS was dropped on cost grounds (§7.3a), taking `channel` and `cost_centavos` with it. Never built. |
 | `idempotency_keys` | `key` (pk), `endpoint`, `response_hash`, `created_at` | 24-hour window |
 | `sync_outbox_receipts` | `client_uuid` (pk), `entity_type`, `entity_id`, `received_at` | Server-side dedupe of offline replays |
+
+### Notifications
+
+Replaces the planned `notifications` table. A notification here is a **thread**, not a log line: one
+row follows a service from "due" through "booked", "tomorrow" and "completed", changing `kind` as it
+goes rather than adding a row per event. That is why there is no `channel` — every entry is in-app,
+and push is not built.
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `announcements` | `id`, `user_id?`, `kind`, `status`, `title`, `body`, `vehicle_id?`, `service_type_id?`, `appointment_id?`, `roadside_request_id?`, `reason?`, `published_at`, `expires_at?`, `created_by?` | `user_id` null = broadcast to every member (FR-107). `kind` ∈ SERVICE_DUE, APPOINTMENT_BOOKED, APPOINTMENT_REMINDER, APPOINTMENT_RESCHEDULED, APPOINTMENT_CANCELLED, SERVICE_COMPLETED, ROADSIDE_UPDATE, ADMIN_BROADCAST |
+| `announcement_reads` | `announcement_id`, `user_id`, `read_at` — composite pk | Read state cannot be a column on the announcement: a broadcast has no single viewer |
+
+Two partial unique indexes carry the rules. `announcements_open_thread` on
+(`user_id`, `vehicle_id`, `service_type_id`) WHERE `status = 'ACTIVE'` allows exactly one open
+thread per service while keeping closed ones as history. `announcements_roadside_open` on
+`roadside_request_id` WHERE `status = 'ACTIVE'` does the same for a call-out — a roadside incident
+has no service type, so it cannot use the first index.
+
+`vehicle_id` cascades on delete rather than nulling: a thread is about one vehicle's service, so
+once that vehicle is gone the thread is unactionable.
+
+### Privacy, config, and scheduling support
+
+Built alongside the above and previously undocumented.
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `data_requests` | `id`, `user_id`, `type` (`EXPORT`\|`ERASURE`), `status`, `requested_at`, `completed_at?`, `result_url?` | DPA subject requests (FR-012), processed off a queue |
+| `operating_hours` | weekday, open/close times | Shop hours the capacity engine reads |
+| `system_config` | key/value | Runtime settings, e.g. the work-order approval threshold |
 
 ---
 
