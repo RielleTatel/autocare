@@ -5,7 +5,7 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 
 const manila = (iso: string) =>
-  new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 
 /**
  * M-22 — confirm. Summarises the service + time and, when the booking draws on a plan entitlement,

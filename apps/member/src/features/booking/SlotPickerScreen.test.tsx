@@ -17,11 +17,37 @@ const twoDays: Slot[] = [
 ];
 
 describe("SlotPickerScreen", () => {
-  it("renders slot chips and picks one", () => {
+  // Selecting a time is local; the hold is only spent when the member commits.
+  // A single tap used to navigate and burn a 10-minute hold, so a mis-tap cost
+  // them the slot.
+  it("commits the selected time from the CTA, not from the tap", () => {
     const onPick = jest.fn();
     const { getByTestId } = render(<SlotPickerScreen slots={slots} holdSecondsLeft={null} onPick={onPick} onRepick={jest.fn()} />);
+
     fireEvent.press(getByTestId("slot-2027-09-01T09:00:00+08:00"));
+    expect(onPick).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId("review-booking"));
     expect(onPick).toHaveBeenCalledWith(slots[0]);
+  });
+
+  it("cannot commit until a time is chosen", () => {
+    const onPick = jest.fn();
+    const { getByTestId } = render(<SlotPickerScreen slots={slots} holdSecondsLeft={null} onPick={onPick} onRepick={jest.fn()} />);
+    fireEvent.press(getByTestId("review-booking"));
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  // A fully-booked day inside the window must render greyed rather than vanish:
+  // a date silently missing from the grid reads as a calendar bug.
+  it("shows days with no availability as unselectable rather than omitting them", () => {
+    const gap: Slot[] = [
+      { start: "2027-09-01T09:00:00+08:00", end: "2027-09-01T10:00:00+08:00", bayId: "bay1", serviceTypeId: "st1" },
+      { start: "2027-09-03T09:00:00+08:00", end: "2027-09-03T10:00:00+08:00", bayId: "bay1", serviceTypeId: "st1" },
+    ];
+    const { getByTestId } = render(<SlotPickerScreen slots={gap} holdSecondsLeft={null} onPick={jest.fn()} onRepick={jest.fn()} />);
+    const booked = getByTestId("day-2027-09-02");
+    expect(booked.props.accessibilityState.disabled).toBe(true);
   });
 
   it("shows a live countdown while a hold is held", () => {
@@ -56,14 +82,27 @@ describe("SlotPickerScreen", () => {
     expect(queryByTestId("slot-2027-09-01T09:00:00+08:00")).toBeNull();
   });
 
-  it("sorts a day's times into morning, afternoon and evening", () => {
-    const { getByText, getByTestId } = render(
+  // Each time carries its own part-of-day tag rather than sitting under a
+  // section header, so a row still says when it is when read on its own.
+  it("tags every time with its part of day", () => {
+    const { getByText, getAllByText, getByTestId } = render(
       <SlotPickerScreen slots={twoDays} holdSecondsLeft={null} onPick={jest.fn()} onRepick={jest.fn()} />,
     );
-    getByText("MORNING");
+    expect(getAllByText("MORNING")).toHaveLength(2);
     getByText("AFTERNOON");
     fireEvent.press(getByTestId("day-2027-09-02"));
     getByText("EVENING");
+  });
+
+  it("shows each time as a range with its duration", () => {
+    const ninetyMin: Slot[] = [
+      { start: "2027-09-01T09:00:00+08:00", end: "2027-09-01T10:30:00+08:00", bayId: "bay1", serviceTypeId: "st1" },
+    ];
+    const { getByText } = render(
+      <SlotPickerScreen slots={ninetyMin} holdSecondsLeft={null} onPick={jest.fn()} onRepick={jest.fn()} />,
+    );
+    getByText("9:00 AM – 10:30 AM");
+    getByText("1h 30m");
   });
 
   it("keeps what is being booked in view", () => {

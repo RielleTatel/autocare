@@ -30,7 +30,7 @@ describe("member theme", () => {
     expect(theme.text("h1").fontWeight).toBeUndefined();
   });
   it("uses token colors", () => {
-    expect(theme.colors.primary).toBe("#0E5AA7");
+    expect(theme.colors.primary).toBe("#D9273F");
   });
   it("meets member tap target minimum", () => {
     expect(theme.minTarget).toBeGreaterThanOrEqual(48);

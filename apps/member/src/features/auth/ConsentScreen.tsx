@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme, familyForRole } from "../../theme";
 import { Button } from "../../components/Button";
@@ -7,6 +8,7 @@ import { api } from "../../shared/api";
 const POLICY_VERSION = process.env.EXPO_PUBLIC_POLICY_VERSION ?? "1";
 
 export function ConsentScreen({ onConsented }: { onConsented: () => void }) {
+  const [error, setError] = useState<string | null>(null);
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.chassis }}>
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
@@ -19,13 +21,23 @@ export function ConsentScreen({ onConsented }: { onConsented: () => void }) {
         </Text>
         <Text style={[theme.text("body"), { color: theme.colors.ink }]}>{PRIVACY_POLICY}</Text>
       </ScrollView>
+      {error ? (
+        <Text style={[theme.text("label"), { color: theme.colors.danger, marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.sm }]}>
+          {error}
+        </Text>
+      ) : null}
       <Button
         block
         style={{ marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.lg }}
         testID="agree"
         onPress={async () => {
-          await api.post("/auth/consent", { policyVersion: POLICY_VERSION });
-          onConsented();
+          setError(null);
+          try {
+            await api.post("/auth/consent", { policyVersion: POLICY_VERSION });
+            onConsented();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Couldn't save your consent. Try again.");
+          }
         }}
       >
         I agree

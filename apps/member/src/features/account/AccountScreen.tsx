@@ -53,14 +53,11 @@ function SettingsGroup({ title, children }: { title: string; children: React.Rea
 }
 
 function Row({
-  label, onPress, testID, badge, badgeTestID,
+  label, onPress, testID,
 }: {
   label: string;
   onPress: () => void;
   testID?: string;
-  /** Unread count. Rendered only when > 0 — a zero badge is worse than none. */
-  badge?: number;
-  badgeTestID?: string;
 }) {
   const t = theme;
   return (
@@ -82,20 +79,7 @@ function Row({
       ]}
     >
       <Text style={[t.text("body"), { color: t.colors.ink }]}>{label}</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.xs }}>
-        {badge ? (
-          <View
-            testID={badgeTestID}
-            style={{
-              minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10,
-              backgroundColor: t.colors.primary, alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <Text style={[t.text("label"), { color: t.colors.onPrimary }]}>{badge}</Text>
-          </View>
-        ) : null}
-        <Icon name="chevron-right" size={18} color={t.colors.inkMuted} />
-      </View>
+      <Icon name="chevron-right" size={18} color={t.colors.inkMuted} />
     </Pressable>
   );
 }
@@ -109,7 +93,6 @@ function Row({
 export function AccountScreen({
   name, email, subscription, entitlements, plans, refreshing, onRefresh,
   onChangePlan, onPersonalDetails, onSubscriptionDetails, onInvoices, onPrivacy, onSignOut,
-  onAnnouncements, unreadAnnouncements = 0,
 }: {
   name: string;
   email?: string;
@@ -121,9 +104,6 @@ export function AccountScreen({
   onRefresh?: () => void;
   onChangePlan: (plan: Plan) => void;
   onPersonalDetails: () => void;
-  onAnnouncements: () => void;
-  /** Unread announcement count for the row badge. */
-  unreadAnnouncements?: number;
   onSubscriptionDetails: () => void;
   onInvoices: () => void;
   onPrivacy: () => void;
@@ -211,13 +191,6 @@ export function AccountScreen({
           one undifferentiated stack. Only rows that already have a route
           appear — a settings list that navigates nowhere reads as broken. */}
       <SettingsGroup title="Account">
-        <Row
-          testID="row-announcements"
-          badgeTestID="announcements-badge"
-          label="Announcements"
-          badge={unreadAnnouncements}
-          onPress={onAnnouncements}
-        />
         <Row testID="row-personal" label="Personal details" onPress={onPersonalDetails} />
         <Row testID="row-subscription" label="Subscription details" onPress={onSubscriptionDetails} />
       </SettingsGroup>

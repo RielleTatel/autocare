@@ -1,12 +1,25 @@
 import type { ReactNode } from "react";
-import { Pressable, View, type ViewStyle } from "react-native";
+import { Pressable, View, type AccessibilityState, type ViewStyle } from "react-native";
 import { theme } from "../theme";
 
 const PAD = { md: theme.spacing.md, lg: theme.spacing.lg, none: 0 } as const;
 
-/** Surface container — hairline border, radius 12, no shadow (elevation is line). */
+/** Soft two-layer shadow (RN only renders one layer — the wider ambient one —
+ *  since shadow* props don't stack); `elevation` is the Android equivalent. */
+const SOFT_SHADOW: ViewStyle = {
+  shadowColor: theme.colors.ink,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  elevation: 3,
+};
+
+/** Surface container — radius 20 (28 with `major`), soft shadow over a soft
+ *  border (2026 re-skin). `flat` reverts to the shipped hairline with no
+ *  shadow, for dense data surfaces. */
 export function Card({
-  children, pad = "md", accent, interactive, onPress, style, testID, accessibilityLabel,
+  children, pad = "md", accent, interactive, flat, major, disabled, onPress, style, testID,
+  accessibilityLabel, accessibilityState,
 }: {
   children: ReactNode;
   pad?: "md" | "lg" | "none";
@@ -14,18 +27,30 @@ export function Card({
   accent?: string;
   /** Renders as a Pressable (adds press feedback); implied when onPress is set. */
   interactive?: boolean;
+  /** Drop the soft shadow back to the shipped hairline. */
+  flat?: boolean;
+  /** Radius 28 instead of the default 20 — major cards, bottom sheets. */
+  major?: boolean;
+  /** Blocks press and reports the state to assistive tech. */
+  disabled?: boolean;
   onPress?: () => void;
   style?: ViewStyle;
   testID?: string;
   /** Announced when the card is interactive; it is a button to assistive tech. */
   accessibilityLabel?: string;
+  /** `selected` / `disabled` for cards used as a choice in a set. Merged over
+   *  `disabled` so a caller can pass either without them disagreeing. */
+  accessibilityState?: AccessibilityState;
 }) {
+  const a11yState: AccessibilityState | undefined =
+    accessibilityState || disabled ? { disabled: !!disabled, ...accessibilityState } : undefined;
   const boxStyle: ViewStyle = {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.md,
+    borderRadius: major ? theme.radii.lg : theme.radii.md,
     borderWidth: 1,
-    borderColor: theme.colors.line,
+    borderColor: flat ? theme.colors.line : theme.colors.lineSoft,
     padding: PAD[pad],
+    ...(flat ? null : SOFT_SHADOW),
     ...(accent ? { borderLeftWidth: theme.borders.accentRow, borderLeftColor: accent } : null),
     ...style,
   };
@@ -35,12 +60,14 @@ export function Card({
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
+        accessibilityState={a11yState}
+        disabled={disabled}
         onPress={onPress}
-        style={({ pressed }) => [boxStyle, pressed ? { opacity: theme.motion.pressOpacity } : null]}
+        style={({ pressed }) => [boxStyle, pressed && !disabled ? { opacity: theme.motion.pressOpacity } : null]}
       >
         {children}
       </Pressable>
     );
   }
-  return <View testID={testID} style={boxStyle}>{children}</View>;
+  return <View testID={testID} accessibilityState={a11yState} style={boxStyle}>{children}</View>;
 }

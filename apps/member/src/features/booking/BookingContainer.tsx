@@ -120,6 +120,15 @@ export function BookingContainer({
     }
   }
 
+  /** Back to the service step. Clears the loaded window so returning with a
+   *  different service can't show the previous one's times. */
+  const backToService = () => {
+    setSlots([]);
+    setService(null);
+    setError(null);
+    setStep("service");
+  };
+
   const backToSlots = () => {
     stopTimer();
     setHoldId(null);
@@ -143,9 +152,9 @@ export function BookingContainer({
           {error}
         </Text>
       )}
-      {step === "service" && <ServiceTypeScreen serviceTypes={serviceTypes} entitlements={entitlements} onSelect={onSelectService} />}
+      {step === "service" && <ServiceTypeScreen serviceTypes={serviceTypes} entitlements={entitlements} plateNo={vehicle?.plateNo} onSelect={onSelectService} />}
       {step === "slot" && (
-        <SlotPickerScreen slots={slots} loading={loadingSlots} holdSecondsLeft={null} vehicle={vehicle} serviceName={service?.name} onPick={onPickSlot} onRepick={() => service && loadSlots(service)} />
+        <SlotPickerScreen slots={slots} loading={loadingSlots} holdSecondsLeft={null} vehicle={vehicle} serviceName={service?.name} onPick={onPickSlot} onRepick={() => service && loadSlots(service)} onBack={backToService} />
       )}
       {step === "confirm" && slot && service && (
         holdSecondsLeft === 0 ? (

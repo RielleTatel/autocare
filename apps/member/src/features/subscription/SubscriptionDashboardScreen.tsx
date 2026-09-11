@@ -37,26 +37,43 @@ export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCa
   onViewInvoices: () => void;
 }) {
   const [data, setData] = useState<{ subscription: SubscriptionWithPlan; entitlements: EntitlementSummary[] } | null>(null);
+  const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setFailed(false);
     const d = await fetchDashboard();
     setData(d);
   }, [fetchDashboard]);
 
-  useEffect(() => { load(); }, [load]);
+  // The rejection has to be handled here: an async call fired from useEffect
+  // with nothing attached becomes an unhandled rejection, which RN surfaces as
+  // a red uncaught-error box — and the screen sits on "Loading…" for ever
+  // because `data` never arrives.
+  useEffect(() => { load().catch(() => setFailed(true)); }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try { await load(); } finally { setRefreshing(false); }
+    try { await load(); } catch { setFailed(true); } finally { setRefreshing(false); }
   };
 
   const t = theme;
 
   if (!data) {
     return (
-      <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center" }}>
-        <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Loading your subscription…</Text>
+      <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center", padding: t.spacing.lg, gap: t.spacing.md }}>
+        {failed ? (
+          <>
+            <Text style={[t.text("body"), { color: t.colors.ink, textAlign: "center" }]}>
+              Couldn't load your subscription. Check your connection and try again.
+            </Text>
+            <Button testID="subscription-retry" variant="secondary" onPress={() => void load().catch(() => setFailed(true))}>
+              Try again
+            </Button>
+          </>
+        ) : (
+          <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Loading your subscription…</Text>
+        )}
       </View>
     );
   }

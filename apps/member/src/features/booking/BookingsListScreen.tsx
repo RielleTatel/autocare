@@ -3,27 +3,40 @@ import { theme } from "../../theme";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Icon } from "../../components/Icon";
-import { StatusPill } from "../../components/StatusPill";
+import { serviceIcon, serviceTint } from "./serviceIcon";
 import type { MemberAppointment } from "./bookingApi";
 
+const manilaDay = (iso: string) =>
+  new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", day: "2-digit" });
+const manilaMonth = (iso: string) =>
+  new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short" }).toUpperCase();
 const manilaDate = (iso: string) =>
   new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric" });
 const manilaClock = (iso: string) =>
-  new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false });
+  new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true });
 
 const CANCELLABLE = new Set(["BOOKED", "CONFIRMED"]);
 
-type Tone = "neutral" | "info" | "success" | "warn" | "danger";
-
-/** Lifecycle → pill tone. Mirrors the staff board so one status never reads two ways. */
-const STATUS_TONE: Record<string, Tone> = {
-  BOOKED: "info",
-  CONFIRMED: "info",
-  IN_PROGRESS: "warn",
-  COMPLETED: "success",
-  CANCELLED: "neutral",
-  NO_SHOW: "danger",
+/** Lifecycle → soft tinted tag. Mirrors the staff board's tone mapping so one
+ *  status never reads two ways, using the -soft tokens (2026 re-skin) instead
+ *  of a solid fill for this list's calmer, editorial density. */
+const STATUS_TAG: Record<string, { bg: string; fg: string }> = {
+  BOOKED: { bg: theme.colors.chassis, fg: theme.colors.inkMuted },
+  CONFIRMED: { bg: theme.vhsBands.EXCELLENT.soft, fg: theme.vhsBands.EXCELLENT.text },
+  IN_PROGRESS: { bg: theme.colors.primarySoft, fg: theme.colors.primary },
+  COMPLETED: { bg: theme.colors.chassis, fg: theme.colors.inkMuted },
+  CANCELLED: { bg: theme.colors.primarySoft, fg: theme.colors.primary },
+  NO_SHOW: { bg: theme.vhsBands.CRITICAL.soft, fg: theme.vhsBands.CRITICAL.text },
 };
+
+function Tag({ children }: { children: string }) {
+  const look = STATUS_TAG[children] ?? STATUS_TAG.BOOKED;
+  return (
+    <View style={{ alignSelf: "flex-start", backgroundColor: look.bg, borderRadius: theme.radii.pill, paddingHorizontal: 10, paddingVertical: 3 }}>
+      <Text style={{ ...theme.text("code"), fontSize: 10, letterSpacing: 0.8, color: look.fg }}>{children}</Text>
+    </View>
+  );
+}
 
 /**
  * M-23 — my bookings, split upcoming/past. Cancel is offered on cancellable upcoming appointments;
@@ -53,28 +66,45 @@ export function BookingsListScreen({
   const upcoming = appointments.filter((a) => new Date(a.scheduledStart) >= now && a.status !== "CANCELLED");
   const past = appointments.filter((a) => new Date(a.scheduledStart) < now || a.status === "CANCELLED");
 
-  const Row = ({ a, cancellable }: { a: MemberAppointment; cancellable: boolean }) => {
+  const Row = ({ a, cancellable, dim }: { a: MemberAppointment; cancellable: boolean; dim?: boolean }) => {
     const vehicle = vehicleLabels?.[a.vehicleId];
+    const service = serviceNames[a.serviceTypeId] ?? "Service";
+    // Only the name is on hand here — the list is keyed by service-type id, not
+    // code — which the keyword match handles.
+    const glyph = serviceIcon("", service);
     return (
-      <Card testID={`appt-${a.id}`} style={{ gap: t.spacing.xs }}>
-        {/* Service leads: it is what the member booked. Status sits opposite so
-            the pair reads as one line without competing for the same weight. */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: t.spacing.sm }}>
-          <Text style={[t.text("h2"), { color: t.colors.ink, flex: 1 }]} numberOfLines={1}>
-            {serviceNames[a.serviceTypeId] ?? "Service"}
-          </Text>
-          <StatusPill tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace("_", " ")}</StatusPill>
+      <Card testID={`appt-${a.id}`} style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.md, opacity: dim ? 0.72 : 1 }}>
+        <View
+          style={{
+            width: 58, height: 58, borderRadius: t.radii.md,
+            backgroundColor: dim ? t.colors.chassis : t.colors.primarySoft,
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Text style={[t.text("h2"), { color: dim ? t.colors.inkMuted : t.colors.primary, lineHeight: 24 }]}>{manilaDay(a.scheduledStart)}</Text>
+          <Text style={{ ...t.text("code"), fontSize: 10, letterSpacing: 0.8, color: dim ? t.colors.inkFaint : t.colors.primary, marginTop: 2 }}>{manilaMonth(a.scheduledStart)}</Text>
         </View>
 
-        <Text style={[t.text("body"), { color: t.colors.ink }]}>
-          {manilaDate(a.scheduledStart)} · {manilaClock(a.scheduledStart)}
-        </Text>
-
-        {vehicle ? (
-          <Text testID={`appt-vehicle-${a.id}`} style={[t.text("label"), { color: t.colors.inkMuted }]}>
-            {vehicle}
+        <View style={{ flex: 1, gap: 4 }}>
+          {/* Service leads: it is what the member booked. */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+            {/* Muted on a past booking: the row is already dimmed, and a full
+                colour glyph would be the brightest thing in a settled list. */}
+            <Icon name={glyph} size={16} color={dim ? t.colors.inkFaint : serviceTint(glyph).fg} />
+            <Text style={[t.text("h2"), { color: t.colors.ink, flex: 1 }]} numberOfLines={1}>
+              {service}
+            </Text>
+          </View>
+          <Text style={[t.text("label"), { color: t.colors.inkFaint }]}>
+            {manilaDate(a.scheduledStart)} · {manilaClock(a.scheduledStart)}
           </Text>
-        ) : null}
+          {vehicle ? (
+            <Text testID={`appt-vehicle-${a.id}`} style={[t.text("label"), { color: t.colors.inkMuted }]}>
+              {vehicle}
+            </Text>
+          ) : null}
+          <Tag>{a.status.replace("_", " ")}</Tag>
+        </View>
 
         {cancellable && (
           <Pressable
@@ -82,9 +112,10 @@ export function BookingsListScreen({
             accessibilityRole="button"
             accessibilityLabel={`Cancel ${serviceNames[a.serviceTypeId] ?? "service"}`}
             onPress={() => onCancel(a.id)}
-            style={{ minHeight: t.minTarget, justifyContent: "center" }}
+            hitSlop={8}
+            style={{ width: 40, height: 40, borderRadius: t.radii.pill, borderWidth: t.borders.hairline, borderColor: t.colors.line, alignItems: "center", justifyContent: "center" }}
           >
-            <Text style={[t.text("label", 600), { color: t.colors.danger }]}>Cancel booking</Text>
+            <Icon name="x" size={18} color={t.colors.inkMuted} />
           </Pressable>
         )}
       </Card>
@@ -93,16 +124,37 @@ export function BookingsListScreen({
 
   return (
     <ScrollView style={{ backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md }} testID="bookings-list-screen">
-      <Text style={[t.text("h1"), { color: t.colors.primaryDeep }]}>My bookings</Text>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <View style={{ gap: 2 }}>
+          <Text style={[t.text("h1"), { color: t.colors.ink }]}>My bookings</Text>
+          <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>{upcoming.length} upcoming {upcoming.length === 1 ? "visit" : "visits"}</Text>
+        </View>
+        <Pressable
+          testID={upcoming.length === 0 && past.length === 0 ? undefined : "book-new"}
+          accessibilityRole="button"
+          accessibilityLabel="Book a new service"
+          onPress={onBookNew}
+          hitSlop={8}
+          style={{ width: 44, height: 44, borderRadius: t.radii.pill, backgroundColor: t.colors.ink, alignItems: "center", justifyContent: "center" }}
+        >
+          <Icon name="plus" size={20} color={t.colors.surface} />
+        </Pressable>
+      </View>
 
       {pendingApproval ? (
-        <Card testID="pending-approval" accent={theme.vhsBands.NEEDS_ATTENTION.fill} interactive onPress={pendingApproval.onApprove} style={{ gap: 4 }}>
-          <Text style={[t.text("body"), { color: t.colors.ink }]}>{pendingApproval.label}</Text>
-          <Text style={[t.text("label", 600), { color: t.colors.primary }]}>Approve your service ›</Text>
+        <Card testID="pending-approval" accent={theme.colors.ember} interactive onPress={pendingApproval.onApprove} style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.md }}>
+          <View style={{ width: 40, height: 40, borderRadius: t.radii.sm, backgroundColor: theme.vhsBands.NEEDS_ATTENTION.soft, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="triangle-alert" size={20} color={theme.vhsBands.NEEDS_ATTENTION.text} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={[t.text("body"), { color: t.colors.ink }]}>{pendingApproval.label}</Text>
+            <Text style={[t.text("label", 600), { color: t.colors.primary }]}>Approve your service</Text>
+          </View>
+          <Icon name="chevron-right" size={20} color={t.colors.inkMuted} />
         </Card>
       ) : null}
 
-      {upcoming.length === 0 ? (
+      {upcoming.length === 0 && past.length === 0 ? (
         /* An empty list is the moment to offer the next step, not to report a
            void. The CTA is the screen's purpose, so it leads here. */
         <Card pad="lg" testID="bookings-empty">
@@ -127,22 +179,23 @@ export function BookingsListScreen({
         </Card>
       ) : (
         <>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Upcoming</Text>
-            <Button variant="secondary" testID="book-new" onPress={onBookNew}>Book a service</Button>
-          </View>
-          {upcoming.map((a) => (
-            <Row key={a.id} a={a} cancellable={CANCELLABLE.has(a.status)} />
+          {upcoming.length > 0 ? (
+            <>
+              <Text style={[t.text("label"), { color: t.colors.inkFaint, letterSpacing: 1, textTransform: "uppercase" }]}>Upcoming</Text>
+              {upcoming.map((a) => (
+                <Row key={a.id} a={a} cancellable={CANCELLABLE.has(a.status)} />
+              ))}
+            </>
+          ) : null}
+
+          {past.length > 0 && (
+            <Text style={[t.text("label"), { color: t.colors.inkFaint, letterSpacing: 1, textTransform: "uppercase", marginTop: t.spacing.xs }]}>Past</Text>
+          )}
+          {past.map((a) => (
+            <Row key={a.id} a={a} cancellable={false} dim />
           ))}
         </>
       )}
-
-      {past.length > 0 && (
-        <Text style={[t.text("label"), { color: t.colors.inkMuted, marginTop: t.spacing.sm }]}>Past</Text>
-      )}
-      {past.map((a) => (
-        <Row key={a.id} a={a} cancellable={false} />
-      ))}
     </ScrollView>
   );
 }
