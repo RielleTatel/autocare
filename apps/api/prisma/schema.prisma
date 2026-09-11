@@ -58,6 +58,7 @@ model User {
   createdAt              DateTime        @default(now()) @map("created_at")
   consents               ConsentRecord[]
   vehicles               Vehicle[]
+  roadsideRequests       RoadsideRequest[]
   address                String?
   emergencyContactName   String?         @map("emergency_contact_name")
   emergencyContactMobile String?         @map("emergency_contact_mobile")
@@ -115,6 +116,7 @@ model Vehicle {
   workOrders        WorkOrder[]
   recommendations   Recommendation[]
   announcements     Announcement[]
+  roadsideRequests  RoadsideRequest[]
 
   @@index([ownerUserId, status])
   @@map("vehicles")
@@ -968,4 +970,55 @@ model AnnouncementRead {
 
   @@id([announcementId, userId])
   @@map("announcement_reads")
+}
+
+// ---------------------------------------------------------------------------
+// Roadside assistance (FR-031 -> FR-040)
+// ---------------------------------------------------------------------------
+
+enum IncidentType {
+  FLAT_TYRE
+  DEAD_BATTERY
+  OUT_OF_FUEL
+  OVERHEATING
+  WILL_NOT_START
+  ACCIDENT
+  OTHER
+}
+
+enum RoadsideStatus {
+  REQUESTED
+  ACKNOWLEDGED
+  DISPATCHED
+  EN_ROUTE
+  ON_SITE
+  RESOLVED
+}
+
+model RoadsideRequest {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @map("user_id") @db.Uuid
+  user               User           @relation(fields: [userId], references: [id])
+  vehicleId          String         @map("vehicle_id") @db.Uuid
+  vehicle            Vehicle        @relation(fields: [vehicleId], references: [id])
+  incidentType       IncidentType   @map("incident_type")
+  lat                Float
+  lng                Float
+  address            String?
+  landmarkNote       String?        @map("landmark_note")
+  status             RoadsideStatus @default(REQUESTED)
+  dispatchedToUserId String?        @map("dispatched_to") @db.Uuid
+  responderName      String?        @map("responder_name")
+  etaMinutes         Int?           @map("eta_minutes")
+  resolutionNotes    String?        @map("resolution_notes")
+  costCentavos       BigInt?        @map("cost_centavos")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  acknowledgedAt     DateTime?      @map("acknowledged_at")
+  resolvedAt         DateTime?      @map("resolved_at")
+
+  // The dispatch board reads open requests oldest-first; the member's own
+  // history reads by user. Both are hot paths on an emergency screen.
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("roadside_requests")
 }
