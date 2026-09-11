@@ -16,3 +16,4 @@ export * from "./certificates";
 export * from "./work-orders";
 export * from "./attention";
 export * from "./announcements";
+export * from "./roadside";

@@ -19,21 +19,35 @@
           }
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "AutoCare+ uses your location so we can send help to the right place when you request roadside assistance."
+        }
+      ],
+      "@rnmapbox/maps"
     ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.mao.autocare",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "AutoCare+ uses your location so we can send help to the right place when you request roadside assistance."
+      }
     },
     "android": {
       "package": "com.mao.autocare",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#F9FAFE",
+        "backgroundColor": "#FBEEEB",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
