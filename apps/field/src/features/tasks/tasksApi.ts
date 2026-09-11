@@ -1,11 +1,14 @@
-import { api } from "../../shared/api";
+import { api, API_BASE_URL } from "../../shared/api";
 import { kvGet, kvSet } from "../../shared/db/kv";
 
-const KEY = "tasks:today";
+/** Namespaced by backend — see checklistCache.ts. Appointment/vehicle ids differ
+ *  per database, so a list cached against one API must not be served for another. */
+const KEY = `tasks:today:${API_BASE_URL}`;
 
 export type FieldTask = {
   id: string;
   scheduledStart: string;
+  vehicleId: string;
   vehiclePlateNo: string;
   serviceTypeName: string;
   memberName: string | null;

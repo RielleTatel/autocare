@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { fieldTheme } from "../../theme";
 import { api } from "../../shared/api";
+import { VehicleHistory } from "../history/VehicleHistory";
 
 export type FieldVehicle = {
   id: string;
@@ -12,9 +13,20 @@ export type FieldVehicle = {
   currentOdometerKm: number;
 };
 
-/** F-04 — task detail: pick the vehicle (plate search over the staff-visible
- *  fleet), confirm odometer, start the 50-point inspection. */
-export function TaskDetailScreen({ onStart }: { onStart(vehicle: FieldVehicle, odometerKm: number | null): void }) {
+/** F-04 — task detail: pick the vehicle (browse the staff-visible fleet, or
+ *  filter by plate), confirm odometer, start the 50-point inspection. */
+export function TaskDetailScreen({
+  onStart,
+  initialVehicleId,
+  onOpenInspection,
+}: {
+  onStart(vehicle: FieldVehicle, odometerKm: number | null): void;
+  initialVehicleId?: string;
+  /** Opens a past inspection for the selected vehicle. Passed down rather than
+   *  taken from useNavigation: this screen is rendered inside InspectionFlow,
+   *  which owns the stack entry, and the prop keeps it unit-testable. */
+  onOpenInspection?: (vehicleId: string, inspectionId: string) => void;
+}) {
   const t = fieldTheme;
   const [vehicles, setVehicles] = useState<FieldVehicle[]>([]);
   const [query, setQuery] = useState("");
@@ -28,9 +40,21 @@ export function TaskDetailScreen({ onStart }: { onStart(vehicle: FieldVehicle, o
       .catch((e) => setErr(e instanceof Error ? e.message : "Could not load vehicles"));
   }, []);
 
+  // Coming from a tapped appointment: skip the plate search and land straight
+  // on the odometer confirm step for that vehicle.
+  useEffect(() => {
+    if (!initialVehicleId || selected) return;
+    const v = vehicles.find((x) => x.id === initialVehicleId);
+    if (v) {
+      setSelected(v);
+      setQuery(v.plateNo);
+      setOdometer(String(v.currentOdometerKm));
+    }
+  }, [initialVehicleId, vehicles, selected]);
+
   const matches = query.trim() === ""
-    ? []
-    : vehicles.filter((v) => v.plateNo.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8);
+    ? vehicles
+    : vehicles.filter((v) => v.plateNo.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md }}>
@@ -77,6 +101,11 @@ export function TaskDetailScreen({ onStart }: { onStart(vehicle: FieldVehicle, o
           >
             <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Begin inspection</Text>
           </Pressable>
+
+          <VehicleHistory
+            vehicleId={selected.id}
+            onOpenInspection={onOpenInspection ? (id) => onOpenInspection(selected.id, id) : undefined}
+          />
         </View>
       )}
     </ScrollView>

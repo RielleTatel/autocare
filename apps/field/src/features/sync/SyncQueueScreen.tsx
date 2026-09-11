@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, Text, View } from "react-native";
 import { fieldTheme } from "../../theme";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -10,6 +10,7 @@ import { Icon, type IconName } from "../../components/Icon";
 import { outbox, syncProcessor } from "../../shared/sync";
 import { useSyncStatus } from "../../shared/sync/useSyncStatus";
 import type { OutboxEntry } from "../../shared/sync/types";
+import { discardRejected } from "./discard";
 
 const ENTITY_ICONS: Record<string, IconName> = {
   inspection: "wrench",
@@ -46,6 +47,30 @@ export function SyncQueueScreen({ storageUsedBytes = 0, onBack }: { storageUsedB
   useEffect(() => {
     refresh();
     return syncProcessor.subscribe(() => { void refresh(); });
+  }, [refresh]);
+
+  /** Destructive and irreversible — the local inspection goes with it — so it
+   *  asks first. Discarding a create also takes its dependent submit, which is
+   *  why the copy says "record" rather than naming one queue row. */
+  const confirmDiscard = useCallback((e: OutboxEntry) => {
+    Alert.alert(
+      "Discard this record?",
+      "The inspection data saved on this device will be deleted and cannot be recovered.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              await discardRejected(e);
+              setExpanded(null);
+              await refresh();
+            })();
+          },
+        },
+      ],
+    );
   }, [refresh]);
 
   return (
@@ -90,11 +115,21 @@ export function SyncQueueScreen({ storageUsedBytes = 0, onBack }: { storageUsedB
                   {entityLabel(e.entityType)} · {e.op} · rejected by server
                 </Text>
                 {expanded === e.clientUuid && (
-                  <View style={{ paddingTop: t.spacing.xs }}>
+                  <View style={{ paddingTop: t.spacing.xs, gap: t.spacing.xs }}>
                     <Text style={{ ...t.text("label"), color: t.colors.danger }}>{e.lastError}</Text>
                     <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
-                      This record was not accepted. Contact your advisor to resolve it.
+                      This record was not accepted and will not be retried — the data it was sent
+                      with cannot change. Discard it to clear the queue, then redo the job if it is
+                      still needed.
                     </Text>
+                    <Button
+                      variant="secondary"
+                      icon="trash-2"
+                      accessibilityLabel={`Discard ${entityLabel(e.entityType)}`}
+                      onPress={() => confirmDiscard(e)}
+                    >
+                      Discard
+                    </Button>
                   </View>
                 )}
               </Card>

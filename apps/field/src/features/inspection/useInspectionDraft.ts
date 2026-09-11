@@ -13,7 +13,9 @@ export interface UseInspectionDraft {
   check: Completeness | null;
   isLocked: boolean;
   saveResult(r: LocalResult): Promise<void>;
-  submit(): Promise<void>;
+  /** Resolves true on success, false on failure (details land in submitError) — lets
+   * callers decide whether to navigate away without racing the next render's state. */
+  submit(): Promise<boolean>;
   submitError: string | null;
 }
 
@@ -30,12 +32,14 @@ export function useInspectionDraft(
 
   useEffect(() => {
     let mounted = true;
-    InspectionDraft.start(deps, input).then(async (d) => {
-      if (!mounted) return;
-      setDraft(d);
-      setResults(await d.results());
-      setCheck(await d.completeness());
-    });
+    InspectionDraft.start(deps, input)
+      .then(async (d) => {
+        if (!mounted) return;
+        setDraft(d);
+        setResults(await d.results());
+        setCheck(await d.completeness());
+      })
+      .catch((e) => { if (mounted) setSubmitError(e instanceof Error ? e.message : "Could not start inspection"); });
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one draft per mount
   }, []);
@@ -52,13 +56,15 @@ export function useInspectionDraft(
   }, [draft, refresh]);
 
   const submit = useCallback(async () => {
-    if (!draft) return;
+    if (!draft) return false;
     setSubmitError(null);
     try {
       await draft.submit();
       setIsLocked(true);
+      return true;
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "submit failed");
+      return false;
     }
   }, [draft]);
 

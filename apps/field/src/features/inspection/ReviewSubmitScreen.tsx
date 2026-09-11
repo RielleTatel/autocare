@@ -16,7 +16,7 @@ const ADVERSE: PointStatus[] = ["ATTENTION", "CRITICAL"];
  *  every point with what was measured, what is still missing, and what the
  *  advisor will need to talk about. */
 export function ReviewSubmitScreen({
-  checklist, results, check, overall, isOffline, submitted, vehicle, onJumpToPoint, onSubmit, onBack,
+  checklist, results, check, overall, isOffline, submitted, vehicle, onJumpToPoint, onSubmit, onBack, error,
 }: {
   checklist: CachedChecklist;
   results: LocalResult[];
@@ -28,6 +28,7 @@ export function ReviewSubmitScreen({
   onJumpToPoint(code: string): void;
   onSubmit(): void;
   onBack?(): void;
+  error?: string | null;
 }) {
   const t = fieldTheme;
   const pct = overall.total === 0 ? 0 : Math.round((overall.answered / overall.total) * 100);
@@ -139,6 +140,9 @@ export function ReviewSubmitScreen({
             <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textAlign: "center" }}>
               Submits to the outbox — it will sync when you have signal.
             </Text>
+            {error ? (
+              <Text style={{ ...t.text("label"), color: t.colors.danger, textAlign: "center" }}>{error}</Text>
+            ) : null}
           </>
         )}
       </ScrollView>

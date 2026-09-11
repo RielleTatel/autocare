@@ -1,4 +1,4 @@
-import type { OutboxEntry, OutboxRepo, SyncEntityType, SyncOp } from "../sync/types";
+import { dependsOn, type OutboxEntry, type OutboxRepo, type SyncEntityType, type SyncOp } from "../sync/types";
 
 /** In-memory OutboxRepo — the behavioural reference for the SQLite repo and
  *  the implementation used by jest (expo-sqlite has no jest environment). */
@@ -29,6 +29,12 @@ export class MemoryOutboxRepo implements OutboxRepo {
 
   async rejectedInOrder(): Promise<OutboxEntry[]> {
     return this.entries.filter((e) => e.state === "REJECTED").sort((a, b) => a.createdAt - b.createdAt).map((e) => ({ ...e }));
+  }
+
+  async discard(clientUuid: string): Promise<string[]> {
+    const doomed = this.entries.filter((e) => dependsOn(e, clientUuid));
+    this.entries = this.entries.filter((e) => !dependsOn(e, clientUuid));
+    return doomed.map((e) => e.clientUuid);
   }
 
   async counts(): Promise<{ pending: number; rejected: number }> {

@@ -1,4 +1,4 @@
-import type { OutboxEntry, OutboxRepo, OutboxState, SyncEntityType, SyncOp } from "../sync/types";
+import { dependsOn, type OutboxEntry, type OutboxRepo, type OutboxState, type SyncEntityType, type SyncOp } from "../sync/types";
 import { getDb } from "./schema";
 
 type Row = {
@@ -56,6 +56,19 @@ export class SqliteOutboxRepo implements OutboxRepo {
     const db = await getDb();
     const rows = await db.getAllAsync<Row>("SELECT * FROM outbox WHERE state = 'REJECTED' ORDER BY created_at ASC");
     return rows.map(toEntry);
+  }
+
+  async discard(clientUuid: string): Promise<string[]> {
+    const db = await getDb();
+    // Resolve the group in JS using the same predicate as MemoryOutboxRepo (the
+    // documented behavioural reference) rather than a json_extract() query, so
+    // the two implementations cannot drift. The queue is small by design.
+    const rows = await db.getAllAsync<Row>("SELECT * FROM outbox");
+    const doomed = rows.map(toEntry).filter((e) => dependsOn(e, clientUuid));
+    for (const e of doomed) {
+      await db.runAsync("DELETE FROM outbox WHERE client_uuid = ?", e.clientUuid);
+    }
+    return doomed.map((e) => e.clientUuid);
   }
 
   async counts(): Promise<{ pending: number; rejected: number }> {

@@ -31,7 +31,14 @@ type Route =
 
 /** F-04 → F-08 in one stateful flow. Navigation between capture steps is local
  *  state (the flow is one logical task), the outer stack hosts the flow. */
-export function InspectionFlow({ onDone, initialVehicleId }: { onDone(): void; initialVehicleId?: string }) {
+export function InspectionFlow({ onDone, initialVehicleId, initialAppointmentId, onOpenInspection }: {
+  onDone(): void;
+  initialVehicleId?: string;
+  /** Set when the flow was opened from a booked task. Carried into the draft so
+   *  the synced inspection links to its appointment (and completes it). */
+  initialAppointmentId?: string;
+  onOpenInspection?: (vehicleId: string, inspectionId: string) => void;
+}) {
   const t = fieldTheme;
   const [route, setRoute] = useState<Route>({ name: "task" });
   const [checklist, setChecklist] = useState<CachedChecklist | null>(null);
@@ -55,6 +62,7 @@ export function InspectionFlow({ onDone, initialVehicleId }: { onDone(): void; i
     return (
       <TaskDetailScreen
         initialVehicleId={initialVehicleId}
+        onOpenInspection={onOpenInspection}
         onStart={(v, odo) => {
           setVehicle(v);
           setOdometerKm(odo);
@@ -69,6 +77,7 @@ export function InspectionFlow({ onDone, initialVehicleId }: { onDone(): void; i
       checklist={checklist}
       vehicle={vehicle}
       odometerKm={odometerKm}
+      appointmentId={initialAppointmentId ?? null}
       route={route}
       setRoute={setRoute}
       onDone={onDone}
@@ -77,17 +86,18 @@ export function InspectionFlow({ onDone, initialVehicleId }: { onDone(): void; i
 }
 
 function CaptureFlow({
-  checklist, vehicle, odometerKm, route, setRoute, onDone,
+  checklist, vehicle, odometerKm, appointmentId, route, setRoute, onDone,
 }: {
   checklist: CachedChecklist;
   vehicle: FieldVehicle;
   odometerKm: number | null;
+  appointmentId: string | null;
   route: Route;
   setRoute(r: Route): void;
   onDone(): void;
 }) {
   const t = fieldTheme;
-  const draft = useInspectionDraft(draftDeps, { vehicleId: vehicle.id, odometerKm, checklist });
+  const draft = useInspectionDraft(draftDeps, { vehicleId: vehicle.id, appointmentId, odometerKm, checklist });
 
   const orderedCodes = useMemo(() => checklist.categories.flatMap((c) => c.points.map((p) => p.code)), [checklist]);
   const pointByCode = useMemo(() => {
@@ -169,8 +179,10 @@ function CaptureFlow({
         vehicle={{ plateNo: vehicle.plateNo, description: `${vehicle.year} ${vehicle.make} ${vehicle.model}`, odometerKm: odometerKm ?? undefined }}
         onJumpToPoint={(code) => setRoute({ name: "point", code })}
         onBack={() => setRoute({ name: "categories" })}
+        error={draft.submitError}
         onSubmit={async () => {
-          await draft.submit();
+          const ok = await draft.submit();
+          if (!ok) return;
           void syncProcessor.drain().catch(() => undefined);
           onDone();
         }}

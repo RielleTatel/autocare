@@ -13,7 +13,7 @@
     "android": {
       "package": "ph.autocare.field",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FBEEEB",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -25,6 +25,12 @@
     },
     "plugins": [
       "expo-sqlite"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9d6b3504-fac9-4816-afb0-b27b3e5ca88c"
+      }
+    },
+    "owner": "srielle"
   }
 }

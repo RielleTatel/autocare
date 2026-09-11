@@ -14,6 +14,7 @@ import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSessi
 import { InspectionFlow } from "../features/inspection/InspectionFlow";
 import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
 import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
+import { InspectionDetailScreen } from "../features/history/InspectionDetailScreen";
 import { startSyncListener } from "../shared/sync";
 
 const Stack = createNativeStackNavigator();
@@ -87,7 +88,7 @@ function AppShell() {
               <TaskListScreen
                 name={boot.name}
                 role={boot.role}
-                onStartInspection={(vehicleId) => navigation.navigate("Inspection", { vehicleId })}
+                onStartInspection={(from) => navigation.navigate("Inspection", from ?? {})}
                 onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
                 onOpenRoadside={() => navigation.navigate("Roadside")}
                 onLogout={() => {
@@ -100,9 +101,23 @@ function AppShell() {
             {({ navigation, route }) => (
               <InspectionFlow
                 initialVehicleId={(route.params as { vehicleId?: string } | undefined)?.vehicleId}
-                onDone={() => navigation.navigate("Home")}
+                initialAppointmentId={(route.params as { appointmentId?: string } | undefined)?.appointmentId}
+                onOpenInspection={(vehicleId, inspectionId) => navigation.navigate("InspectionDetail", { vehicleId, inspectionId })}
+                onDone={() => navigation.popToTop()}
               />
             )}
+          </Stack.Screen>
+          <Stack.Screen name="InspectionDetail">
+            {({ navigation, route }) => {
+              const p = route.params as { vehicleId: string; inspectionId: string };
+              return (
+                <InspectionDetailScreen
+                  vehicleId={p.vehicleId}
+                  inspectionId={p.inspectionId}
+                  onBack={() => navigation.goBack()}
+                />
+              );
+            }}
           </Stack.Screen>
           <Stack.Screen name="Roadside">
             {({ navigation }) => (
@@ -110,7 +125,8 @@ function AppShell() {
             )}
           </Stack.Screen>
           <Stack.Screen name="SyncQueue">
-            {() => <SyncQueueScreen />}
+            {/* onBack was missing, leaving the screen with no affordance back. */}
+            {({ navigation }) => <SyncQueueScreen onBack={() => navigation.goBack()} />}
           </Stack.Screen>
         </Stack.Navigator>
       ) : (
