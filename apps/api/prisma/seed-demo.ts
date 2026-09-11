@@ -22,7 +22,15 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const MEMBER_EMAIL = "test.member@autocare.dev";
+/**
+ * Both known test members get the treatment: which one a device is signed in as
+ * is not knowable from here, and a demo that works for one and silently refuses
+ * the other is worse than seeding twice. Override with:
+ *   ts-node prisma/seed-demo.ts someone@example.com
+ */
+const MEMBER_EMAILS = process.argv.slice(2).length
+  ? process.argv.slice(2)
+  : ["test.member@autocare.dev", "seed.member@autocare.dev"];
 const DRIVER_EMAIL = "test.driver@autocare.dev";
 const DAY_MS = 86_400_000;
 
@@ -49,16 +57,16 @@ async function seedDriver(): Promise<void> {
   console.log(`Driver seeded: ${driver.name} <${driver.email}> (${driver.id})`);
 }
 
-async function seedSubscription(): Promise<void> {
-  const member = await prisma.user.findFirst({ where: { email: MEMBER_EMAIL } });
+async function seedSubscription(memberEmail: string): Promise<void> {
+  const member = await prisma.user.findFirst({ where: { email: memberEmail } });
   if (!member) {
-    console.log(`SKIPPED: no user ${MEMBER_EMAIL}. Sign in once on the member app first — the API creates the row.`);
+    console.log(`SKIPPED: no user ${memberEmail}. Sign in once on the member app first — the API creates the row.`);
     return;
   }
 
   const vehicle = await prisma.vehicle.findFirst({ where: { ownerUserId: member.id, status: "ACTIVE" } });
   if (!vehicle) {
-    console.log(`SKIPPED: ${MEMBER_EMAIL} has no active vehicle. Add one in the app first.`);
+    console.log(`SKIPPED: ${memberEmail} has no active vehicle. Add one in the app first.`);
     return;
   }
 
@@ -67,7 +75,7 @@ async function seedSubscription(): Promise<void> {
     include: { plan: true },
   });
   if (already) {
-    console.log(`Subscription already present: ${already.plan.code} (${already.status})`);
+    console.log(`${memberEmail}: subscription already present — ${already.plan.code} (${already.status})`);
     return;
   }
 
@@ -119,14 +127,14 @@ async function seedSubscription(): Promise<void> {
 
   const opensAt = new Date(paidAt.getTime() + 30 * DAY_MS);
   console.log(
-    `Subscription seeded: ${plan.code} on ${vehicle.plateNo}, paid ${paidAt.toISOString().slice(0, 10)} ` +
+    `${memberEmail}: ${plan.code} on ${vehicle.plateNo}, paid ${paidAt.toISOString().slice(0, 10)} ` +
       `→ roadside eligible since ${opensAt.toISOString().slice(0, 10)}`,
   );
 }
 
 async function main(): Promise<void> {
   await seedDriver();
-  await seedSubscription();
+  for (const email of MEMBER_EMAILS) await seedSubscription(email);
 }
 
 if (require.main === module) {
