@@ -2,12 +2,23 @@
   "name": "autocare",
   "private": true,
   "packageManager": "pnpm@9.12.0",
-  "engines": { "node": ">=20 <21" },
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "serve:all": "concurrently -n api,web,member,field -c blue,green,yellow,magenta \"pnpm --filter api start:dev\" \"pnpm --filter web dev\" \"pnpm --filter member start\" \"pnpm --filter field start -- --port 8082\"",
+    "serve:web": "concurrently -n api,web -c blue,green \"pnpm --filter api start:dev\" \"pnpm --filter web dev\"",
+    "serve:member": "concurrently -n api,member -c blue,yellow \"pnpm --filter api start:dev\" \"pnpm --filter member start\"",
+    "serve:field": "concurrently -n api,field -c blue,magenta \"pnpm --filter api start:dev\" \"pnpm --filter field start\"",
+    "serve:mobile": "concurrently -n api,member,field -c blue,yellow,magenta \"pnpm --filter api start:dev\" \"pnpm --filter member start\" \"pnpm --filter field start -- --port 8082\""
   },
-  "devDependencies": { "turbo": "^2.1.0", "typescript": "^5.5.0" }
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "turbo": "^2.1.0",
+    "typescript": "^5.5.0"
+  }
 }

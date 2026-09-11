@@ -1,0 +1,94 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>AutoCare+ · Member app</title>
+<meta name="ext-resource-dependency" content="../../assets/logo-mark.png" data-resource-id="logoMark" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/house.svg" data-resource-id="ic_house" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/car-front.svg" data-resource-id="ic_car_front" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/calendar-days.svg" data-resource-id="ic_calendar_days" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/user.svg" data-resource-id="ic_user" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/chevron-left.svg" data-resource-id="ic_chevron_left" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/chevron-right.svg" data-resource-id="ic_chevron_right" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/calendar-plus.svg" data-resource-id="ic_calendar_plus" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/phone.svg" data-resource-id="ic_phone" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/share-2.svg" data-resource-id="ic_share_2" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/trending-up.svg" data-resource-id="ic_trending_up" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/list-tree.svg" data-resource-id="ic_list_tree" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/plus.svg" data-resource-id="ic_plus" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/map-pin.svg" data-resource-id="ic_map_pin" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/battery-warning.svg" data-resource-id="ic_battery_warning" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/disc-3.svg" data-resource-id="ic_disc_3" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/fuel.svg" data-resource-id="ic_fuel" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/lucide-static@0.544.0/icons/circle-help.svg" data-resource-id="ic_circle_help" />
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>html,body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}
+#root{display:flex;justify-content:center;padding:16px}
+.phone{width:390px;height:844px;background:var(--ac-chassis);border:1px solid var(--ac-line);border-radius:var(--ac-radius-md);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.status{height:24px;flex:none;background:var(--ac-surface);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-family:var(--ac-font-mono);font-size:11px;color:var(--ac-ink-muted)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+a{color:var(--ac-primary)}a:hover{color:var(--action-primary-hover)}</style>
+<template id="__bundler_thumbnail" data-bg-color="#0A2E4F">
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#0A2E4F"/><path d="M300 560 A300 300 0 0 1 900 560" fill="none" stroke="#1B4670" stroke-width="76" stroke-linecap="round"/><path d="M300 560 A300 300 0 0 1 640 266" fill="none" stroke="#B87E00" stroke-width="76" stroke-linecap="round"/><text x="600" y="540" text-anchor="middle" font-family="Arial Narrow, Arial, sans-serif" font-weight="700" font-size="210" fill="#FFFFFF">69</text><text x="600" y="670" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="60" fill="#B9CCDD">AutoCare+</text></svg>
+</template>
+</head><body><div id="root"></div>
+<script type="text/babel" src="data.jsx"></script>
+<script>
+(function(){
+  var map={"house":"ic_house","car-front":"ic_car_front","calendar-days":"ic_calendar_days","user":"ic_user","chevron-left":"ic_chevron_left","chevron-right":"ic_chevron_right","calendar-plus":"ic_calendar_plus","phone":"ic_phone","share-2":"ic_share_2","trending-up":"ic_trending_up","list-tree":"ic_list_tree","plus":"ic_plus","map-pin":"ic_map_pin","battery-warning":"ic_battery_warning","disc-3":"ic_disc_3","fuel":"ic_fuel","circle-help":"ic_circle_help"};
+  window.__acIconUrl=function(name){
+    return (window.__resources||{})[map[name]]||("https://unpkg.com/lucide-static@0.544.0/icons/"+name+".svg");
+  };
+})();
+</script>
+<script type="text/babel">
+window.Icon=function Icon(props){
+  var size=props.size||20,color=props.color||"currentColor",url=window.__acIconUrl(props.name);
+  return React.createElement("span",{"aria-hidden":true,role:"presentation","data-icon":props.name,style:Object.assign({
+    display:"inline-block",width:size,height:size,flex:"none",backgroundColor:color,
+    WebkitMaskImage:"url("+url+")",maskImage:"url("+url+")",
+    WebkitMaskRepeat:"no-repeat",maskRepeat:"no-repeat",
+    WebkitMaskSize:"contain",maskSize:"contain",
+    WebkitMaskPosition:"center",maskPosition:"center"},props.style||{})});
+};
+</script>
+<script type="text/babel" src="HomeScreen.jsx"></script>
+<script type="text/babel" src="HealthScoreScreen.jsx"></script>
+<script type="text/babel" src="OtherScreens.jsx"></script>
+<script type="text/babel" src="BookingFlow.jsx"></script>
+<script type="text/babel" src="RoadsideScreens.jsx"></script>
+<script type="text/babel">
+const tabs=[{key:"home",label:"Home",icon:<Icon name="house" size={22}/>},
+ {key:"vehicles",label:"Vehicles",icon:<Icon name="car-front" size={22}/>},
+ {key:"bookings",label:"Bookings",icon:<Icon name="calendar-days" size={22}/>},
+ {key:"account",label:"Account",icon:<Icon name="user" size={22}/>}];
+
+function App(){
+  const [tab,setTab]=React.useState("home");
+  const [stack,setStack]=React.useState([]);
+  const push=(s)=>setStack([...stack,s]);
+  const pop=()=>setStack(stack.slice(0,-1));
+  const top=stack[stack.length-1];
+  let view;
+  if(top==="attention") view=<AttentionListScreen onBack={pop}/>;
+  else if(top==="score") view=<HealthScoreScreen onBack={pop} onBreakdown={()=>push("breakdown")} onShare={()=>push("share")}/>;
+  else if(top==="breakdown") view=<BreakdownScreen onBack={pop}/>;
+  else if(top==="share") view=<ShareCertificateScreen onBack={pop}/>;
+  else if(top==="booking") view=<BookingFlow onBack={pop} onDone={()=>{setStack([]);setTab("bookings")}}/>;
+  else if(top==="roadside") view=<RoadsideRequest onBack={pop} onSubmit={()=>setStack([...stack,"roadside-status"])}/>;
+  else if(top==="roadside-status") view=<RoadsideStatus onBack={()=>setStack([])}/>;
+  else if(tab==="home") view=<HomeScreen onSeeAll={()=>push("attention")} onBook={()=>push("booking")} onOpenVehicle={()=>push("score")} onRoadside={()=>push("roadside")}/>;
+  else if(tab==="vehicles") view=<VehiclesScreen onOpenVehicle={()=>push("score")}/>;
+  else if(top==="approval") view=<ApprovalScreen onBack={pop} onDone={pop}/>;
+  else if(tab==="bookings") view=<BookingsScreen onBookNew={()=>push("booking")} onApprove={()=>push("approval")}/>;
+  else view=<AccountScreen/>;
+  return (
+    <div className="phone">
+      <div className="status"><span>9:41</span><span>AutoCare+</span><span>100%</span></div>
+      <div className="scroll">{view}</div>
+      <TabBar tabs={tabs} active={tab} onChange={(k)=>{setStack([]);setTab(k)}}/>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script></body></html>

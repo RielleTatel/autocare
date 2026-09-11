@@ -1,0 +1,34 @@
+/* 4-pt grid. Screen gutters 16, card padding 16–24. Radii: controls 6, cards and
+   sheets 12, pills and band chips full. Touch targets are a hard requirement, not
+   a guideline: 48dp member/web (NFR-027), 56dp field (gloved hands, sunlight). */
+:root {
+  --ac-space-xs: 4px;
+  --ac-space-sm: 8px;
+  --ac-space-md: 16px;
+  --ac-space-lg: 24px;
+  --ac-space-xl: 32px;
+  --ac-space-xxl: 48px;
+
+  --ac-radius-sm: 6px;
+  --ac-radius-md: 12px;
+  --ac-radius-pill: 999px;
+
+  --ac-target-member: 48px;
+  --ac-target-field: 56px;
+
+  --ac-hairline: 1px;
+  --ac-border-control: 1.5px;
+  --ac-border-accent: 4px;   /* AttentionCard top item */
+  --ac-border-accent-row: 5px; /* AttentionItemRow left edge */
+  --ac-gauge-stroke: 18px;
+
+  /* semantic aliases */
+  --space-gutter: var(--ac-space-md);
+  --space-card-pad: var(--ac-space-md);
+  --space-card-pad-roomy: var(--ac-space-lg);
+  --space-stack: var(--ac-space-sm);
+  --space-section: var(--ac-space-lg);
+  --radius-control: var(--ac-radius-sm);
+  --radius-card: var(--ac-radius-md);
+  --radius-pill: var(--ac-radius-pill);
+}
