@@ -25,7 +25,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "AutoCare+ uses your location so we can send help to the right place when you request roadside assistance."
         }
-      ]
+      ],
+      "@rnmapbox/maps"
     ],
     "ios": {
       "supportsTablet": false,
