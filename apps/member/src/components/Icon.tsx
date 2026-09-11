@@ -4,7 +4,7 @@ import {
   BatteryWarning, Disc3, Fuel, CircleQuestionMark, Eye, EyeOff, Wrench, Ellipsis,
   Bell, ClipboardCheck, Disc, Snowflake, X, Sunrise, Sun, Sunset,
   Droplet, RotateCw, Battery, Zap, Wind, Gauge, Sparkles, Cog, ArrowUpRight,
-  CircleAlert, Crosshair, PhoneCall, Truck, CircleCheck,
+  CircleAlert, Crosshair, PhoneCall, Check,
 } from "lucide-react-native";
 import { theme } from "../theme";
 
@@ -34,8 +34,7 @@ const GLYPHS = {
   "circle-alert": CircleAlert,
   crosshair: Crosshair,
   "phone-call": PhoneCall,
-  truck: Truck,
-  "circle-check": CircleCheck,
+  check: Check,
   "phone": Phone,
   "camera": Camera,
   "triangle-alert": TriangleAlert,
