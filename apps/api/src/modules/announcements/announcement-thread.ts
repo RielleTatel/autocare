@@ -99,3 +99,34 @@ export function renderAnnouncementCopy(input: CopyInput): { title: string; body:
       return { title: svc, body: "" };
   }
 }
+
+/** The roadside statuses worth an entry in the feed, and what each one says. */
+type RoadsideCopyInput = { responderName: string | null; etaMinutes: number | null };
+
+/**
+ * Member-facing copy for a roadside status change.
+ *
+ * Returns null for the steps the member is already watching: REQUESTED and
+ * ACKNOWLEDGED both land while they are still on the screen they just
+ * submitted from, so an entry for those is noise rather than news.
+ */
+export function roadsideUpdateCopy(
+  status: string,
+  input: RoadsideCopyInput,
+): { title: string; body: string } | null {
+  const who = input.responderName ?? "A responder";
+  const eta = input.etaMinutes != null ? ` They're about ${input.etaMinutes} minutes away.` : "";
+
+  switch (status) {
+    case "DISPATCHED":
+      return { title: "Help is on the way", body: `${who} is coming to you.${eta}` };
+    case "EN_ROUTE":
+      return { title: `${who} is driving to you`, body: `We'll let you know when they arrive.${eta}` };
+    case "ON_SITE":
+      return { title: `${who} has arrived`, body: "Look out for them at your location." };
+    case "RESOLVED":
+      return { title: "You're sorted", body: "This call-out is closed. The details are in your history." };
+    default:
+      return null;
+  }
+}

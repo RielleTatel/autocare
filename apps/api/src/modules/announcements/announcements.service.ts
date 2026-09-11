@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { AnnouncementFeed, AnnouncementItem, BroadcastCreate } from "@autocare/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainError } from "../../common/errors/domain-error";
-import { nextThreadState, renderAnnouncementCopy, ThreadEvent } from "./announcement-thread";
+import { nextThreadState, renderAnnouncementCopy, roadsideUpdateCopy, ThreadEvent } from "./announcement-thread";
 
 export type ThreadEventInput = {
   userId: string;
@@ -81,6 +81,45 @@ export class AnnouncementsService {
   }
 
   /** Open service-due threads, for the attention dashboard (design spec §7). */
+  /**
+   * A roadside status change, in the member's feed.
+   *
+   * Kept out of `applyThreadEvent` on purpose: that machine is keyed on
+   * (user, vehicle, service type) and an incident has no service type. This is
+   * the same idea — one live entry, superseded as it moves — keyed on the
+   * incident instead, so the feed never accumulates four rows about one tow.
+   */
+  async announceRoadside(input: {
+    userId: string;
+    vehicleId: string;
+    roadsideRequestId: string;
+    status: string;
+    responderName: string | null;
+    etaMinutes: number | null;
+  }): Promise<void> {
+    const copy = roadsideUpdateCopy(input.status, {
+      responderName: input.responderName,
+      etaMinutes: input.etaMinutes,
+    });
+    if (!copy) return;
+
+    await this.prisma.announcement.updateMany({
+      where: { roadsideRequestId: input.roadsideRequestId, status: "ACTIVE" },
+      data: { status: "SUPERSEDED" },
+    });
+    await this.prisma.announcement.create({
+      data: {
+        userId: input.userId,
+        vehicleId: input.vehicleId,
+        roadsideRequestId: input.roadsideRequestId,
+        kind: "ROADSIDE_UPDATE",
+        status: "ACTIVE",
+        title: copy.title,
+        body: copy.body,
+      },
+    });
+  }
+
   async activeServiceDue(vehicleIds: string[]) {
     if (vehicleIds.length === 0) return [];
     const rows = await this.prisma.announcement.findMany({

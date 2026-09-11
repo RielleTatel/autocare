@@ -918,6 +918,7 @@ enum AnnouncementKind {
   APPOINTMENT_RESCHEDULED
   APPOINTMENT_CANCELLED
   SERVICE_COMPLETED
+  ROADSIDE_UPDATE
   ADMIN_BROADCAST
 }
 
@@ -938,6 +939,10 @@ model Announcement {
   vehicleId     String?            @map("vehicle_id") @db.Uuid
   serviceTypeId String?            @map("service_type_id") @db.Uuid
   appointmentId String?            @map("appointment_id") @db.Uuid
+  // Roadside updates are keyed on the incident, not on a service type — they
+  // have none — so they cannot ride the (user, vehicle, service type) thread
+  // index. One ACTIVE row per incident, superseded on each status change.
+  roadsideRequestId String?        @map("roadside_request_id") @db.Uuid
   // TIME | ODOMETER, for SERVICE_DUE threads
   reason        String?
   publishedAt   DateTime           @default(now()) @map("published_at")

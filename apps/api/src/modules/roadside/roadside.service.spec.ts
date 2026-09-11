@@ -2,6 +2,12 @@ import { Test } from "@nestjs/testing";
 import { PrismaService } from "../prisma/prisma.service";
 import { CLOCK } from "../../common/clock/clock";
 import { RoadsideService, ROADSIDE_WAITING_DAYS } from "./roadside.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
+
+// Spy rather than the real service: these tests are about which updates reach
+// the member's feed, not how the row is written (covered in its own spec).
+const announceRoadside = jest.fn(async () => undefined);
+const announcementsStub = { announceRoadside } as unknown as AnnouncementsService;
 
 const DAY = 86_400_000;
 const NOW = new Date("2026-06-01T00:00:00Z");
@@ -21,6 +27,7 @@ async function build(prisma: PrismaService) {
       RoadsideService,
       { provide: PrismaService, useValue: prisma },
       { provide: CLOCK, useValue: { now: () => NOW } },
+      { provide: AnnouncementsService, useValue: announcementsStub },
     ],
   }).compile();
   return mod.get(RoadsideService);
@@ -287,6 +294,44 @@ describe("RoadsideService dispatch and status (FR-037 → FR-039)", () => {
     const r = await svc.dispatch(advisor, "rr-1", { responderUserId: "drv-9", responderName: "J. Cruz", etaMinutes: 25 });
     expect(r.dispatchedToUserId).toBe("drv-9");
     expect(r.responderName).toBe("J. Cruz");
+  });
+
+  // The member closes the status screen and gets on with their day; the feed is
+  // how they find out a truck was assigned.
+  it("tells the member when a responder is dispatched", async () => {
+    announceRoadside.mockClear();
+    const p = withRequest("ACKNOWLEDGED");
+    (p as any).roadsideRequest.findUnique = jest.fn().mockResolvedValue({
+      id: "rr-1", status: "ACKNOWLEDGED", userId: "user-1", vehicleId: "veh-1", acknowledgedAt: null,
+    });
+    const svc = await build(p);
+    await svc.dispatch(advisor, "rr-1", { responderName: "J. Cruz", etaMinutes: 25 });
+    expect(announceRoadside).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", roadsideRequestId: "rr-1", status: "DISPATCHED", responderName: "J. Cruz" }),
+    );
+  });
+
+  it("tells the member at each step the responder takes", async () => {
+    announceRoadside.mockClear();
+    const p = withRequest("DISPATCHED");
+    (p as any).roadsideRequest.findUnique = jest.fn().mockResolvedValue({
+      id: "rr-1", status: "DISPATCHED", userId: "user-1", vehicleId: "veh-1", etaMinutes: 25, responderName: "J. Cruz",
+    });
+    const svc = await build(p);
+    await svc.setStatus(advisor, "rr-1", { status: "EN_ROUTE" });
+    expect(announceRoadside).toHaveBeenCalledWith(expect.objectContaining({ status: "EN_ROUTE" }));
+  });
+
+  // A feed write must never undo a status the responder has already driven.
+  it("never fails a status change because the feed write failed", async () => {
+    announceRoadside.mockClear();
+    announceRoadside.mockRejectedValueOnce(new Error("feed down"));
+    const p = withRequest("DISPATCHED");
+    (p as any).roadsideRequest.findUnique = jest.fn().mockResolvedValue({
+      id: "rr-1", status: "DISPATCHED", userId: "user-1", vehicleId: "veh-1",
+    });
+    const svc = await build(p);
+    await expect(svc.setStatus(advisor, "rr-1", { status: "EN_ROUTE" })).resolves.toBeDefined();
   });
 
   it("records the resolution and stamps resolvedAt", async () => {

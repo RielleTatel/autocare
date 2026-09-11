@@ -13,6 +13,7 @@ import type { AbilityUser } from "../../common/policies/ability.factory";
 import { PrismaService } from "../prisma/prisma.service";
 import { CLOCK, type Clock } from "../../common/clock/clock";
 import { routeDistanceKm, workshopOrigin } from "./route-distance";
+import { AnnouncementsService } from "../announcements/announcements.service";
 
 /**
  * BR-02 waiting period, in days, measured from the first cleared payment.
@@ -39,7 +40,34 @@ export class RoadsideService {
   constructor(
     private prisma: PrismaService,
     @Inject(CLOCK) private clock: Clock,
+    private announcements: AnnouncementsService,
   ) {}
+
+  /**
+   * Put a status change in the member's feed.
+   *
+   * Best-effort: a feed write must never undo a status the responder has
+   * already driven, and the member still has the live status screen either way.
+   */
+  private async announce(
+    r: { id: string; userId: string; vehicleId: string },
+    status: string,
+    responderName: string | null,
+    etaMinutes: number | null,
+  ): Promise<void> {
+    try {
+      await this.announcements.announceRoadside({
+        userId: r.userId,
+        vehicleId: r.vehicleId,
+        roadsideRequestId: r.id,
+        status,
+        responderName,
+        etaMinutes,
+      });
+    } catch {
+      // Deliberately swallowed — see above.
+    }
+  }
 
   /**
    * FR-034 / FR-035 — may this member raise a request, and if not, why not in
@@ -238,6 +266,7 @@ export class RoadsideService {
         acknowledgedAt: current.acknowledgedAt ?? this.clock.now(),
       },
     });
+    await this.announce(current, "DISPATCHED", dto.responderName, dto.etaMinutes ?? null);
     return this.view(updated);
   }
 
@@ -264,6 +293,7 @@ export class RoadsideService {
         resolvedAt: dto.status === "RESOLVED" ? this.clock.now() : null,
       },
     });
+    await this.announce(current, dto.status, updated.responderName, updated.etaMinutes);
     return this.view(updated);
   }
 
@@ -288,6 +318,7 @@ export class RoadsideService {
         resolvedAt: this.clock.now(),
       },
     });
+    await this.announce(current, "RESOLVED", updated.responderName, null);
     return this.view(updated);
   }
 }
