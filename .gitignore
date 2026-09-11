@@ -3,6 +3,9 @@ dist
 .next
 .expo
 .env
+# Any ad-hoc copy of an env file — these hold live credentials.
+.env.*
+!.env.example
 *.tsbuildinfo
 coverage
 .turbo
