@@ -597,6 +597,8 @@ function PhotosContainer({ navigation, route, refreshVehicles }: any) {
 function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
   const { vehicle } = route.params;
   const [health, setHealth] = useState<{ score: number; band: any } | null>(null);
+  // null while unknown, so the stat shows "—" rather than a confident zero.
+  const [openItems, setOpenItems] = useState<number | null>(null);
 
   // A vehicle with no inspection yet legitimately has no score — that is the
   // "Coming with your first inspection" case, not an error worth surfacing.
@@ -605,6 +607,11 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
     healthScoreApi.getScore(vehicle.id)
       .then((s) => setHealth({ score: s.score, band: s.band }))
       .catch(() => setHealth(null));
+    // The attention feed is per-member and already carries vehicleId, so the
+    // "items to watch" stat is a filter rather than another round trip.
+    attentionApi.mine()
+      .then((items) => setOpenItems(items.filter((i) => i.vehicleId === vehicle.id).length))
+      .catch(() => setOpenItems(null));
   }, [vehicle.id]);
   useEffect(() => {
     const unsub = navigation.addListener("focus", loadHealth);
@@ -616,6 +623,9 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
     <VehicleDetailScreen
       vehicle={vehicle}
       health={health}
+      openItems={openItems}
+      lastServiceAt={vehicle.lastServiceAt ?? null}
+      onBookService={() => navigation.navigate("Booking", { vehicleId: vehicle.id })}
       onUpdateOdometer={async (km: number, justification?: string) => {
         await api.post(`/vehicles/${vehicle.id}/odometer`, { km, justification });
         await refreshVehicles();
