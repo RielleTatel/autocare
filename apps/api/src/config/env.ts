@@ -2,6 +2,10 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
+  // Read only by the Prisma CLI (schema.prisma `directUrl`) for `migrate deploy`, never at
+  // runtime — validated here anyway so a deploy missing it fails at boot rather than at the
+  // next migration.
+  DIRECT_DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   FIREBASE_PROJECT_ID: z.string(),
   FIREBASE_CLIENT_EMAIL: z.string().email(),
@@ -19,6 +23,12 @@ const envSchema = z.object({
   // real PayMongo credentials. The real adapter throws at call-time in production if unset.
   PAYMONGO_SECRET_KEY: z.string().min(1).optional(),
   PAYMONGO_WEBHOOK_SECRET: z.string().min(1).optional(),
+  // route-distance.ts reads these straight off process.env at call time (FR-039). Validating
+  // them here is what makes a missing one fail the deploy instead of failing the first roadside
+  // request on a service that otherwise looks healthy.
+  MAPBOX_TOKEN: z.string().min(1),
+  WORKSHOP_LAT: z.coerce.number(),
+  WORKSHOP_LNG: z.coerce.number(),
 });
 export type Env = z.infer<typeof envSchema>;
 export const loadEnv = (): Env => envSchema.parse(process.env);

@@ -15,6 +15,7 @@ jobs:
         ports: ["6379:6379"]
     env:
       DATABASE_URL: postgresql://autocare:autocare@localhost:5432/autocare
+      DIRECT_DATABASE_URL: postgresql://autocare:autocare@localhost:5432/autocare
       REDIS_URL: redis://localhost:6379
       FIREBASE_PROJECT_ID: ci-stub
       FIREBASE_CLIENT_EMAIL: ci@ci-stub.iam.gserviceaccount.com
@@ -24,6 +25,9 @@ jobs:
       SUPABASE_STORAGE_BUCKET: autocare
       POLICY_VERSION: 2026-08-privacy-v1
       SESSION_SECRET: ci-stub-session-secret-32-characters-min
+      MAPBOX_TOKEN: ci-stub-mapbox-token
+      WORKSHOP_LAT: "6.9214"
+      WORKSHOP_LNG: "122.0790"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
