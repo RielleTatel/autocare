@@ -97,13 +97,18 @@ Because `field` has no `scheme`, its QR can't be opened from the phone's camera 
 
 > **Dev only.** These exist on the `autocare-cbb6e` Firebase project against the development database. Never create them in production, and keep this repository private.
 
-| Role | Email | Password | Use in |
-|---|---|---|---|
-| Member | `test.member@autocare.dev` | `TestPass123!` | `member` |
-| Technician (`MECHANIC`) | `test.technician@autocare.dev` | `TestPass123!` | `field` |
-| Admin (`ADMIN`) | `test.admin@autocare.dev` | `TestPass123!` | `web` |
+| Role                    | Email                          | Password       | Use in   |
+| ----------------------- | ------------------------------ | -------------- | -------- |
+| Member                  | `test.member@autocare.dev`     | `TestPass123!` | `member` |
+| Technician (`MECHANIC`) | `test.technician@autocare.dev` | `TestPass123!` | `field`  |
+| Admin (`ADMIN`)         | `test.admin@autocare.dev`      | `TestPass123!` | `web`    |
+| Driver (`DRIVER`)       | `seed.driver@autocare.dev`     | `TestPass123!` | `field`  |
 
-All three have privacy-policy consent recorded. Without it, every protected endpoint returns `CONSENT_REQUIRED`.
+The member account has privacy-policy consent recorded. Without it, every protected endpoint returns `CONSENT_REQUIRED`; staff are exempt (they consent through employment, not a checkbox).
+
+> The `test.*` accounts sign up as `MEMBER` like anyone else — `test.admin` and `test.technician` had to be promoted in the database before they could sign into `web` and `field`. If a documented account is rejected with "This app is for AutoCare+ staff", check `User.role` before suspecting the password.
+>
+> `test.driver@autocare.dev` also exists as a `DRIVER` **row** so the roadside dispatch picker has somebody to assign, but it has no Firebase account and cannot be signed into. Use `seed.driver` above to log in as a driver. Without it, every protected endpoint returns `CONSENT_REQUIRED`.
 
 **Creating more accounts:** Firebase authenticates identity; roles live in the `User.role` column. Sign-up always creates a `MEMBER` — there is no self-serve path to a staff role. To promote someone, sign in once so the API creates their row, then change `role` in Prisma Studio to `MECHANIC`, `ADVISOR`, `FLEET_MANAGER`, `DRIVER`, or `ADMIN`.
 
