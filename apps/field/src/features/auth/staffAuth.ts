@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import * as SecureStore from "expo-secure-store";
 import { api } from "../../shared/api";
 
@@ -23,4 +23,21 @@ export async function signInStaff(email: string, password: string) {
   }
   await SecureStore.setItemAsync("last_active_at", String(Date.now()));
   return { id: session.user.id, role: session.user.role, name: session.user.name };
+}
+
+/**
+ * Sign out and forget the device session.
+ *
+ * The Firebase call is best-effort: a field tablet is often on a thin signal,
+ * and a failed round-trip must never leave the token on a shared device for the
+ * next person to inherit. Local state is cleared either way.
+ */
+export async function signOutStaff(): Promise<void> {
+  try {
+    await signOut(getAuth());
+  } catch {
+    // Deliberately swallowed — see above.
+  }
+  await SecureStore.deleteItemAsync("firebase_id_token");
+  await SecureStore.deleteItemAsync("last_active_at");
 }

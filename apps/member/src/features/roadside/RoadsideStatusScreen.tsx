@@ -3,6 +3,7 @@ import { roadsideStatuses, type RoadsideRequestView, type RoadsideStatus } from 
 import { theme } from "../../theme";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
+import { BackBar } from "../../components/BackBar";
 import { Icon } from "../../components/Icon";
 import { IncidentMap } from "./IncidentMap";
 
@@ -28,12 +29,14 @@ export function RoadsideStatusScreen({
   stale,
   onCallHotline,
   onOpenInMaps,
+  onBack,
 }: {
   request: RoadsideRequestView;
   /** True when the last poll failed — the member is looking at old data. */
   stale: boolean;
   onCallHotline: () => void;
   onOpenInMaps: () => void;
+  onBack?: () => void;
 }) {
   const t = theme;
   const currentIndex = roadsideStatuses.indexOf(request.status);
@@ -45,6 +48,8 @@ export function RoadsideStatusScreen({
       contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.lg }}
       testID="roadside-status-screen"
     >
+      <BackBar onBack={onBack} />
+
       <View style={{ gap: 4 }}>
         <Text style={[t.text("h1"), { color: t.colors.ink }]}>{resolved ? "You're sorted" : "Help is coming"}</Text>
         <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>

@@ -12,7 +12,7 @@ import { useRoadsideStatus } from "./useRoadsideStatus";
 /** FR-040 fallback. Replace with the real dispatch line before launch. */
 export const ROADSIDE_HOTLINE = "+6329110000";
 
-function StatusView({ initial, onCallHotline }: { initial: RoadsideRequestView; onCallHotline: () => void }) {
+function StatusView({ initial, onCallHotline, onBack }: { initial: RoadsideRequestView; onCallHotline: () => void; onBack?: () => void }) {
   const { request, error } = useRoadsideStatus(initial);
   return (
     <RoadsideStatusScreen
@@ -20,11 +20,12 @@ function StatusView({ initial, onCallHotline }: { initial: RoadsideRequestView; 
       stale={error}
       onCallHotline={onCallHotline}
       onOpenInMaps={() => Linking.openURL(`https://maps.google.com/?q=${request.lat},${request.lng}`)}
+      onBack={onBack}
     />
   );
 }
 
-export function RoadsideContainer({ vehicleId }: { vehicleId: string }) {
+export function RoadsideContainer({ vehicleId, onBack }: { vehicleId: string; onBack?: () => void }) {
   const [eligibility, setEligibility] = useState<RoadsideEligibility | null>(null);
   const [location, setLocation] = useState<LocationResult | null>(null);
   const [live, setLive] = useState<RoadsideRequestView | null>(null);
@@ -72,7 +73,7 @@ export function RoadsideContainer({ vehicleId }: { vehicleId: string }) {
     }
   }
 
-  if (live) return <StatusView initial={live} onCallHotline={callHotline} />;
+  if (live) return <StatusView initial={live} onCallHotline={callHotline} onBack={onBack} />;
 
   if (!eligibility) {
     return (
@@ -91,6 +92,7 @@ export function RoadsideContainer({ vehicleId }: { vehicleId: string }) {
       onCallHotline={callHotline}
       submitting={submitting}
       error={error}
+      onBack={onBack}
     />
   );
 }

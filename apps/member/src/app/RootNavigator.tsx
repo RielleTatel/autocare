@@ -953,7 +953,9 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="Attention" component={AttentionContainer} />
       <Stack.Screen name="Announcements" component={AnnouncementsContainer} />
       <Stack.Screen name="Roadside">
-        {({ route }: any) => <RoadsideContainer vehicleId={route.params?.vehicleId} />}
+        {({ route, navigation }: any) => (
+          <RoadsideContainer vehicleId={route.params?.vehicleId} onBack={() => navigation.goBack()} />
+        )}
       </Stack.Screen>
     </Stack.Navigator>
     </ReadyContext.Provider>

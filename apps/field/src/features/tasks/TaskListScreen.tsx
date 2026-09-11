@@ -38,7 +38,7 @@ const manilaDay = () =>
 /** F-01 — the mechanic's day. Work is listed in start order; the two standing
  *  actions sit under it. */
 export function TaskListScreen({
-  name, role, onStartInspection, onOpenSyncQueue, onOpenRoadside,
+  name, role, onStartInspection, onOpenSyncQueue, onOpenRoadside, onLogout,
 }: {
   name: string | null;
   role: string;
@@ -49,10 +49,13 @@ export function TaskListScreen({
   onOpenSyncQueue?: () => void;
   /** F-17/F-18. Only rendered for the roles that may work an incident. */
   onOpenRoadside?: () => void;
+  /** Ends the session and returns to the staff login screen. */
+  onLogout?: () => void;
 }) {
   const t = fieldTheme;
   const sync = useSyncStatus(syncProcessor);
   const [tasks, setTasks] = useState<FieldTask[] | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const [stale, setStale] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -131,6 +134,30 @@ export function TaskListScreen({
         <Button icon="wrench" onPress={() => onStartInspection?.()} style={{ marginTop: t.spacing.sm }}>
           Start inspection
         </Button>
+        {confirmLogout ? (
+          <Card style={{ gap: t.spacing.sm }}>
+            <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Sign out of this device?</Text>
+            {sync.pendingCount > 0 ? (
+              /* Once the token is gone the queue is invisible, so the number has
+                 to be named before the decision rather than discovered after. */
+              <Text testID="staff-logout-pending-warning" style={{ ...t.text("body"), color: t.colors.danger }}>
+                {sync.pendingCount} {sync.pendingCount === 1 ? "entry has" : "entries have"} not synced yet. Sync first
+                or they stay on this device.
+              </Text>
+            ) : (
+              <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>
+                You will need to sign in again to pick up work.
+              </Text>
+            )}
+            <Button testID="staff-logout-confirm" variant="danger" onPress={onLogout}>
+              Sign out
+            </Button>
+            <Button testID="staff-logout-cancel" variant="secondary" onPress={() => setConfirmLogout(false)}>
+              Stay signed in
+            </Button>
+          </Card>
+        ) : null}
+
         {ROADSIDE_ROLES.has(role) ? (
           <Button variant="secondary" icon="truck" testID="open-roadside" onPress={onOpenRoadside}>
             Roadside calls
@@ -139,6 +166,11 @@ export function TaskListScreen({
         <Button variant="secondary" icon="refresh-cw" onPress={onOpenSyncQueue}>
           {sync.pendingCount > 0 ? `Sync queue (${sync.pendingCount})` : "Sync queue"}
         </Button>
+        {onLogout ? (
+          <Button testID="staff-logout" variant="ghost" onPress={() => setConfirmLogout(true)}>
+            Sign out
+          </Button>
+        ) : null}
       </ScrollView>
     </View>
   );

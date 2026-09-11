@@ -9,7 +9,7 @@ import { fieldTheme } from "../theme";
 import { fontAssets } from "../theme/fonts";
 import { StaffLoginScreen } from "../features/auth/StaffLoginScreen";
 import { TaskListScreen } from "../features/tasks/TaskListScreen";
-import { signInStaff } from "../features/auth/staffAuth";
+import { signInStaff, signOutStaff } from "../features/auth/staffAuth";
 import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSession";
 import { InspectionFlow } from "../features/inspection/InspectionFlow";
 import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
@@ -90,6 +90,9 @@ function AppShell() {
                 onStartInspection={(vehicleId) => navigation.navigate("Inspection", { vehicleId })}
                 onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
                 onOpenRoadside={() => navigation.navigate("Roadside")}
+                onLogout={() => {
+                  void signOutStaff().then(() => setBoot({ state: "ANONYMOUS" }));
+                }}
               />
             )}
           </Stack.Screen>

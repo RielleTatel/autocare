@@ -4,6 +4,7 @@ import type { IncidentType, RoadsideEligibility } from "@autocare/contracts";
 import { theme } from "../../theme";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
+import { BackBar } from "../../components/BackBar";
 import { Icon } from "../../components/Icon";
 import { IncidentMap } from "./IncidentMap";
 import { resolveAddress, type LocationResult } from "./location";
@@ -49,6 +50,7 @@ export function RoadsideRequestScreen({
   onCallHotline,
   submitting,
   error,
+  onBack,
 }: {
   eligibility: RoadsideEligibility;
   location: LocationResult | null;
@@ -57,6 +59,7 @@ export function RoadsideRequestScreen({
   onCallHotline: () => void;
   submitting: boolean;
   error: string | null;
+  onBack?: () => void;
 }) {
   const t = theme;
   const [incident, setIncident] = useState<IncidentType | null>(null);
@@ -102,6 +105,8 @@ export function RoadsideRequestScreen({
       scrollEnabled={scrollEnabled}
       testID="roadside-request-screen"
     >
+      <BackBar onBack={onBack} />
+
       <View style={{ gap: 4 }}>
         <Text style={[t.text("h1"), { color: t.colors.ink }]}>Roadside assistance</Text>
         <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>
