@@ -68,6 +68,9 @@ export class InspectionsService {
     });
     return scores.map((s) => ({
       id: s.id,
+      // `id` above is the HealthScore's, which the detail route cannot take.
+      // Without this a history row has no way to open the inspection behind it.
+      inspectionId: s.inspectionId,
       score: s.score,
       band: s.band,
       isStale: s.isStale,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getBays, getServiceTypes, getOperatingHours, createBay, createServiceType, upsertOperatingHours, type Bay, type ServiceType, type OperatingHours } from "../../../lib/scheduling/api";
 import { Button } from "../../../components/Button";
+import { Shifts } from "./Shifts";
 
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 
@@ -109,6 +110,8 @@ export default function CapacityConfigPage() {
             <Button onClick={() => guard(() => createServiceType({ code: stCode, name: stName, standardDurationMin: stDur, requiredSkills: csv(stSkills), priceCentavos: stPrice }), "Service type created")}>Add service type</Button>
           </div>
         </section>
+
+        <Shifts onError={setErr} onMessage={setMsg} />
 
         <section className="rounded-md border border-line bg-surface p-4 flex flex-col gap-3">
           <h2 className="font-display text-lg text-ink">Operating hours (per weekday)</h2>

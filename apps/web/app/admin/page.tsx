@@ -22,7 +22,10 @@ export default function AdminPage() {
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h1 className="font-display text-2xl text-ink">Admin dashboard</h1>
-        <Link href="/admin/checklists" className="text-primary text-sm font-medium">Checklists</Link>
+        <nav className="flex items-center gap-4">
+          <Link href="/admin/staff" className="text-primary text-sm font-medium">Staff</Link>
+          <Link href="/admin/checklists" className="text-primary text-sm font-medium">Checklists</Link>
+        </nav>
       </header>
       {err && <p className="text-danger text-sm">{err}</p>}
 

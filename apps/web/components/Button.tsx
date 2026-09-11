@@ -28,8 +28,9 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
 }
 
 /**
- * The AutoCare+ action control — 48dp member / 56dp field, radius 6. Labels say
- * exactly what happens ("Book a service", never "Submit"); destructive is red.
+ * The AutoCare+ action control — 48dp member / 56dp field, pill radius (2026
+ * re-skin). Labels say exactly what happens ("Book a service", never
+ * "Submit"); destructive is red.
  */
 export function Button({
   children, variant = "primary", size = "member", block, disabled, icon,
@@ -37,7 +38,7 @@ export function Button({
 }: ButtonProps) {
   const look = disabled ? "bg-line text-ink-muted cursor-not-allowed" : `${VARIANT[variant]} cursor-pointer`;
   const cls = [
-    "inline-flex items-center justify-center gap-2 rounded-sm font-body font-semibold text-center",
+    "inline-flex items-center justify-center gap-2 rounded-pill font-body font-semibold text-center",
     "transition-colors",
     SIZE[size], look, block ? "w-full" : "",
     className,

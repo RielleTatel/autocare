@@ -61,7 +61,7 @@ function Certificate({ cert }: { cert: PublicCertificate }) {
   return (
     <main className="min-h-screen bg-chassis px-4 py-8">
       <div className="max-w-lg mx-auto flex flex-col gap-5">
-        <Card pad="none" className="overflow-hidden">
+        <Card pad="none" flat className="overflow-hidden">
           <div className="bg-primary-deep px-6 py-4 text-center">
             <h1 className="font-display text-white text-xl font-semibold">AutoCare+ Vehicle Health Certificate</h1>
           </div>

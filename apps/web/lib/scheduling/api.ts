@@ -63,3 +63,36 @@ export type OperatingHours = {
   walkInBufferPct: number;
 };
 export const getOperatingHours = () => call<OperatingHours[]>("scheduling/operating-hours");
+
+/**
+ * Roster. A slot is only offered when a qualified mechanic's shift covers it, so
+ * these are the calls that actually decide how early and how late the shop can
+ * be booked — operating hours alone change nothing.
+ */
+export type Shift = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  skills: string[];
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  userRole: string;
+};
+
+/** Staff who can be rostered. Staff-gated, unlike the admin staff directory. */
+export type RosterableStaff = { id: string; name: string | null; role: string };
+export const getRosterableStaff = () => call<RosterableStaff[]>("scheduling/rosterable-staff");
+
+export const getShifts = (from: string, to: string) =>
+  call<Shift[]>(`scheduling/shifts?from=${from}&to=${to}`);
+
+export const createShift = (input: { userId: string; date: string; startTime: string; endTime: string; skills: string[] }) =>
+  call<Shift>("scheduling/shifts", { method: "POST", body: JSON.stringify(input) });
+
+export const updateShift = (id: string, input: { date?: string; startTime?: string; endTime?: string; skills?: string[] }) =>
+  call<Shift>(`scheduling/shifts/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+
+export const deleteShift = (id: string) =>
+  call<{ deleted: boolean }>(`scheduling/shifts/${id}`, { method: "DELETE" });
