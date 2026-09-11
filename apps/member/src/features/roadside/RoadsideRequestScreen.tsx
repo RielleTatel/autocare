@@ -61,6 +61,9 @@ export function RoadsideRequestScreen({
   const t = theme;
   const [incident, setIncident] = useState<IncidentType | null>(null);
   const [landmark, setLandmark] = useState("");
+  // The map is inside this ScrollView, so a vertical pan would otherwise scroll
+  // the page instead of moving the map. The map tells us when it has the finger.
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const hasFix = location?.ok === true;
 
@@ -96,6 +99,7 @@ export function RoadsideRequestScreen({
     <ScrollView
       style={{ flex: 1, backgroundColor: t.colors.chassis }}
       contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.lg }}
+      scrollEnabled={scrollEnabled}
       testID="roadside-request-screen"
     >
       <View style={{ gap: 4 }}>
@@ -116,6 +120,10 @@ export function RoadsideRequestScreen({
         </Card>
       ) : null}
 
+      {/* No form for a member who cannot submit it: the refusal above and the
+          hotline below are the whole screen in that case. */}
+      {eligibility.eligible ? (
+        <>
       <View style={{ gap: t.spacing.sm }}>
         <Text style={[t.text("h2"), { color: t.colors.ink }]}>What happened?</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: t.spacing.sm }}>
@@ -151,9 +159,16 @@ export function RoadsideRequestScreen({
         <Text style={[t.text("h2"), { color: t.colors.ink }]}>Where are you?</Text>
         {pin ? (
           <>
-            <IncidentMap lat={pin.lat} lng={pin.lng} editable onMove={movePin} />
+            <IncidentMap
+              lat={pin.lat}
+              lng={pin.lng}
+              editable
+              onMove={movePin}
+              onInteractionStart={() => setScrollEnabled(false)}
+              onInteractionEnd={() => setScrollEnabled(true)}
+            />
             <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>
-              Drag the pin if this isn't quite where you are.
+              Move the map so the pin sits where you are.
             </Text>
             <Card style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}>
               <Icon name="map-pin" size={20} color={t.colors.primary} />
@@ -194,6 +209,9 @@ export function RoadsideRequestScreen({
           ]}
         />
       </View>
+
+        </>
+      ) : null}
 
       {error ? (
         <Text testID="roadside-error" style={[t.text("body"), { color: t.colors.danger }]}>

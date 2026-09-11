@@ -77,6 +77,29 @@ describe("RoadsideRequestScreen (M-26)", () => {
     );
   });
 
+  // Filling in a form and only then discovering there is nothing to press is a
+  // dead end. An ineligible member gets the reason and the hotline, not a form.
+  it("does not show a form it cannot submit", () => {
+    const { queryByTestId } = render(
+      <RoadsideRequestScreen {...props()} eligibility={{ eligible: false, reason: "Not yet." }} />,
+    );
+    expect(queryByTestId("incident-FLAT_TYRE")).toBeNull();
+    expect(queryByTestId("roadside-landmark")).toBeNull();
+    expect(queryByTestId("incident-map")).toBeNull();
+    expect(queryByTestId("roadside-submit")).toBeNull();
+  });
+
+  // The map has to own its vertical drags or the page scrolls underneath it.
+  it("stops the page scrolling while the member is moving the map", () => {
+    const { getByTestId } = render(<RoadsideRequestScreen {...props()} />);
+    const map = getByTestId("incident-map");
+    expect(getByTestId("roadside-request-screen").props.scrollEnabled).not.toBe(false);
+    act(() => (map.props as { onInteractionStart: () => void }).onInteractionStart());
+    expect(getByTestId("roadside-request-screen").props.scrollEnabled).toBe(false);
+    act(() => (map.props as { onInteractionEnd: () => void }).onInteractionEnd());
+    expect(getByTestId("roadside-request-screen").props.scrollEnabled).toBe(true);
+  });
+
   // FR-035 — a refusal has to name the date and never read as a punishment.
   it("explains a waiting period instead of just disabling the button", () => {
     const { getByText, queryByTestId } = render(
