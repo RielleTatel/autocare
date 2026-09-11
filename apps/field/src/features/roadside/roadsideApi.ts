@@ -1,6 +1,7 @@
 import type {
   RoadsideDispatchInput,
   RoadsideRequestView,
+  RoadsideResponder,
   RoadsideResolveInput,
   RoadsideStatusInput,
 } from "@autocare/contracts";
@@ -15,6 +16,8 @@ import { api } from "../../shared/api";
 export const roadsideApi = {
   /** Open incidents, oldest first — the queue order the API already returns. */
   board: () => api.get<RoadsideRequestView[]>("/roadside/board"),
+  /** FR-037 — drivers an advisor may assign. Tow partners are typed, not listed. */
+  responders: () => api.get<RoadsideResponder[]>("/roadside/responders"),
   dispatch: (id: string, dto: RoadsideDispatchInput) =>
     api.post<RoadsideRequestView>(`/roadside/requests/${id}/dispatch`, dto),
   setStatus: (id: string, dto: RoadsideStatusInput) =>

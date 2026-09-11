@@ -86,6 +86,14 @@ describe("roadside (e2e)", () => {
     expect(res.body.error.code).toBe("FORBIDDEN_ROLE");
   });
 
+  it("keeps the responder list away from members too", async () => {
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/roadside/responders")
+      .set("Authorization", `Bearer ${memberToken}`)
+      .expect(403);
+    expect(res.body.error.code).toBe("FORBIDDEN_ROLE");
+  });
+
   it("returns null when the member has no live incident", async () => {
     const res = await request(app.getHttpServer())
       .get("/api/v1/roadside/requests/active")

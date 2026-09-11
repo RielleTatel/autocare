@@ -263,6 +263,32 @@ describe("RoadsideService dispatch and status (FR-037 → FR-039)", () => {
     expect(row.dispatchedToUserId).toBeNull();
   });
 
+  // FR-037: dispatch has to record WHO, not just a typed name, or the driver's
+  // own app cannot tell which call is theirs.
+  it("lists the drivers an advisor can assign", async () => {
+    const p = withRequest();
+    (p as any).user = {
+      findMany: jest.fn().mockResolvedValue([{ id: "drv-9", name: "J. Cruz" }]),
+    };
+    const svc = await build(p);
+    expect(await svc.responders(advisor)).toEqual([{ id: "drv-9", name: "J. Cruz" }]);
+    expect((p as any).user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { role: "DRIVER", status: "ACTIVE" } }),
+    );
+  });
+
+  it("keeps the responder list away from members", async () => {
+    const svc = await build(withRequest());
+    await expect(svc.responders(member)).rejects.toMatchObject({ code: "FORBIDDEN_ROLE", httpStatus: 403 });
+  });
+
+  it("records the responder's identity, not just their name", async () => {
+    const svc = await build(withRequest("ACKNOWLEDGED"));
+    const r = await svc.dispatch(advisor, "rr-1", { responderUserId: "drv-9", responderName: "J. Cruz", etaMinutes: 25 });
+    expect(r.dispatchedToUserId).toBe("drv-9");
+    expect(r.responderName).toBe("J. Cruz");
+  });
+
   it("records the resolution and stamps resolvedAt", async () => {
     const svc = await build(withRequest("ON_SITE"));
     const r = await svc.resolve(advisor, "rr-1", { resolutionNotes: "Tyre changed on site", costCentavos: 45000 });

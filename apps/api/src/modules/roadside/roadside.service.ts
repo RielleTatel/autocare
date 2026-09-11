@@ -5,6 +5,7 @@ import type {
   RoadsideRequestInput,
   RoadsideRequestView,
   RoadsideResolveInput,
+  RoadsideResponder,
   RoadsideStatusInput,
 } from "@autocare/contracts";
 import { DomainError } from "../../common/errors/domain-error";
@@ -202,6 +203,23 @@ export class RoadsideService {
       orderBy: { createdAt: "asc" },
     });
     return rows.map((r) => this.view(r));
+  }
+
+  /**
+   * FR-037 — who an advisor may hand this call to.
+   *
+   * Narrow on purpose rather than reusing `GET /users/staff`: that is an
+   * ADMIN-only directory carrying contact details, and an advisor dispatching a
+   * tow needs exactly two fields. Suspended drivers are excluded — a dispatch
+   * queue should not offer somebody who cannot work.
+   */
+  async responders(u: AbilityUser): Promise<RoadsideResponder[]> {
+    this.assertDispatcher(u);
+    return this.prisma.user.findMany({
+      where: { role: "DRIVER", status: "ACTIVE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
   }
 
   async dispatch(u: AbilityUser, id: string, dto: RoadsideDispatchInput): Promise<RoadsideRequestView> {

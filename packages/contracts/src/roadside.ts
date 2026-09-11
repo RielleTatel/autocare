@@ -61,6 +61,15 @@ export const roadsideResolveSchema = z.object({
 });
 export type RoadsideResolveInput = z.infer<typeof roadsideResolveSchema>;
 
+/**
+ * FR-037 — a responder an advisor can hand a call to. Deliberately minimal:
+ * the dispatch queue needs a name to show and an id to record, nothing more.
+ */
+export type RoadsideResponder = {
+  id: string;
+  name: string | null;
+};
+
 /** FR-034/FR-035 — why the button is or is not available, in the member's words. */
 export type RoadsideEligibility = {
   eligible: boolean;

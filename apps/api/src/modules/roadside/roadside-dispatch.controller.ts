@@ -21,6 +21,12 @@ export class RoadsideDispatchController {
     return this.roadside.board(u);
   }
 
+  /** FR-037 — the drivers this advisor may assign. */
+  @Get("responders")
+  responders(@CurrentUser() u: AbilityUser) {
+    return this.roadside.responders(u);
+  }
+
   @Post("requests/:id/dispatch")
   dispatch(
     @CurrentUser() u: AbilityUser,

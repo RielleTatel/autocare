@@ -21,6 +21,7 @@ const req = (over: Partial<RoadsideRequestView> = {}): RoadsideRequestView => ({
 
 const props = (over = {}) => ({
   requests: [req()],
+  responders: [{ id: "drv-9", name: "J. Cruz" }],
   loading: false,
   error: null as string | null,
   onRefresh: jest.fn(),
@@ -48,14 +49,41 @@ describe("RoadsideBoardScreen (F-18)", () => {
     screen.getByText("6.92140, 122.07900");
   });
 
-  it("assigns a responder with a name and an ETA", () => {
+  // The whole point of picking rather than typing: the call records WHO, so the
+  // driver's own app can route them to it.
+  it("records the chosen driver's identity, not just their name", () => {
     const p = props();
     render(<RoadsideBoardScreen {...p} />);
     fireEvent.press(screen.getByTestId("dispatch-rr-1"));
-    fireEvent.changeText(screen.getByTestId("dispatch-responder"), "J. Cruz");
+    fireEvent.press(screen.getByTestId("responder-drv-9"));
     fireEvent.changeText(screen.getByTestId("dispatch-eta"), "25");
     fireEvent.press(screen.getByTestId("dispatch-submit"));
-    expect(p.onDispatch).toHaveBeenCalledWith("rr-1", { responderName: "J. Cruz", etaMinutes: 25 });
+    expect(p.onDispatch).toHaveBeenCalledWith("rr-1", {
+      responderUserId: "drv-9",
+      responderName: "J. Cruz",
+      etaMinutes: 25,
+    });
+  });
+
+  // FR-037 covers "a driver OR a contracted tow partner". A partner is not a
+  // user of this system, so typing a name has to keep working.
+  it("still allows a typed name for a contracted tow partner", () => {
+    const p = props();
+    render(<RoadsideBoardScreen {...p} />);
+    fireEvent.press(screen.getByTestId("dispatch-rr-1"));
+    fireEvent.changeText(screen.getByTestId("dispatch-responder"), "Dela Cruz Towing");
+    fireEvent.press(screen.getByTestId("dispatch-submit"));
+    expect(p.onDispatch).toHaveBeenCalledWith("rr-1", { responderName: "Dela Cruz Towing" });
+  });
+
+  it("prefers the typed name when both are given, and drops the stale id", () => {
+    const p = props();
+    render(<RoadsideBoardScreen {...p} />);
+    fireEvent.press(screen.getByTestId("dispatch-rr-1"));
+    fireEvent.press(screen.getByTestId("responder-drv-9"));
+    fireEvent.changeText(screen.getByTestId("dispatch-responder"), "Dela Cruz Towing");
+    fireEvent.press(screen.getByTestId("dispatch-submit"));
+    expect(p.onDispatch).toHaveBeenCalledWith("rr-1", { responderName: "Dela Cruz Towing" });
   });
 
   // The API requires a responder name; sending an empty one just earns a 400.
@@ -89,6 +117,14 @@ describe("RoadsideBoardScreen (F-18)", () => {
     render(<RoadsideBoardScreen {...p} />);
     fireEvent.press(screen.getByTestId("incident-rr-1"));
     expect(p.onOpen).toHaveBeenCalledWith(req().id);
+  });
+
+  // A queue that cannot be refreshed is a queue an advisor stops trusting.
+  it("offers a manual refresh even when the queue loaded fine", () => {
+    const p = props();
+    render(<RoadsideBoardScreen {...p} />);
+    fireEvent.press(screen.getByTestId("roadside-refresh"));
+    expect(p.onRefresh).toHaveBeenCalled();
   });
 
   it("says the queue is empty rather than showing a blank screen", () => {

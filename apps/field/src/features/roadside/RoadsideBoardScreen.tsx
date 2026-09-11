@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import type { RoadsideDispatchInput, RoadsideRequestView } from "@autocare/contracts";
+import type { RoadsideDispatchInput, RoadsideRequestView, RoadsideResponder } from "@autocare/contracts";
 import { fieldTheme } from "../../theme";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
@@ -17,9 +17,11 @@ import { INCIDENT_LABEL, STATUS_LABEL, STATUS_TONE, placeText } from "./incident
  * an incident queue is a queue — the API already returns that order.
  */
 export function RoadsideBoardScreen({
-  requests, loading, error, onRefresh, onDispatch, onOpen, onBack,
+  requests, responders, loading, error, onRefresh, onDispatch, onOpen, onBack,
 }: {
   requests: RoadsideRequestView[];
+  /** Drivers this advisor may assign. Empty is fine — typing a name still works. */
+  responders: RoadsideResponder[];
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
@@ -31,28 +33,54 @@ export function RoadsideBoardScreen({
   // Which card has its assign form open. One at a time: two half-filled forms
   // on an emergency screen is a way to dispatch the wrong driver.
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [picked, setPicked] = useState<RoadsideResponder | null>(null);
   const [responder, setResponder] = useState("");
   const [eta, setEta] = useState("");
 
   const openForm = (id: string) => {
     setAssigning(id);
+    setPicked(null);
     setResponder("");
     setEta("");
   };
 
   const submit = (id: string) => {
-    const name = responder.trim();
+    // A typed name wins: it is the later, more deliberate act, and it is how
+    // FR-037's "contracted tow partner" — who has no user account — is named.
+    // The picked id is dropped with it, so the call never records an identity
+    // that disagrees with the name shown to the member.
+    const typed = responder.trim();
+    const name = typed || picked?.name?.trim() || "";
     if (!name) return;
+
     const minutes = Number.parseInt(eta, 10);
+    const dto: RoadsideDispatchInput = { responderName: name };
+    if (!typed && picked) dto.responderUserId = picked.id;
     // ETA is optional: an advisor who does not know yet still needs to get a
     // driver moving, and the contract marks it optional too.
-    onDispatch(id, Number.isFinite(minutes) ? { responderName: name, etaMinutes: minutes } : { responderName: name });
+    if (Number.isFinite(minutes)) dto.etaMinutes = minutes;
+
+    onDispatch(id, dto);
     setAssigning(null);
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
-      <FieldNav title="Roadside" onBack={onBack} />
+      <FieldNav
+        title="Roadside"
+        onBack={onBack}
+        right={
+          <Pressable
+            testID="roadside-refresh"
+            accessibilityRole="button"
+            accessibilityLabel="Refresh the roadside queue"
+            onPress={onRefresh}
+            style={{ minHeight: t.minTarget, justifyContent: "center", paddingHorizontal: t.spacing.sm }}
+          >
+            <Text style={{ ...t.text("label", 600), color: t.colors.primary }}>{loading ? "Refreshing…" : "Refresh"}</Text>
+          </Pressable>
+        }
+      />
       <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md }} testID="roadside-board-screen">
         {error ? (
           <EmptyState
@@ -93,11 +121,46 @@ export function RoadsideBoardScreen({
                 </Text>
               ) : assigning === r.id ? (
                 <View style={{ gap: t.spacing.sm }}>
+                  {responders.length > 0 ? (
+                    <View style={{ gap: t.spacing.xs ?? 4 }}>
+                      <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>On-duty drivers</Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: t.spacing.sm }}>
+                        {responders.map((d) => {
+                          const selected = picked?.id === d.id;
+                          return (
+                            <Pressable
+                              key={d.id}
+                              testID={`responder-${d.id}`}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected }}
+                              onPress={() => {
+                                setPicked(d);
+                                setResponder("");
+                              }}
+                              style={{
+                                minHeight: t.minTarget,
+                                justifyContent: "center",
+                                paddingHorizontal: t.spacing.sm,
+                                borderRadius: t.radii.pill,
+                                borderWidth: t.borders.hairline,
+                                borderColor: selected ? t.colors.primary : t.colors.line,
+                                backgroundColor: selected ? t.colors.primary : t.colors.surface,
+                              }}
+                            >
+                              <Text style={{ ...t.text("label", 600), color: selected ? "#FFFFFF" : t.colors.ink }}>
+                                {d.name ?? "Unnamed driver"}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : null}
                   <TextInput
                     testID="dispatch-responder"
                     value={responder}
                     onChangeText={setResponder}
-                    placeholder="Responder name"
+                    placeholder={responders.length > 0 ? "…or type a tow partner" : "Responder name"}
                     placeholderTextColor={t.colors.inkFaint}
                     style={{
                       ...t.text("body"),

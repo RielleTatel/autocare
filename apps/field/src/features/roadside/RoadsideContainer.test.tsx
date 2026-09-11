@@ -1,10 +1,22 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import type { RoadsideRequestView } from "@autocare/contracts";
-import { RoadsideContainer } from "./RoadsideContainer";
+import { RoadsideContainer, ROADSIDE_BOARD_POLL_MS } from "./RoadsideContainer";
 import { roadsideApi } from "./roadsideApi";
 
 jest.mock("./roadsideApi", () => ({
-  roadsideApi: { board: jest.fn(), dispatch: jest.fn(), setStatus: jest.fn(), resolve: jest.fn() },
+  roadsideApi: {
+    board: jest.fn(),
+    responders: jest.fn(),
+    dispatch: jest.fn(),
+    setStatus: jest.fn(),
+    resolve: jest.fn(),
+  },
+}));
+
+// Rendered outside a NavigationContainer, so the real useFocusEffect throws.
+// A focused screen runs its callback on mount, which is what this stands in for.
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: () => void) => require("react").useEffect(cb, [cb]),
 }));
 
 const req = (over: Partial<RoadsideRequestView> = {}): RoadsideRequestView => ({
@@ -28,6 +40,7 @@ describe("RoadsideContainer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (roadsideApi.board as jest.Mock).mockResolvedValue([req()]);
+    (roadsideApi.responders as jest.Mock).mockResolvedValue([{ id: "drv-9", name: "J. Cruz" }]);
   });
 
   it("shows the queue once it loads", async () => {
@@ -84,6 +97,54 @@ describe("RoadsideContainer", () => {
     fireEvent.press(await screen.findByTestId("incident-rr-1"));
     fireEvent.press(await screen.findByTestId("advance-EN_ROUTE"));
     await screen.findByText(/cannot move from ON_SITE/);
+  });
+
+  // FR-036 wants advisors aware of a new call within 30 seconds. Without push,
+  // a queue that never re-reads is a queue that never shows the new call.
+  it("re-reads the queue on the polling interval", async () => {
+    jest.useFakeTimers();
+    try {
+      render(<RoadsideContainer userId="adv-1" role="ADVISOR" />);
+      await waitFor(() => expect(roadsideApi.board).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        jest.advanceTimersByTime(ROADSIDE_BOARD_POLL_MS);
+      });
+      await waitFor(() => expect(roadsideApi.board).toHaveBeenCalledTimes(2));
+      expect(ROADSIDE_BOARD_POLL_MS).toBe(15_000);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // Polling the queue behind an open call wastes battery and can yank the list
+  // out from under the driver mid-update.
+  it("stops polling the queue while a call is open", async () => {
+    jest.useFakeTimers();
+    try {
+      render(<RoadsideContainer userId="adv-1" role="ADVISOR" />);
+      await waitFor(() => expect(roadsideApi.board).toHaveBeenCalledTimes(1));
+      fireEvent.press(await screen.findByTestId("incident-rr-1"));
+      const callsWhenOpened = (roadsideApi.board as jest.Mock).mock.calls.length;
+      await act(async () => {
+        jest.advanceTimersByTime(ROADSIDE_BOARD_POLL_MS * 3);
+      });
+      expect((roadsideApi.board as jest.Mock).mock.calls.length).toBe(callsWhenOpened);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("offers the drivers it loaded to the dispatch form", async () => {
+    render(<RoadsideContainer userId="adv-1" role="ADVISOR" />);
+    fireEvent.press(await screen.findByTestId("dispatch-rr-1"));
+    expect(await screen.findByTestId("responder-drv-9")).toBeTruthy();
+  });
+
+  // The queue is the point; a failed responder lookup must not take it down.
+  it("still shows the queue when the driver list cannot be loaded", async () => {
+    (roadsideApi.responders as jest.Mock).mockRejectedValue(new Error("nope"));
+    render(<RoadsideContainer userId="adv-1" role="ADVISOR" />);
+    expect(await screen.findByTestId("roadside-board-screen")).toBeTruthy();
   });
 
   it("reports a queue it could not load", async () => {

@@ -83,7 +83,7 @@ tags:
 
 > FR-039 stays amber: resolution notes, cost and Mapbox-computed distance are captured, but time on site and parts consumed are not — they belong with the work-order/parts modules.
 >
-> FR-036 is partially met: new requests appear on the advisor dispatch board (`GET /roadside/board`), but there is no push transport yet, so the 30-second guarantee is not enforced. Tracked with the notifications project.
+> FR-036 is partially met: the advisor dispatch board (`GET /roadside/board`, surfaced on F-18) re-reads itself every 15 seconds, so an advisor with the queue open sees a new call well inside 30 seconds. What is still missing is push — with the app closed or on another screen, nothing reaches them. That needs a notifications module and a device-token table, neither of which exists; tracked with the notifications project.
 
 ---
 
