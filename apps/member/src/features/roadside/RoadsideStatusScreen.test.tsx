@@ -18,6 +18,7 @@ const req = (over = {}) => ({
   address: "Governor Camins Ave",
   landmarkNote: null,
   status: "EN_ROUTE" as const,
+  dispatchedToUserId: null,
   responderName: "J. Cruz",
   etaMinutes: 20,
   createdAt: "2026-06-01T00:00:00.000Z",

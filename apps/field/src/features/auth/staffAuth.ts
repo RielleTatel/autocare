@@ -22,5 +22,5 @@ export async function signInStaff(email: string, password: string) {
     throw new Error("This app is for AutoCare+ staff.");
   }
   await SecureStore.setItemAsync("last_active_at", String(Date.now()));
-  return { role: session.user.role, name: session.user.name };
+  return { id: session.user.id, role: session.user.role, name: session.user.name };
 }

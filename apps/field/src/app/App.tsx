@@ -13,6 +13,7 @@ import { signInStaff } from "../features/auth/staffAuth";
 import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSession";
 import { InspectionFlow } from "../features/inspection/InspectionFlow";
 import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
+import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { startSyncListener } from "../shared/sync";
 
 const Stack = createNativeStackNavigator();
@@ -46,8 +47,8 @@ function StaffLoginContainer({ setBoot }: { setBoot: (b: StaffBootState) => void
       onSubmit={async (email, password) => {
         setError(null);
         try {
-          const { role, name } = await signInStaff(email, password);
-          setBoot({ state: "READY", name: name ?? null, role });
+          const { id, role, name } = await signInStaff(email, password);
+          setBoot({ state: "READY", id, name: name ?? null, role });
         } catch (e) {
           setError(e instanceof Error ? e.message : "Sign-in failed. Try again.");
         }
@@ -88,6 +89,7 @@ function AppShell() {
                 role={boot.role}
                 onStartInspection={(vehicleId) => navigation.navigate("Inspection", { vehicleId })}
                 onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
+                onOpenRoadside={() => navigation.navigate("Roadside")}
               />
             )}
           </Stack.Screen>
@@ -97,6 +99,11 @@ function AppShell() {
                 initialVehicleId={(route.params as { vehicleId?: string } | undefined)?.vehicleId}
                 onDone={() => navigation.navigate("Home")}
               />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Roadside">
+            {({ navigation }) => (
+              <RoadsideContainer userId={boot.id} role={boot.role} onBack={() => navigation.goBack()} />
             )}
           </Stack.Screen>
           <Stack.Screen name="SyncQueue">

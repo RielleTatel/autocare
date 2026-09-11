@@ -25,6 +25,10 @@ const STATUS_TONE: Record<string, Tone> = {
   NO_SHOW: "danger",
 };
 
+/** Mirrors DISPATCH_ROLES in the API's roadside service — a mechanic has no
+ *  business in the dispatch queue, and the server would refuse them anyway. */
+const ROADSIDE_ROLES = new Set(["DRIVER", "ADVISOR", "ADMIN"]);
+
 const manilaTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true });
 
@@ -34,7 +38,7 @@ const manilaDay = () =>
 /** F-01 — the mechanic's day. Work is listed in start order; the two standing
  *  actions sit under it. */
 export function TaskListScreen({
-  name, role, onStartInspection, onOpenSyncQueue,
+  name, role, onStartInspection, onOpenSyncQueue, onOpenRoadside,
 }: {
   name: string | null;
   role: string;
@@ -43,6 +47,8 @@ export function TaskListScreen({
    *  object rather than positional args so adding context can't silently shift. */
   onStartInspection?: (from?: { vehicleId: string; appointmentId: string }) => void;
   onOpenSyncQueue?: () => void;
+  /** F-17/F-18. Only rendered for the roles that may work an incident. */
+  onOpenRoadside?: () => void;
 }) {
   const t = fieldTheme;
   const sync = useSyncStatus(syncProcessor);
@@ -125,6 +131,11 @@ export function TaskListScreen({
         <Button icon="wrench" onPress={() => onStartInspection?.()} style={{ marginTop: t.spacing.sm }}>
           Start inspection
         </Button>
+        {ROADSIDE_ROLES.has(role) ? (
+          <Button variant="secondary" icon="truck" testID="open-roadside" onPress={onOpenRoadside}>
+            Roadside calls
+          </Button>
+        ) : null}
         <Button variant="secondary" icon="refresh-cw" onPress={onOpenSyncQueue}>
           {sync.pendingCount > 0 ? `Sync queue (${sync.pendingCount})` : "Sync queue"}
         </Button>

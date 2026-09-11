@@ -101,6 +101,7 @@ export class RoadsideService {
     address: string | null;
     landmarkNote: string | null;
     status: string;
+    dispatchedToUserId?: string | null;
     responderName: string | null;
     etaMinutes: number | null;
     createdAt: Date;
@@ -116,6 +117,7 @@ export class RoadsideService {
       address: r.address,
       landmarkNote: r.landmarkNote,
       status: r.status as RoadsideRequestView["status"],
+      dispatchedToUserId: r.dispatchedToUserId ?? null,
       responderName: r.responderName,
       etaMinutes: r.etaMinutes,
       createdAt: r.createdAt.toISOString(),

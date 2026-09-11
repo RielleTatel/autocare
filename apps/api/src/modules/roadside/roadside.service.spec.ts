@@ -241,6 +241,28 @@ describe("RoadsideService dispatch and status (FR-037 → FR-039)", () => {
     await expect(svc.setStatus(advisor, "rr-1", { status: "EN_ROUTE" })).rejects.toMatchObject({ httpStatus: 409 });
   });
 
+  // The field app's F-17 shows a driver "my incident". Without the assignee on
+  // the view there is nothing to filter on, and every driver sees every call.
+  it("reports who the request was dispatched to", async () => {
+    const svc = await build(withRequest("ACKNOWLEDGED"));
+    const r = await svc.dispatch(advisor, "rr-1", { responderUserId: "drv-9", responderName: "J. Cruz" });
+    expect(r.dispatchedToUserId).toBe("drv-9");
+  });
+
+  it("leaves the assignee null while a request is still unassigned", async () => {
+    const p = withRequest("REQUESTED");
+    (p as any).roadsideRequest.findMany = jest.fn().mockResolvedValue([
+      {
+        id: "rr-1", vehicleId: "veh-1", incidentType: "FLAT_TYRE", lat: 6.9, lng: 122.0,
+        address: null, landmarkNote: null, status: "REQUESTED", dispatchedToUserId: null,
+        responderName: null, etaMinutes: null, createdAt: NOW, resolvedAt: null,
+      },
+    ]);
+    const svc = await build(p);
+    const [row] = await svc.board(advisor);
+    expect(row.dispatchedToUserId).toBeNull();
+  });
+
   it("records the resolution and stamps resolvedAt", async () => {
     const svc = await build(withRequest("ON_SITE"));
     const r = await svc.resolve(advisor, "rr-1", { resolutionNotes: "Tyre changed on site", costCentavos: 45000 });

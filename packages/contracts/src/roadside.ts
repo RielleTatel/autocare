@@ -83,6 +83,9 @@ export type RoadsideRequestView = {
   address: string | null;
   landmarkNote: string | null;
   status: RoadsideStatus;
+  /** Who is working it. Null until an advisor dispatches — the field app's
+   *  F-17 filters "assigned to me" on this. */
+  dispatchedToUserId: string | null;
   responderName: string | null;
   etaMinutes: number | null;
   createdAt: string;
