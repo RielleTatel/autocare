@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { AddWasteInput, AddWorkOrderItemInput, CreateWorkOrderInput } from "@autocare/contracts";
 import { DomainError } from "../../common/errors/domain-error";
 import { AuditService } from "../../common/audit/audit.service";
+import { AnnouncementsService } from "../announcements/announcements.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { WorkOrderConfigService } from "./config.service";
@@ -22,7 +23,44 @@ export class WorkOrdersService {
     private config: WorkOrderConfigService,
     private audit: AuditService,
     private events: WorkOrderEvents,
+    private announcements: AnnouncementsService,
   ) {}
+
+  /**
+   * FR-071 — "your car is ready" reaches the member.
+   *
+   * Best-effort by design: closing a work order decrements stock and issues an
+   * invoice, and a notification failing must never roll that back or surface as
+   * a failed close. A walk-in has no appointment, so no service type and no
+   * thread — the state machine treats that as a no-op anyway.
+   */
+  async notifyServiceCompleted(wo: { id: string; vehicleId: string; appointmentId: string | null }): Promise<void> {
+    try {
+      if (!wo.appointmentId) return;
+      const vehicle = await this.prisma.vehicle.findUnique({
+        where: { id: wo.vehicleId },
+        select: { ownerUserId: true },
+      });
+      // An org-owned fleet vehicle has no single member to tell.
+      if (!vehicle?.ownerUserId) return;
+
+      const appointment = await this.prisma.appointment.findUnique({
+        where: { id: wo.appointmentId },
+        select: { serviceTypeId: true, serviceType: { select: { name: true } } },
+      });
+      if (!appointment) return;
+
+      await this.announcements.applyThreadEvent({
+        userId: vehicle.ownerUserId,
+        vehicleId: wo.vehicleId,
+        serviceTypeId: appointment.serviceTypeId,
+        serviceTypeName: appointment.serviceType.name,
+        event: { type: "SERVICE_COMPLETED" },
+      });
+    } catch {
+      // Deliberately swallowed — see above.
+    }
+  }
 
   private assertStaff(u: AbilityUser): void {
     if (!STAFF_ROLES.has(u.role)) throw new DomainError("FORBIDDEN_ROLE", "staff only", 403);
@@ -270,6 +308,9 @@ export class WorkOrdersService {
 
     if (to === "CLOSED") {
       await this.close(u, wo, summary!, opts.stockOverrideReason);
+      // After the close commits: the member is told about work that actually
+      // finished, never about a close that then failed on stock.
+      await this.notifyServiceCompleted(wo);
     } else {
       await this.prisma.workOrder.update({
         where: { id },

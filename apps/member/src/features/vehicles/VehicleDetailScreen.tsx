@@ -5,7 +5,6 @@ import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
 import { Icon } from "../../components/Icon";
 import { Plate } from "../../components/Plate";
-import { BandChip } from "../../components/BandChip";
 import { ApiError } from "@autocare/api-client";
 import { Vehicle } from "@autocare/contracts";
 import type { Band } from "@autocare/scoring";
@@ -20,25 +19,53 @@ function SpecRow({ label, value, mono, last }: { label: string; value: string; m
   );
 }
 
-function SectionLabel({ children }: { children: string }) {
+/** Sentence case, at heading weight. An ALL-CAPS eyebrow over every block is
+ *  decoration pretending to be structure. */
+function SectionLabel({ children, onDark }: { children: string; onDark?: boolean }) {
   return (
-    <Text style={[theme.text("label", 600), { color: theme.colors.inkMuted, letterSpacing: 0.5 }]}>
-      {children.toUpperCase()}
-    </Text>
+    <Text style={[theme.text("h2"), { color: onDark ? theme.colors.ink : theme.colors.ink }]}>{children}</Text>
   );
 }
 
-export function VehicleDetailScreen({ vehicle, health, onUpdateOdometer, onArchive, onArchived, onBack, onManageSubscription, onViewHealthScore }: {
+/** One of the three numbers a member checks. Bare columns divided by hairlines,
+ *  deliberately not three more cards — identical boxes would flatten the
+ *  hierarchy the sheet is built to create. */
+function Stat({ testID, value, label, last }: { testID: string; value: string; label: string; last?: boolean }) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: "center",
+        gap: 2,
+        borderRightWidth: last ? 0 : 1,
+        borderRightColor: theme.colors.line,
+      }}
+    >
+      <Text testID={testID} style={[theme.text("h2"), { color: theme.colors.ink }]}>{value}</Text>
+      <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>{label}</Text>
+    </View>
+  );
+}
+
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-PH", { day: "numeric", month: "short" });
+
+export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt, onUpdateOdometer, onArchive, onArchived, onBack, onManageSubscription, onViewHealthScore, onBookService }: {
   vehicle: Vehicle;
   /** Latest score, when the vehicle has been inspected. Absent is normal for a
    *  new vehicle and must not read as an error. */
   health?: { score: number; band: Band } | null;
+  /** Open attention items for this vehicle. Undefined = not loaded yet, which
+   *  reads as "—" rather than a confident zero. */
+  openItems?: number | null;
+  lastServiceAt?: string | null;
   onUpdateOdometer: (km: number, justification?: string) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
   onArchived: () => void;
   onBack?: () => void;
   onManageSubscription?: () => void;
   onViewHealthScore?: () => void;
+  onBookService?: () => void;
 }) {
   const [editingOdo, setEditingOdo] = useState(false);
   const [odoValue, setOdoValue] = useState(String(vehicle.currentOdometerKm));
@@ -74,20 +101,22 @@ export function VehicleDetailScreen({ vehicle, health, onUpdateOdometer, onArchi
     onArchived();
   };
 
+  const bandLabel = health ? theme.vhsBands[health.band].labelEn : null;
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.chassis }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.chassis }}>
+    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.chassis }} contentContainerStyle={{ paddingBottom: 96 }}>
       {photo ? (
-        <Image source={{ uri: photo }} style={{ width: "100%", height: 200 }} />
+        <Image source={{ uri: photo }} style={{ width: "100%", height: 260 }} />
       ) : (
         /* An empty frame should still say what belongs in it. A flat grey slab
            reads as something that failed to load. */
         <View
           testID="no-photo"
           style={{
-            width: "100%", height: 200,
+            width: "100%", height: 260,
             backgroundColor: theme.colors.chassis,
             alignItems: "center", justifyContent: "center", gap: theme.spacing.xs,
-            borderBottomWidth: 1, borderBottomColor: theme.colors.line,
           }}
         >
           <Icon name="car-front" size={44} color={theme.colors.inkMuted} />
@@ -95,30 +124,120 @@ export function VehicleDetailScreen({ vehicle, health, onUpdateOdometer, onArchi
         </View>
       )}
 
-      <View style={{ padding: theme.spacing.lg, gap: theme.spacing.lg }}>
-        {/* Identity: everything needed to recognise the car, in one card, so it
-            is never assembled by scrolling. */}
-        <Card testID="vehicle-identity" style={{ gap: theme.spacing.sm }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <Plate variant="chip">{vehicle.plateNo}</Plate>
-            <Pressable testID="overflow-menu" accessibilityRole="button" accessibilityLabel="Vehicle options"
-              onPress={() => setMenuOpen((o) => !o)}
-              style={{ width: theme.minTarget, height: theme.minTarget, alignItems: "center", justifyContent: "center" }}>
-              <Icon name="ellipsis" size={20} color={theme.colors.inkMuted} />
-            </Pressable>
-          </View>
+      {/* Floating over the hero rather than in a bar above it: the photo is the
+          full-bleed subject, and chrome sitting on it keeps it that way. */}
+      {onBack ? (
+        <Pressable
+          testID="vehicle-back"
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={onBack}
+          style={{
+            position: "absolute",
+            top: theme.spacing.md,
+            left: theme.spacing.md,
+            width: theme.minTarget,
+            height: theme.minTarget,
+            borderRadius: theme.minTarget / 2,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.colors.surface,
+            // RN shadow props: `elevation.card` is a CSS box-shadow string and
+            // does not cross over.
+            shadowColor: theme.colors.ink,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.18,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+        >
+          <Icon name="chevron-left" size={24} color={theme.colors.ink} />
+        </Pressable>
+      ) : null}
 
-          <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>
+      {/* The detail sheet: one surface lifted over the photo, so the car is a
+          backdrop and its condition is the subject. Overlapping the hero by a
+          card radius is what makes the two read as one object rather than two
+          stacked blocks. */}
+      <View
+        testID="vehicle-identity"
+        style={{
+          marginTop: -28,
+          minHeight: 460,
+          backgroundColor: theme.colors.surface,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          padding: theme.spacing.lg,
+          gap: theme.spacing.lg,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <Plate variant="chip">{vehicle.plateNo}</Plate>
+          <Pressable testID="overflow-menu" accessibilityRole="button" accessibilityLabel="Vehicle options"
+            onPress={() => setMenuOpen((o) => !o)}
+            style={{ width: theme.minTarget, height: theme.minTarget, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="ellipsis" size={20} color={theme.colors.inkMuted} />
+          </Pressable>
+        </View>
+
+        <View style={{ gap: theme.spacing.xs }}>
+          <Text style={[theme.text("h1"), { color: theme.colors.ink }]}>
             {vehicle.year} {vehicle.make} {vehicle.model}
           </Text>
 
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text testID="identity-odometer" style={[theme.text("code"), { color: theme.colors.inkMuted }]}>
-              {vehicle.currentOdometerKm.toLocaleString("en-US")} km
+          {health ? (
+            /* The score is the largest thing on the screen — a maintenance app
+               answers "how is it?" before "what is it?". On this light sheet the
+               numeral is painted in the band's own light-surface colour (5.6:1
+               at worst), so the score states its band in one mark instead of
+               repeating it in a chip alongside. */
+            <Pressable
+              accessibilityRole={onViewHealthScore ? "button" : undefined}
+              accessibilityLabel={`Health score ${health.score} out of 100, ${bandLabel}`}
+              onPress={onViewHealthScore}
+              style={{ flexDirection: "row", alignItems: "flex-end", gap: theme.spacing.sm }}
+            >
+              <Text
+                testID="vehicle-score"
+                style={[theme.text("score"), { color: theme.vhsBands[health.band].text, lineHeight: 76 }]}
+              >
+                {health.score}
+              </Text>
+              <View style={{ paddingBottom: theme.spacing.sm, gap: 2 }}>
+                <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>out of 100</Text>
+                <Text testID="vehicle-band" style={[theme.text("body", 600), { color: theme.vhsBands[health.band].text }]}>
+                  {bandLabel}
+                </Text>
+              </View>
+            </Pressable>
+          ) : (
+            <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>
+              No health score yet — it appears after the first inspection.
             </Text>
-            {health ? <BandChip band={health.band} /> : null}
+          )}
+        </View>
+
+        <View style={{ gap: theme.spacing.sm }}>
+          <SectionLabel onDark>Overview</SectionLabel>
+          <View style={{ flexDirection: "row", alignItems: "stretch" }}>
+            <Stat
+              testID="stat-odometer"
+              value={`${(vehicle.currentOdometerKm / 1000).toFixed(1)}k`}
+              label="km on the clock"
+            />
+            <Stat
+              testID="stat-last-service"
+              value={lastServiceAt ? shortDate(lastServiceAt) : "—"}
+              label="last service"
+            />
+            <Stat
+              testID="stat-watch"
+              value={openItems == null ? "—" : String(openItems)}
+              label={openItems === 1 ? "item to watch" : "items to watch"}
+              last
+            />
           </View>
-        </Card>
+        </View>
 
         {menuOpen && (
           <Pressable testID="archive-action" onPress={() => { setMenuOpen(false); setConfirmArchive(true); }}
@@ -157,7 +276,9 @@ export function VehicleDetailScreen({ vehicle, health, onUpdateOdometer, onArchi
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>Odometer</Text>
+          <Text testID="identity-odometer" style={[theme.text("code"), { color: theme.colors.inkMuted }]}>
+            {vehicle.currentOdometerKm.toLocaleString("en-US")} km
+          </Text>
           {editingOdo ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
               <TextInput testID="odometer-input" keyboardType="number-pad" value={odoValue} onChangeText={setOdoValue}
@@ -222,11 +343,33 @@ export function VehicleDetailScreen({ vehicle, health, onUpdateOdometer, onArchi
         )}
 
         {onManageSubscription ? (
-          <Button block testID="manage-subscription" onPress={onManageSubscription}>
+          <Button block variant="ghost" testID="manage-subscription" onPress={onManageSubscription}>
             Manage subscription
           </Button>
         ) : null}
       </View>
     </ScrollView>
+
+    {/* One action, always reachable. The page previously ended in a list of
+        facts with nothing to do about them. */}
+    {onBookService ? (
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: theme.spacing.md,
+          backgroundColor: theme.colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.line,
+        }}
+      >
+        <Button block testID="vehicle-book-service" onPress={onBookService}>
+          Book a service
+        </Button>
+      </View>
+    ) : null}
+    </View>
   );
 }

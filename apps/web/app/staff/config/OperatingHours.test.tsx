@@ -8,6 +8,13 @@ vi.mock("../../../lib/scheduling/api", () => ({
   createBay: vi.fn(),
   createServiceType: vi.fn(),
   upsertOperatingHours: vi.fn(),
+  // The page also renders <Shifts>; stub its calls so this suite exercises the
+  // hours section rather than an incidental roster-load failure.
+  getShifts: vi.fn().mockResolvedValue([]),
+  getRosterableStaff: vi.fn().mockResolvedValue([]),
+  createShift: vi.fn(),
+  updateShift: vi.fn(),
+  deleteShift: vi.fn(),
 }));
 
 import CapacityConfigPage from "./page";

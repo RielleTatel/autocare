@@ -3,45 +3,8 @@ import { FlatList, RefreshControl, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { Vehicle } from "@autocare/contracts";
 import type { Band } from "@autocare/scoring";
-import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
-import { BandChip } from "../../components/BandChip";
-import { StarRating } from "../health-score/StarRating";
-import { Icon } from "../../components/Icon";
-import { Plate } from "../../components/Plate";
-
-/** Leading tile on each vehicle row — DS card-leading size on a chassis swatch. */
-function CarIcon() {
-  return (
-    <View style={{ width: 46, height: 46, borderRadius: theme.radii.sm, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
-      <Icon name="car-front" size={24} color={theme.colors.inkMuted} />
-    </View>
-  );
-}
-
-function VehicleRow({ vehicle, health, onPress }: {
-  vehicle: Vehicle;
-  health: { score: number; band: Band } | null;
-  onPress: () => void;
-}) {
-  const t = theme;
-  return (
-    <Card interactive onPress={onPress} style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.md, marginBottom: t.spacing.sm }}>
-      <CarIcon />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Plate variant="plain">{vehicle.plateNo}</Plate>
-        <Text style={[t.text("body"), { color: t.colors.ink }]} numberOfLines={1}>{vehicle.year} {vehicle.make} {vehicle.model}</Text>
-        <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{vehicle.currentOdometerKm.toLocaleString("en-US")} km</Text>
-      </View>
-      {health ? (
-        <View style={{ alignItems: "flex-end", gap: 4 }}>
-          <BandChip band={health.band} />
-          <StarRating score={health.score} band={health.band} size={14} />
-        </View>
-      ) : null}
-    </Card>
-  );
-}
+import { VehicleCard } from "../../components/VehicleCard";
 
 export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle, onAddVehicle }: {
   fetchVehicles: () => Promise<Vehicle[]>;
@@ -52,9 +15,11 @@ export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle
 }) {
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [health, setHealth] = useState<Record<string, { score: number; band: Band }>>({});
+  const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setFailed(false);
     const list = await fetchVehicles();
     setVehicles(list);
     if (fetchHealth) {
@@ -64,11 +29,14 @@ export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle
     }
   }, [fetchVehicles, fetchHealth]);
 
-  useEffect(() => { load(); }, [load]);
+  // The rejection has to be handled here: an async call fired from useEffect
+  // with nothing attached becomes an unhandled rejection, which RN surfaces as
+  // a red uncaught-error box — and the list sits empty for ever.
+  useEffect(() => { load().catch(() => setFailed(true)); }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try { await load(); } finally { setRefreshing(false); }
+    try { await load(); } catch { setFailed(true); } finally { setRefreshing(false); }
   };
 
   const t = theme;
@@ -92,7 +60,13 @@ export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle
           </View>
         }
         renderItem={({ item }) => (
-          <VehicleRow vehicle={item} health={health[item.id] ?? null} onPress={() => onSelectVehicle(item)} />
+          <VehicleCard
+            testID={`vehicle-${item.id}`}
+            vehicle={item}
+            health={health[item.id] ?? null}
+            onPress={() => onSelectVehicle(item)}
+            style={{ marginBottom: theme.spacing.sm }}
+          />
         )}
         ListFooterComponent={
           vehicles ? (
@@ -102,7 +76,16 @@ export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle
           ) : null
         }
         ListEmptyComponent={
-          vehicles && vehicles.length === 0 ? (
+          failed ? (
+            <View style={{ alignItems: "center", gap: t.spacing.md, marginTop: t.spacing.xl }}>
+              <Text style={[t.text("body"), { color: t.colors.ink, textAlign: "center" }]}>
+                Couldn't load your vehicles. Check your connection and try again.
+              </Text>
+              <Button testID="vehicles-retry" variant="secondary" onPress={() => void load().catch(() => setFailed(true))}>
+                Try again
+              </Button>
+            </View>
+          ) : vehicles && vehicles.length === 0 ? (
             <Text style={[t.text("body"), { color: t.colors.inkMuted, textAlign: "center", marginTop: t.spacing.xl }]}>
               No vehicles yet — add your first below.
             </Text>

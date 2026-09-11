@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import {
-  baySchema, blockSchema, operatingHoursSchema, serviceTypeSchema, shiftSchema,
-  BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ShiftInput,
+  baySchema, blockSchema, operatingHoursSchema, serviceTypeSchema, shiftSchema, shiftQuerySchema, shiftUpdateSchema,
+  BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ShiftInput, ShiftQuery, ShiftUpdate,
 } from "@autocare/contracts";
 import { z } from "zod";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -35,9 +35,29 @@ export class SchedulingConfigController {
     return this.config.createBay(u, dto);
   }
 
+  @Get("rosterable-staff")
+  listRosterableStaff(@CurrentUser() u: AbilityUser) {
+    return this.config.listRosterableStaff(u);
+  }
+
+  @Get("shifts")
+  listShifts(@CurrentUser() u: AbilityUser, @Query(new ZodValidationPipe(shiftQuerySchema)) q: ShiftQuery) {
+    return this.config.listShifts(u, q);
+  }
+
   @Post("shifts")
   createShift(@CurrentUser() u: AbilityUser, @Body(new ZodValidationPipe(shiftSchema)) dto: ShiftInput) {
     return this.config.createShift(u, dto);
+  }
+
+  @Patch("shifts/:id")
+  updateShift(@CurrentUser() u: AbilityUser, @Param("id") id: string, @Body(new ZodValidationPipe(shiftUpdateSchema)) dto: ShiftUpdate) {
+    return this.config.updateShift(u, id, dto);
+  }
+
+  @Delete("shifts/:id")
+  deleteShift(@CurrentUser() u: AbilityUser, @Param("id") id: string) {
+    return this.config.deleteShift(u, id);
   }
 
   @Post("blocks")

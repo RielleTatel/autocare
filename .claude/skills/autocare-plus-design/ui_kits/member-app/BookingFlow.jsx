@@ -12,6 +12,34 @@ const OPEN_SLOTS = ["08:00", "09:00", "10:30", "13:00", "14:00", "15:30"];
 
 const ENTITLEMENT_LINE = { PM: "Uses 1 of 2 monthly inspections", INS: "Uses 1 of 2 monthly inspections", BRK: null, AC: null };
 
+const SERVICE_ICON = { PM: "wrench", INS: "clipboard-check", BRK: "disc", AC: "snowflake" };
+
+function ChevronPill() {
+  return (
+    <div style={{ width: 40, height: 40, borderRadius: 999, background: "var(--ac-ink)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+      <Icon name="chevron-right" size={20} color="var(--ac-surface)" />
+    </div>
+  );
+}
+
+function ServiceRow({ s, onClick }) {
+  return (
+    <Card interactive onClick={onClick} style={{ display: "flex", alignItems: "center", gap: "var(--ac-space-md)", minHeight: "var(--ac-target-member)" }}>
+      <div style={{ width: 58, height: 58, borderRadius: "var(--ac-radius-md)", background: s.entitled ? "var(--ac-primary-soft)" : "var(--ac-chassis)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+        <Icon name={SERVICE_ICON[s.code]} size={26} color={s.entitled ? "var(--ac-primary)" : "var(--ac-ink-muted)"} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>{s.name}</span>
+        <span style={{ font: "var(--type-label)", color: "var(--ac-ink-faint)" }}>Time: {s.durationMin} min</span>
+        <span style={{ font: "var(--type-label)", fontWeight: 600, color: s.entitled ? "var(--ac-success)" : "var(--ac-ink)" }}>
+          {s.entitled ? "Included in your plan" : s.price}
+        </span>
+      </div>
+      <ChevronPill />
+    </Card>
+  );
+}
+
 function BookingFlow({ onBack, onDone }) {
   const [step, setStep] = React.useState(0);
   const [service, setService] = React.useState(null);
@@ -37,15 +65,12 @@ function BookingFlow({ onBack, onDone }) {
 
         {step === 0 && (
           <>
-            <div style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>Book a service</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: "var(--ac-space-xs)" }}>
+              <span style={{ font: "var(--type-h1)", color: "var(--ac-ink)" }}>Book a service</span>
+              <span style={{ font: "var(--type-body)", color: "var(--ac-ink-muted)" }}>What does ABC 1234 need today?</span>
+            </div>
             {SERVICE_TYPES.map((s) => (
-              <Card key={s.code} interactive onClick={() => { setService(s); setStep(1); }} style={{ display: "flex", flexDirection: "column", gap: 4, minHeight: "var(--ac-target-member)" }}>
-                <span style={{ font: "var(--type-body)", color: "var(--ac-ink)" }}>{s.name}</span>
-                <span style={{ font: "var(--type-label)", color: "var(--ac-ink-muted)" }}>{s.durationMin} min</span>
-                <span style={{ font: "var(--type-label)", color: s.entitled ? "var(--ac-primary)" : "var(--ac-ink)" }}>
-                  {s.entitled ? "Included in your plan" : s.price}
-                </span>
-              </Card>
+              <ServiceRow key={s.code} s={s} onClick={() => { setService(s); setStep(1); }} />
             ))}
           </>
         )}
@@ -87,12 +112,17 @@ function BookingFlow({ onBack, onDone }) {
         {step === 2 && (
           <>
             <div style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>Confirm booking</div>
-            <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={{ font: "var(--type-body)", color: "var(--ac-ink)" }}>{service?.name}</span>
-              <span style={{ font: "var(--type-label)", color: "var(--ac-ink-muted)" }}>Tue, Sep 2, {slot}</span>
-              {ENTITLEMENT_LINE[service?.code] && (
-                <span style={{ font: "var(--type-label)", color: "var(--ac-primary)" }}>{ENTITLEMENT_LINE[service.code]}</span>
-              )}
+            <Card style={{ display: "flex", alignItems: "center", gap: "var(--ac-space-md)" }}>
+              <div style={{ width: 58, height: 58, borderRadius: "var(--ac-radius-md)", background: "var(--ac-primary-soft)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+                <Icon name={SERVICE_ICON[service?.code] || "wrench"} size={26} color="var(--ac-primary)" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>{service?.name}</span>
+                <span style={{ font: "var(--type-label)", color: "var(--ac-ink-faint)" }}>Tue, Sep 2 · {slot} · {service?.durationMin} min</span>
+                {ENTITLEMENT_LINE[service?.code] && (
+                  <span style={{ font: "var(--type-label)", fontWeight: 600, color: "var(--ac-success)" }}>{ENTITLEMENT_LINE[service.code]}</span>
+                )}
+              </div>
             </Card>
             <Button block disabled={submitting} onClick={() => { setSubmitting(true); setTimeout(onDone, 500); }}>
               {submitting ? "Booking…" : "Confirm"}

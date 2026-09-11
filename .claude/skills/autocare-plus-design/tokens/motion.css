@@ -1,6 +1,6 @@
 /* Motion communicates state change, hierarchy and navigation — nothing else.
    Sheets slide from the bottom edge. Bars and arcs grow from their origin.
-   Nothing bounces, nothing springs, nothing loops. */
+   Nothing bounces, nothing springs, nothing loops, nothing shimmers. */
 :root {
   --ac-duration-instant: 90ms; /* @kind other */
   --ac-duration-fast: 140ms; /* @kind other */

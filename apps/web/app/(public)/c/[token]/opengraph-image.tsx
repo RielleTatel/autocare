@@ -13,7 +13,7 @@ export default async function OgImage({ params }: { params: { token: string } })
 
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#0A2E4F", color: "#FFFFFF", padding: 64, justifyContent: "space-between" }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#5A1220", color: "#FFFFFF", padding: 64, justifyContent: "space-between" }}>
         <div style={{ fontSize: 40, fontWeight: 600 }}>AutoCare+ Vehicle Health Certificate</div>
         {ok ? (
           <div style={{ display: "flex", alignItems: "center", gap: 48 }}>

@@ -1,4 +1,4 @@
-const { Card, Button, Plate, StatusPill, Icon, FormField, ScoreGauge, StarRating, CategoryBar, BandChip, SyncBanner, StatusChoice, StatusChip, EmptyState } = window.AutoCareDesignSystem_2155ba;
+const { Card, Button, Plate, StatusPill, Icon, FormField, ScoreGauge, StarRating, CategoryBar, BandChip, SyncBanner, StatusChoice, StatusChip, EmptyState } = window.AutoCareDesignSystem_85f2c0;
 
 const POINTS = [
   { code: "BRK-01", label: "Front pad thickness", labelFil: "Kapal ng harap na brake pad", unit: "mm", measured: true, good: 5.0, value: "3.0", status: "ATTENTION", photoRequired: true },

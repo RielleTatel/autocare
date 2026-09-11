@@ -13,7 +13,7 @@ export function classifySession(token: string | null, lastActiveAt: string | nul
 
 export type StaffBootState =
   | { state: "ANONYMOUS" }
-  | { state: "READY"; name: string | null; role: Role };
+  | { state: "READY"; id: string; name: string | null; role: Role };
 
 export async function bootstrapStaff(): Promise<StaffBootState> {
   const token = await SecureStore.getItemAsync("firebase_id_token");
@@ -22,7 +22,7 @@ export async function bootstrapStaff(): Promise<StaffBootState> {
   try {
     const session = await api.createSession();
     await SecureStore.setItemAsync("last_active_at", String(Date.now()));
-    return { state: "READY", name: session.user.name, role: session.user.role };
+    return { state: "READY", id: session.user.id, name: session.user.name, role: session.user.role };
   } catch {
     return { state: "ANONYMOUS" };
   }

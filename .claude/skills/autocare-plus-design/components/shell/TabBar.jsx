@@ -1,12 +1,12 @@
 import React from "react";
 
-/** Member app bottom tabs. Active tint is Gauge Blue, inactive is muted ink;
+/** Member app bottom tabs. Active tint is Ignition Red, inactive is muted ink;
  *  49dp bar over a hairline. Labels are nouns, never verbs. */
 export function TabBar({ tabs = [], active, onChange, style }) {
   return (
     <nav style={{
-      display: "flex", height: 56, borderTop: "1px solid var(--ac-line)",
-      background: "var(--ac-surface)", ...style,
+      display: "flex", height: 56, borderTop: "1px solid var(--ac-line-soft)",
+      background: "var(--ac-surface)", boxShadow: "var(--ac-elevation-nav)", ...style,
     }}>
       {tabs.map((t) => {
         const on = t.key === active;

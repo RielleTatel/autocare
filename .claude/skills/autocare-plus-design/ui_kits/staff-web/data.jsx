@@ -1,4 +1,4 @@
-const { Card, Button, Plate, StatusPill, Icon, FormField, CategoryBar, BandChip, StarRating, EmptyState } = window.AutoCareDesignSystem_2155ba;
+const { Card, Button, Plate, StatusPill, Icon, FormField, CategoryBar, BandChip, StarRating, EmptyState } = window.AutoCareDesignSystem_85f2c0;
 
 const APPTS = [
   { id: "a1", hour: "09:00", plate: "ABC 1234", service: "Preventive maintenance", start: "09:00", end: "11:00", member: "R. Tatel", status: "IN_PROGRESS", pickup: true },
@@ -23,7 +23,7 @@ const TopBar = ({ console: label, nav, active, onNav, onSignOut }) => (
       ))}
     </nav>
     <span style={{ flex: 1 }} />
-    <button type="button" onClick={onSignOut} style={{ border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", font: "var(--type-body)", fontSize: 14, padding: "8px 12px", borderRadius: "var(--ac-radius-sm)", cursor: "pointer" }}>Sign out</button>
+    <button type="button" onClick={onSignOut} style={{ border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", font: "var(--type-body)", fontSize: 14, padding: "8px 12px", whiteSpace: "nowrap", borderRadius: "var(--ac-radius-sm)", cursor: "pointer" }}>Sign out</button>
   </header>
 );
 

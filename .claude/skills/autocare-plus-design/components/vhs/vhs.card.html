@@ -1,26 +1,35 @@
-<!-- @dsCard group="Components" viewport="700x330" name="VHS" subtitle="ScoreGauge, StarRating, BandChip, CategoryBar" -->
-<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<!-- @dsCard group="Components" viewport="700x400" name="Vehicle Health Score" subtitle="ScoreGauge, BandChip, StarRating, CategoryBar" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>VHS components</title>
+<link rel="stylesheet" href="../../styles.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="../../_ds_bundle.js"></script>
-<style>body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}#root{padding:16px;display:flex;gap:20px;align-items:flex-start}.lab{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label)}</style>
-</head><body><div id="root"></div>
+<style>html,body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}
+#root{padding:20px;box-sizing:border-box}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.cap{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label)}
+a{color:var(--ac-primary)}a:hover{color:var(--action-primary-hover)}</style>
+</head><body><div id="root"></div><script>Object.assign(window, window.AutoCareDesignSystem_85f2c0);</script>
 <script type="text/babel">
-const { ScoreGauge, StarRating, BandChip, CategoryBar, Card } = window.AutoCareDesignSystem_2155ba;
-function Demo(){return (<>
-<div><div class="lab">Gauge · fair, capped</div><ScoreGauge score={69} confidence="MEDIUM" size={190}/></div>
-<div><div class="lab">Stale (&gt;90 days)</div><ScoreGauge score={51} isStale daysSinceInspection={128} size={190}/></div>
-<div style={{flex:1,display:"flex",flexDirection:"column",gap:10,minWidth:0}}>
-  <div><div class="lab">Bands</div><div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
-    <BandChip band="EXCELLENT" showFil/><BandChip band="GOOD" showFil/><BandChip band="FAIR" showFil/><BandChip band="NEEDS_ATTENTION"/><BandChip band="CRITICAL"/>
-  </div></div>
-  <div><div class="lab">Stars</div><div style={{display:"flex",flexDirection:"column",gap:2,marginTop:4}}>
-    <StarRating band="EXCELLENT" size={18}/><StarRating band="FAIR" size={18}/><StarRating band="CRITICAL" size={18}/>
-  </div></div>
-  <Card><CategoryBar label="Brakes" score={75.8} weight={22} points={9}/></Card>
-  <Card><CategoryBar label="Tyres" score={64} weight={18} points={6}/></Card>
-</div>
-</>);}
+function Demo(){return(<div className="col">
+ <div className="row" style={{gap:24}}>
+  <ScoreGauge score={69} band="FAIR" size={150}/>
+  <ScoreGauge score={94} band="EXCELLENT" size={110}/>
+  <ScoreGauge score={31} band="CRITICAL" size={110}/>
+ </div>
+ <div className="row">
+  <BandChip band="EXCELLENT" showFil/><BandChip band="GOOD" showFil/><BandChip band="FAIR" showFil/><BandChip band="NEEDS_ATTENTION" showFil/><BandChip band="CRITICAL" showFil/>
+ </div>
+ <div className="row">
+  <StarRating score={94}/><StarRating score={69}/><StarRating score={31}/>
+ </div>
+ <div className="col" style={{gap:16}}>
+  <CategoryBar label="Engine &amp; drivetrain" score={92} weight={18} points={7}/>
+  <CategoryBar label="Brakes" score={41} weight={16} points={5}/>
+  <CategoryBar label="Tyres &amp; wheels" score={78} weight={14} points={6}/>
+ </div>
+</div>);}
 ReactDOM.createRoot(document.getElementById("root")).render(<Demo/>);
 </script></body></html>

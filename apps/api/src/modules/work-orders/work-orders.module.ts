@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AnnouncementsModule } from "../announcements/announcements.module";
 import { AuditService } from "../../common/audit/audit.service";
 import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
@@ -9,6 +10,7 @@ import { RecommendationsService } from "./recommendations.service";
 import { PartsService } from "./parts.service";
 
 @Module({
+  imports: [AnnouncementsModule],
   controllers: [WorkOrdersController],
   providers: [
     WorkOrdersService,

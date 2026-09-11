@@ -1,14 +1,17 @@
-/* Elevation is drawn with hairlines, not shadow. Cards in AutoCare+ are
-   1px --ac-line on --ac-surface over the --ac-chassis app background; that
-   contrast alone carries the plane. Shadow appears in exactly two places:
-   the web login card and sheets/dialogs that float over a scrim. */
+/* Soft elevation. The shipped product draws planes with a 1px hairline and no
+   shadow; the 2026 visual direction asks for cards that read as premium objects
+   resting on a studio surface, so the card token becomes a two-layer shadow — a
+   tight contact shadow plus a wide, very light ambient one — over a soft border
+   rather than the full-strength steel hairline. Dense data surfaces (the staff
+   console tables) keep --ac-elevation-flat and the hairline. */
 :root {
   --ac-elevation-flat: none;
-  --ac-elevation-card: 0 1px 2px rgba(22, 35, 46, 0.04);
-  --ac-elevation-raised: 0 1px 3px rgba(22, 35, 46, 0.08), 0 1px 2px rgba(22, 35, 46, 0.04);
-  --ac-elevation-sheet: 0 -8px 24px rgba(22, 35, 46, 0.16);
+  --ac-elevation-card: 0 1px 2px rgba(22, 35, 46, 0.04), 0 8px 24px rgba(22, 35, 46, 0.05);
+  --ac-elevation-raised: 0 2px 4px rgba(22, 35, 46, 0.05), 0 16px 40px rgba(22, 35, 46, 0.08);
+  --ac-elevation-nav: 0 -2px 12px rgba(22, 35, 46, 0.06);
+  --ac-elevation-sheet: 0 -8px 40px rgba(22, 35, 46, 0.16);
   --ac-scrim: rgba(22, 35, 46, 0.4);
 
-  --elevation-card: var(--ac-elevation-flat);
+  --elevation-card: var(--ac-elevation-card);
   --elevation-dialog: var(--ac-elevation-sheet);
 }

@@ -35,7 +35,7 @@ export function Button({
   const base: ViewStyle = {
     height,
     minHeight: height,
-    borderRadius: fieldTheme.radii.md,
+    borderRadius: fieldTheme.radii.pill,
     paddingHorizontal: fieldTheme.spacing.lg,
     flexDirection: "row",
     alignItems: "center",

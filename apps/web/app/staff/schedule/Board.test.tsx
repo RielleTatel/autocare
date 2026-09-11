@@ -28,14 +28,14 @@ describe("advisor board", () => {
     expect(screen.getByText("ABC1234")).toBeDefined();
     expect(screen.getByText("Oil Change")).toBeDefined();
     expect(screen.getByText("BOOKED")).toBeDefined();
-    expect(screen.getByText(/09:00–10:00/)).toBeDefined();
+    expect(screen.getByText(/9:00 AM–10:00 AM/)).toBeDefined();
     expect(screen.getByText(/Jane Cruz/)).toBeDefined();
   });
 
   it("groups appointments under their start hour", () => {
     render(<Board appointments={[appt({ id: "a1" }), appt({ id: "a2", scheduledStart: "2027-09-01T09:30:00+08:00", scheduledEnd: "2027-09-01T10:30:00+08:00", vehiclePlateNo: "XYZ9876" })]} />);
-    // Both 09:xx → same "09:00" hour bucket header shown once
-    expect(screen.getAllByText("09:00")).toHaveLength(1);
+    // Both 09:xx → same 9 AM hour bucket header shown once
+    expect(screen.getAllByText("9 AM")).toHaveLength(1);
     expect(screen.getByText("ABC1234")).toBeDefined();
     expect(screen.getByText("XYZ9876")).toBeDefined();
   });

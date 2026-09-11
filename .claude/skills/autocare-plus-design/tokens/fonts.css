@@ -1,4 +1,6 @@
-/* AutoCare+ ships three faces. All three are Google Fonts, loaded in the real
-   product by next/font (web) and @expo-google-fonts (native). Consumers of this
-   design system get them from the Google Fonts CDN. */
-@import url("https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+/* AutoCare+ webfaces. Three faces, three jobs — see readme VISUAL FOUNDATIONS.
+   Barlow Semi Condensed  display  headings, score numeral, vehicle names
+   Inter                  body     every UI string
+   IBM Plex Mono          mono     plates, VINs, verification codes, status pills
+   Served from Google Fonts; no binaries ship with this system. */
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");

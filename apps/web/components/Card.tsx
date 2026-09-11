@@ -11,12 +11,21 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   /** Left status edge, 5px. Pass a band/severity token, e.g. `var(--ac-sev-critical)`. */
   accent?: string;
   interactive?: boolean;
+  /** Drop the soft shadow back to the shipped hairline — dense data surfaces
+   *  (staff console tables, the certificate) keep this. */
+  flat?: boolean;
+  /** Radius 28 instead of the default 20 — major cards, bottom sheets, modals. */
+  major?: boolean;
 }
 
-/** Surface container — hairline border, radius 12, no shadow (elevation is line, not shadow). */
-export function Card({ children, pad = "md", accent, interactive, className = "", style, ...rest }: CardProps) {
+/** Surface container — radius 20 (28 with `major`), soft two-layer shadow over
+ *  a soft border (2026 re-skin). `flat` reverts to the shipped hairline with no
+ *  shadow, for dense data surfaces. */
+export function Card({ children, pad = "md", accent, interactive, flat, major, className = "", style, ...rest }: CardProps) {
   const cls = [
-    "bg-surface rounded-md border border-line",
+    "bg-surface",
+    major ? "rounded-lg" : "rounded-md",
+    flat ? "border border-line shadow-flat" : "border border-line-soft shadow-card",
     PAD[pad],
     interactive ? "cursor-pointer transition-colors hover:border-primary" : "",
     className,

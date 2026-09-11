@@ -83,6 +83,16 @@ export class InspectionsRepo {
     await db.runAsync("UPDATE local_inspections SET status = 'LOCKED', submitted_at = ? WHERE client_uuid = ?", submittedAt, clientUuid);
   }
 
+  /** Drop a draft and its results. Used when a rejected inspection is discarded
+   *  from the sync queue — without it the local rows (and their checklist_json,
+   *  the bulk of on-device storage) leak forever. There is no FK/cascade in the
+   *  local schema, so results are deleted explicitly. */
+  async delete(clientUuid: string): Promise<void> {
+    const db = await getDb();
+    await db.runAsync("DELETE FROM local_results WHERE inspection_client_uuid = ?", clientUuid);
+    await db.runAsync("DELETE FROM local_inspections WHERE client_uuid = ?", clientUuid);
+  }
+
   async storageUsedBytes(): Promise<number> {
     const db = await getDb();
     const r = await db.getFirstAsync<{ n: number }>(

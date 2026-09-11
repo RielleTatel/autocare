@@ -9,10 +9,12 @@ import { fieldTheme } from "../theme";
 import { fontAssets } from "../theme/fonts";
 import { StaffLoginScreen } from "../features/auth/StaffLoginScreen";
 import { TaskListScreen } from "../features/tasks/TaskListScreen";
-import { signInStaff } from "../features/auth/staffAuth";
+import { signInStaff, signOutStaff } from "../features/auth/staffAuth";
 import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSession";
 import { InspectionFlow } from "../features/inspection/InspectionFlow";
 import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
+import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
+import { InspectionDetailScreen } from "../features/history/InspectionDetailScreen";
 import { startSyncListener } from "../shared/sync";
 
 const Stack = createNativeStackNavigator();
@@ -46,8 +48,8 @@ function StaffLoginContainer({ setBoot }: { setBoot: (b: StaffBootState) => void
       onSubmit={async (email, password) => {
         setError(null);
         try {
-          const { role, name } = await signInStaff(email, password);
-          setBoot({ state: "READY", name: name ?? null, role });
+          const { id, role, name } = await signInStaff(email, password);
+          setBoot({ state: "READY", id, name: name ?? null, role });
         } catch (e) {
           setError(e instanceof Error ? e.message : "Sign-in failed. Try again.");
         }
@@ -86,8 +88,12 @@ function AppShell() {
               <TaskListScreen
                 name={boot.name}
                 role={boot.role}
-                onStartInspection={(vehicleId) => navigation.navigate("Inspection", { vehicleId })}
+                onStartInspection={(from) => navigation.navigate("Inspection", from ?? {})}
                 onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
+                onOpenRoadside={() => navigation.navigate("Roadside")}
+                onLogout={() => {
+                  void signOutStaff().then(() => setBoot({ state: "ANONYMOUS" }));
+                }}
               />
             )}
           </Stack.Screen>
@@ -95,12 +101,32 @@ function AppShell() {
             {({ navigation, route }) => (
               <InspectionFlow
                 initialVehicleId={(route.params as { vehicleId?: string } | undefined)?.vehicleId}
-                onDone={() => navigation.navigate("Home")}
+                initialAppointmentId={(route.params as { appointmentId?: string } | undefined)?.appointmentId}
+                onOpenInspection={(vehicleId, inspectionId) => navigation.navigate("InspectionDetail", { vehicleId, inspectionId })}
+                onDone={() => navigation.popToTop()}
               />
             )}
           </Stack.Screen>
+          <Stack.Screen name="InspectionDetail">
+            {({ navigation, route }) => {
+              const p = route.params as { vehicleId: string; inspectionId: string };
+              return (
+                <InspectionDetailScreen
+                  vehicleId={p.vehicleId}
+                  inspectionId={p.inspectionId}
+                  onBack={() => navigation.goBack()}
+                />
+              );
+            }}
+          </Stack.Screen>
+          <Stack.Screen name="Roadside">
+            {({ navigation }) => (
+              <RoadsideContainer userId={boot.id} role={boot.role} onBack={() => navigation.goBack()} />
+            )}
+          </Stack.Screen>
           <Stack.Screen name="SyncQueue">
-            {() => <SyncQueueScreen />}
+            {/* onBack was missing, leaving the screen with no affordance back. */}
+            {({ navigation }) => <SyncQueueScreen onBack={() => navigation.goBack()} />}
           </Stack.Screen>
         </Stack.Navigator>
       ) : (

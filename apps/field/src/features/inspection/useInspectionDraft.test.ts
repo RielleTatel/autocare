@@ -85,4 +85,29 @@ describe("InspectionDraft", () => {
     await expect(draft.saveResult({ pointCode: "HEAD", status: "GOOD", photoUris: [] })).rejects.toThrow(/locked/);
     await expect(draft.submit()).rejects.toThrow(/locked/);
   });
+
+  it("carries appointmentId into the create payload so the booking can be completed", async () => {
+    const { deps, outbox } = makeDeps();
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", odometerKm: 1, checklist });
+    await draft.saveResult({ pointCode: "PAD", measuredValue: 8.0, photoUris: [] });
+    await draft.saveResult({ pointCode: "DISC", status: "GOOD", photoUris: [] });
+    await draft.saveResult({ pointCode: "HEAD", status: "GOOD", photoUris: [] });
+    await draft.submit();
+
+    const [create] = await outbox.pendingInOrder();
+    expect(create.payload).toMatchObject({ appointmentId: "appt-1" });
+  });
+
+  it("omits appointmentId for a walk-in with no booking", async () => {
+    const { deps, outbox } = makeDeps();
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", odometerKm: 1, checklist });
+    await draft.saveResult({ pointCode: "PAD", measuredValue: 8.0, photoUris: [] });
+    await draft.saveResult({ pointCode: "DISC", status: "GOOD", photoUris: [] });
+    await draft.saveResult({ pointCode: "HEAD", status: "GOOD", photoUris: [] });
+    await draft.submit();
+
+    const [create] = await outbox.pendingInOrder();
+    // undefined, not null — the zod payload schema has appointmentId as optional.
+    expect(create.payload.appointmentId).toBeUndefined();
+  });
 });

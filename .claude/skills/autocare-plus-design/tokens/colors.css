@@ -1,35 +1,52 @@
-/* Base palette — verbatim from packages/design-tokens/src/tokens.ts.
-   "Workshop precision": cool steel neutrals, one confident blue.
-   Band fills are PROTECTED tokens (see readme) — product data, never decoration. */
+/* Base palette. Neutrals, brand and band fills are verbatim from
+   packages/design-tokens/src/tokens.ts — the declared source of truth.
+   The -soft tints and studio surfaces are additions for the 2026 premium
+   re-skin (see readme, "What departs from tokens.ts").
+   Band fills are PROTECTED tokens: product data, never decoration. */
 :root {
-  /* neutrals + brand */
+  /* neutrals */
   --ac-ink: #16232E;
   --ac-ink-muted: #51616F;
+  --ac-ink-faint: #8A97A2;
   --ac-chassis: #EEF1F3;
   --ac-surface: #FFFFFF;
+  --ac-surface-soft: #F7F8FA;
+  --ac-surface-sunken: #E7EBEE;
   --ac-line: #D5DBE0;
-  --ac-primary: #0E5AA7;
-  --ac-primary-deep: #0A2E4F;
-  --ac-on-primary: #FFFFFF;
-  --ac-danger: #C2372C;
-  --ac-success: #177245;
+  --ac-line-soft: #E7EBEE;
   --ac-code-bg: #E4E9EC;
 
-  /* masthead / deep-chrome support tints (docs/design-system.html masthead) */
-  --ac-on-deep-body: #B9CCDD;
-  --ac-on-deep-meta: #7E9BB4;
+  /* brand — Ignition Red */
+  --ac-primary: #D9273F;
+  --ac-primary-deep: #6B0F22;
+  --ac-primary-soft: #FBE9EC;
+  --ac-on-primary: #FFFFFF;
+  --ac-ember: #EE8034;        /* logo gear lower arc; brand-surface gradients only */
 
-  /* VHS score bands — fill / on / text triplets per VHS Algorithm §11.5 */
+  /* semantic action colours — deliberately distinct tokens from the band scale */
+  --ac-danger: #C2372C;
+  --ac-success: #177245;
+
+  /* deep-chrome support tints */
+  --ac-on-deep-body: #E4C9CE;
+  --ac-on-deep-meta: #C9A9B0;
+
+  /* VHS score bands — fill / text / soft per VHS Algorithm 11.5 */
   --ac-band-excellent: #177245;
   --ac-band-excellent-text: #0F5C37;
+  --ac-band-excellent-soft: #DCEFE4;
   --ac-band-good: #5C9E31;
   --ac-band-good-text: #3F7420;
+  --ac-band-good-soft: #E6F2DC;
   --ac-band-fair: #B87E00;
   --ac-band-fair-text: #8A5F00;
+  --ac-band-fair-soft: #F7EDD5;
   --ac-band-attention: #C75E1B;
   --ac-band-attention-text: #9C4204;
+  --ac-band-attention-soft: #F9E7DB;
   --ac-band-critical: #B3261E;
   --ac-band-critical-text: #8F1D17;
+  --ac-band-critical-soft: #F7E0DE;
   --ac-band-on: #FFFFFF;
 
   /* attention severity aliases (features/attention/AttentionItem.tsx) */
@@ -41,34 +58,41 @@
   /* semantic aliases — prefer these in product code */
   --text-primary: var(--ac-ink);
   --text-muted: var(--ac-ink-muted);
+  --text-faint: var(--ac-ink-faint);
   --text-on-primary: var(--ac-on-primary);
   --text-link: var(--ac-primary);
   --text-danger: var(--ac-danger);
   --surface-app: var(--ac-chassis);
   --surface-card: var(--ac-surface);
-  --surface-sunken: var(--ac-chassis);
+  --surface-card-soft: var(--ac-surface-soft);
+  --surface-sunken: var(--ac-surface-sunken);
   --surface-chrome: var(--ac-primary-deep);
   --surface-code: var(--ac-code-bg);
   --border-hairline: var(--ac-line);
+  --border-soft: var(--ac-line-soft);
   --border-strong: var(--ac-ink);
   --action-primary: var(--ac-primary);
-  --action-primary-hover: #0C4E90;
-  --action-primary-press: #093C70;
+  --action-primary-hover: #C21F36;
+  --action-primary-press: #A81A2E;
   --action-destructive: var(--ac-danger);
   --action-disabled-bg: var(--ac-line);
   --action-disabled-fg: var(--ac-ink-muted);
   --focus-ring: var(--ac-primary);
 }
 
-/* Dark theme — verbatim from docs/design-system.html. Band fills do NOT change
-   in dark mode; they are the same data on every surface, including print. */
+/* Dark theme shifts neutrals only. Band fills never change — they are the same
+   data on every surface, including the printed certificate. */
 :root[data-theme="dark"] {
-  --ac-ink: #E4EAEF;
-  --ac-ink-muted: #9AAAB6;
+  --ac-ink: #E9ECEF;
+  --ac-ink-muted: #A3AEB8;
+  --ac-ink-faint: #7C8792;
   --ac-chassis: #101820;
   --ac-surface: #1A242E;
+  --ac-surface-soft: #1F2A35;
+  --ac-surface-sunken: #16202A;
   --ac-line: #2C3947;
-  --ac-primary: #4C95DB;
-  --ac-primary-deep: #0A2E4F;
+  --ac-line-soft: #232F3A;
+  --ac-primary: #F0576B;
+  --ac-primary-soft: #33161C;
   --ac-code-bg: #232F3A;
 }

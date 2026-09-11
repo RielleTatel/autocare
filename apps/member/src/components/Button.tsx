@@ -38,7 +38,7 @@ export function Button({
   const base: ViewStyle = {
     height,
     minHeight: height,
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.radii.pill,
     paddingHorizontal: theme.spacing.lg,
     flexDirection: "row",
     alignItems: "center",

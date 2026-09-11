@@ -1,15 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import type { BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ShiftInput } from "@autocare/contracts";
+import type { BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ShiftInput, ShiftQuery, ShiftUpdate } from "@autocare/contracts";
 import { DomainError } from "../../common/errors/domain-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { toIso } from "./time";
 
-const STAFF_ROLES = new Set(["ADVISOR", "ADMIN"]);
+// MECHANIC is here for the board only — the field app's task list is its single
+// scheduling call. It also grants capacity writes, which is wrong; splitting the
+// gate is tracked separately.
+const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "ADMIN"]);
 
 export type BoardAppointment = {
   id: string;
   bayId: string | null;
+  vehicleId: string;
   serviceTypeId: string;
   serviceTypeName: string;
   scheduledStart: string;
@@ -62,9 +66,65 @@ export class SchedulingConfigService {
   // ---- Shifts ----
   async createShift(u: AbilityUser, dto: ShiftInput) {
     this.assertStaff(u);
+    this.assertTimeOrder(dto.startTime, dto.endTime);
     return this.prisma.staffShift.create({
       data: { userId: dto.userId, date: dto.date, startTime: dto.startTime, endTime: dto.endTime, skills: dto.skills },
     });
+  }
+
+  /**
+   * People who can be put on a shift. Deliberately separate from the admin
+   * staff directory: rostering is an advisor's job, so this is staff-gated and
+   * returns only what a roster form needs — no contact details, no members, and
+   * no way to change anything. Enumerating accounts stays admin-only.
+   */
+  async listRosterableStaff(u: AbilityUser) {
+    this.assertStaff(u);
+    return this.prisma.user.findMany({
+      where: { role: { in: ["MECHANIC", "ADVISOR", "DRIVER", "ADMIN"] }, status: "ACTIVE" },
+      select: { id: true, name: true, role: true },
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+    });
+  }
+
+  /** The roster for a date range, with the person attached so the console can
+   *  show who is on without a second lookup. */
+  async listShifts(u: AbilityUser, q: ShiftQuery) {
+    this.assertStaff(u);
+    const rows = await this.prisma.staffShift.findMany({
+      where: { date: { gte: q.from, lte: q.to } },
+      include: { user: { select: { id: true, name: true, email: true, role: true } } },
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    });
+    return rows.map((r) => ({
+      id: r.id, date: r.date, startTime: r.startTime, endTime: r.endTime, skills: r.skills,
+      userId: r.userId, userName: r.user.name, userEmail: r.user.email, userRole: r.user.role,
+    }));
+  }
+
+  async updateShift(u: AbilityUser, id: string, dto: ShiftUpdate) {
+    this.assertStaff(u);
+    const existing = await this.prisma.staffShift.findUnique({ where: { id } });
+    if (!existing) throw new DomainError("SLOT_UNAVAILABLE", "no such shift", 404);
+    // Validate against the merged result: a patch that only moves one end can
+    // still invert the pair.
+    this.assertTimeOrder(dto.startTime ?? existing.startTime, dto.endTime ?? existing.endTime);
+    return this.prisma.staffShift.update({ where: { id }, data: dto });
+  }
+
+  async deleteShift(u: AbilityUser, id: string) {
+    this.assertStaff(u);
+    const existing = await this.prisma.staffShift.findUnique({ where: { id } });
+    if (!existing) throw new DomainError("SLOT_UNAVAILABLE", "no such shift", 404);
+    await this.prisma.staffShift.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  /** A shift whose end is not after its start silently contributes zero
+   *  capacity — the capacity engine just never matches it — so reject it here
+   *  rather than let it look scheduled. */
+  private assertTimeOrder(start: string, end: string): void {
+    if (start >= end) throw new DomainError("SLOT_UNAVAILABLE", "shift must end after it starts", 422);
   }
 
   // ---- Blocks (maintenance/holiday) ----
@@ -111,7 +171,9 @@ export class SchedulingConfigService {
       orderBy: { scheduledStart: "asc" },
     });
     return rows.map((r) => ({
-      id: r.id, bayId: r.bayId, serviceTypeId: r.serviceTypeId, serviceTypeName: r.serviceType.name,
+      // vehicleId lets the field app open an inspection straight from a task
+      // instead of dropping the technician into a plate search.
+      id: r.id, bayId: r.bayId, vehicleId: r.vehicleId, serviceTypeId: r.serviceTypeId, serviceTypeName: r.serviceType.name,
       scheduledStart: r.scheduledStart.toISOString(), scheduledEnd: r.scheduledEnd.toISOString(),
       status: r.status, requiresPickup: r.requiresPickup,
       vehiclePlateNo: r.vehicle.plateNo, memberName: r.vehicle.owner?.name ?? null,

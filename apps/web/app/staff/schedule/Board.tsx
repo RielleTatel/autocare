@@ -7,7 +7,17 @@ import { Plate } from "../../../components/Plate";
 import { EmptyState } from "../../../components/EmptyState";
 
 const manilaTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false });
+  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true });
+
+/** 24-hour HH:mm, used only to bucket appointments into hour groups — the
+ *  grouping walks a chronologically sorted list, so the key has to stay
+ *  zero-padded and unambiguous between AM and PM. */
+const manilaHourKey = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", hour12: false }).slice(0, 2);
+
+/** The hour heading above each group, e.g. "9 AM". */
+const manilaHourLabel = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", hour12: true });
 
 type Tone = "neutral" | "info" | "success" | "warn" | "danger" | "solid" | "solidDeep";
 
@@ -37,22 +47,22 @@ export function Board({ appointments, onCancel }: { appointments: BoardAppointme
   }
 
   const sorted = [...appointments].sort((x, y) => x.scheduledStart.localeCompare(y.scheduledStart));
-  const groups: Array<{ hour: string; appts: BoardAppointment[] }> = [];
+  const groups: Array<{ hour: string; label: string; appts: BoardAppointment[] }> = [];
   for (const a of sorted) {
-    const hour = manilaTime(a.scheduledStart).slice(0, 2) + ":00";
+    const hour = manilaHourKey(a.scheduledStart);
     const last = groups[groups.length - 1];
     if (last && last.hour === hour) last.appts.push(a);
-    else groups.push({ hour, appts: [a] });
+    else groups.push({ hour, label: manilaHourLabel(a.scheduledStart), appts: [a] });
   }
 
   return (
     <div className="flex flex-col gap-4" data-testid="board">
-      {groups.map(({ hour, appts }) => (
+      {groups.map(({ hour, label, appts }) => (
         <section key={hour} className="grid grid-cols-[64px_1fr] gap-3">
-          <div className="font-mono text-ink-muted text-sm pt-2">{hour}</div>
+          <div className="font-mono text-ink-muted text-sm pt-2">{label}</div>
           <div className="flex flex-col gap-2">
             {appts.map((a) => (
-              <Card key={a.id} pad="md" className="flex items-start justify-between gap-3">
+              <Card key={a.id} pad="md" flat className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Plate variant="plain" className="text-sm font-semibold">{a.vehiclePlateNo}</Plate>

@@ -7,6 +7,7 @@ export const announcementKinds = [
   "APPOINTMENT_RESCHEDULED",
   "APPOINTMENT_CANCELLED",
   "SERVICE_COMPLETED",
+  "ROADSIDE_UPDATE",
   "ADMIN_BROADCAST",
 ] as const;
 export type AnnouncementKind = (typeof announcementKinds)[number];

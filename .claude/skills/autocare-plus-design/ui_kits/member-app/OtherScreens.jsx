@@ -30,41 +30,72 @@ function VehiclesScreen({ onOpenVehicle }) {
 /* Faithful to features/booking/BookingsListScreen.tsx (M-23). */
 function BookingsScreen({ onBookNew, onApprove }) {
   const upcoming = [
-    { id: "1", name: "Preventive maintenance", when: "Tue, Sep 2, 09:00", status: "CONFIRMED", cancellable: true },
-    { id: "2", name: "Full inspection", when: "Mon, Sep 22, 11:00", status: "BOOKED", cancellable: true },
+    { id: "1", name: "Preventive maintenance", icon: "wrench", day: "02", mon: "SEP", when: "Tue · 09:00 · 2 hrs", status: "CONFIRMED", cancellable: true },
+    { id: "2", name: "Full inspection", icon: "clipboard-check", day: "22", mon: "SEP", when: "Mon · 11:00 · 2 hrs", status: "BOOKED", cancellable: true },
   ];
   const past = [
-    { id: "3", name: "Brake service", when: "Sun, May 3, 14:00", status: "COMPLETED" },
-    { id: "4", name: "Aircon service", when: "Thu, Apr 10, 10:00", status: "CANCELLED" },
+    { id: "3", name: "Brake service", icon: "disc", day: "03", mon: "MAY", when: "Sun · 14:00", status: "COMPLETED" },
+    { id: "4", name: "Aircon service", icon: "snowflake", day: "10", mon: "APR", when: "Thu · 10:00", status: "CANCELLED" },
   ];
   const [cancelled, setCancelled] = React.useState([]);
-  const Row = ({ a, cancellable }) => (
-    <Card style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ font: "var(--type-body)", color: "var(--ac-ink)" }}>{a.name}</span>
-      <span style={{ font: "var(--type-label)", color: "var(--ac-ink-muted)" }}>
-        {a.when} · {cancelled.includes(a.id) ? "CANCELLED" : a.status.replace("_", " ")}
-      </span>
-      {cancellable && !cancelled.includes(a.id) && (
-        <div role="button" tabIndex={0} onClick={() => setCancelled([...cancelled, a.id])}
-          style={{ minHeight: "var(--ac-target-member)", display: "flex", alignItems: "center", font: "var(--type-label)", color: "var(--ac-danger)", cursor: "pointer" }}>Cancel</div>
-      )}
-    </Card>
-  );
+  const STATUS = {
+    CONFIRMED: { bg: "var(--ac-band-excellent-soft)", fg: "var(--ac-band-excellent-text)" },
+    BOOKED: { bg: "var(--ac-chassis)", fg: "var(--ac-ink-muted)" },
+    COMPLETED: { bg: "var(--ac-chassis)", fg: "var(--ac-ink-muted)" },
+    CANCELLED: { bg: "var(--ac-primary-soft)", fg: "var(--ac-primary)" },
+  };
+  const Row = ({ a, cancellable, dim }) => {
+    const status = cancelled.includes(a.id) ? "CANCELLED" : a.status;
+    const tone = STATUS[status] || STATUS.BOOKED;
+    return (
+      <Card style={{ display: "flex", alignItems: "center", gap: "var(--ac-space-md)", opacity: dim ? 0.72 : 1 }}>
+        <div style={{ width: 58, height: 58, borderRadius: "var(--ac-radius-md)", background: dim ? "var(--ac-chassis)" : "var(--ac-primary-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: "none", lineHeight: 1 }}>
+          <span style={{ fontFamily: "var(--ac-font-display, var(--ac-font-mono))", fontSize: 22, fontWeight: 700, color: dim ? "var(--ac-ink-muted)" : "var(--ac-primary)" }}>{a.day}</span>
+          <span style={{ fontFamily: "var(--ac-font-mono)", fontSize: 10, letterSpacing: ".08em", color: dim ? "var(--ac-ink-faint)" : "var(--ac-primary)", marginTop: 3 }}>{a.mon}</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <Icon name={a.icon} size={16} color="var(--ac-ink-muted)" />
+            <span style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>{a.name}</span>
+          </div>
+          <span style={{ font: "var(--type-label)", color: "var(--ac-ink-faint)" }}>{a.when}</span>
+          <span style={{ alignSelf: "flex-start", background: tone.bg, color: tone.fg, borderRadius: 999, padding: "3px 10px", fontFamily: "var(--ac-font-mono)", fontSize: 10, letterSpacing: ".08em" }}>{status}</span>
+        </div>
+        {cancellable && !cancelled.includes(a.id) && (
+          <div role="button" tabIndex={0} onClick={() => setCancelled([...cancelled, a.id])} aria-label={`Cancel ${a.name}`}
+            style={{ width: 40, height: 40, borderRadius: 999, border: "1px solid var(--ac-line)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", cursor: "pointer" }}>
+            <Icon name="x" size={18} color="var(--ac-ink-muted)" />
+          </div>
+        )}
+      </Card>
+    );
+  };
   return (
     <div style={{ padding: "var(--ac-space-lg)", display: "flex", flexDirection: "column", gap: "var(--ac-space-md)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ font: "var(--type-h2)", color: "var(--ac-ink)" }}>My bookings</span>
-        <div role="button" tabIndex={0} onClick={onBookNew}
-          style={{ minHeight: "var(--ac-target-member)", display: "flex", alignItems: "center", font: "var(--type-label)", color: "var(--ac-primary)", cursor: "pointer" }}>Book new</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--ac-space-md)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ font: "var(--type-h1)", color: "var(--ac-ink)" }}>My bookings</span>
+          <span style={{ font: "var(--type-body)", color: "var(--ac-ink-muted)" }}>2 upcoming visits</span>
+        </div>
+        <div role="button" tabIndex={0} onClick={onBookNew} aria-label="Book a new service"
+          style={{ width: 44, height: 44, borderRadius: 999, background: "var(--ac-ink)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", cursor: "pointer" }}>
+          <Icon name="plus" size={20} color="var(--ac-surface)" />
+        </div>
       </div>
-      <Card accent="var(--ac-sev-attention)" interactive onClick={onApprove} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ font: "var(--type-body)", color: "var(--ac-ink)" }}>Work order WO-1042 needs your decision</span>
-        <span style={{ font: "var(--type-label)", color: "var(--ac-primary)" }}>Approve your service ›</span>
+      <Card accent="var(--ac-sev-attention)" interactive onClick={onApprove} style={{ display: "flex", alignItems: "center", gap: "var(--ac-space-md)" }}>
+        <div style={{ width: 40, height: 40, borderRadius: "var(--ac-radius-sm)", background: "var(--ac-band-attention-soft)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+          <Icon name="triangle-alert" size={20} color="var(--ac-band-attention-text)" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ font: "var(--type-body)", color: "var(--ac-ink)" }}>Work order WO-1042 needs your decision</span>
+          <span style={{ font: "var(--type-label)", color: "var(--ac-primary)" }}>Approve your service</span>
+        </div>
+        <Icon name="chevron-right" size={20} color="var(--ac-ink-muted)" />
       </Card>
-      <span style={{ font: "var(--type-label)", color: "var(--ac-ink-muted)" }}>Upcoming</span>
+      <span style={{ font: "var(--type-label)", color: "var(--ac-ink-faint)", letterSpacing: ".06em", textTransform: "uppercase" }}>Upcoming</span>
       {upcoming.map((a) => <Row key={a.id} a={a} cancellable={a.cancellable} />)}
-      <span style={{ font: "var(--type-label)", color: "var(--ac-ink-muted)" }}>Past</span>
-      {past.map((a) => <Row key={a.id} a={a} cancellable={false} />)}
+      <span style={{ font: "var(--type-label)", color: "var(--ac-ink-faint)", letterSpacing: ".06em", textTransform: "uppercase", marginTop: "var(--ac-space-xs)" }}>Past</span>
+      {past.map((a) => <Row key={a.id} a={a} cancellable={false} dim />)}
     </div>
   );
 }

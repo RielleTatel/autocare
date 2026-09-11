@@ -117,6 +117,7 @@ export class InspectionDraft {
     readonly checklist: CachedChecklist,
     readonly vehicleId: string,
     readonly odometerKm: number | null,
+    readonly appointmentId: string | null,
   ) {
     this.clientUuid = clientUuid;
   }
@@ -136,7 +137,7 @@ export class InspectionDraft {
       notes: null,
       startedAt: deps.now(),
     });
-    return new InspectionDraft(deps, clientUuid, input.checklist, input.vehicleId, input.odometerKm ?? null);
+    return new InspectionDraft(deps, clientUuid, input.checklist, input.vehicleId, input.odometerKm ?? null, input.appointmentId ?? null);
   }
 
   get isLocked(): boolean {
@@ -176,6 +177,9 @@ export class InspectionDraft {
       op: "create",
       payload: {
         vehicleId: this.vehicleId,
+        // Links the inspection to the booking it was done for, which is what
+        // lets the server complete that appointment on submit.
+        appointmentId: this.appointmentId ?? undefined,
         checklistVersionId: this.checklist.id,
         odometerKm: this.odometerKm ?? undefined,
         results: results.map((r) => ({

@@ -47,18 +47,23 @@ export function InvoicesScreen({ fetchInvoices, onSelectInvoice }: {
   onSelectInvoice: (invoice: Invoice) => void;
 }) {
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setFailed(false);
     const list = await fetchInvoices();
     setInvoices(list);
   }, [fetchInvoices]);
 
-  useEffect(() => { load(); }, [load]);
+  // The rejection has to be handled here: an async call fired from useEffect
+  // with nothing attached becomes an unhandled rejection, which RN surfaces as
+  // a red uncaught-error box — and the list never settles.
+  useEffect(() => { load().catch(() => setFailed(true)); }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try { await load(); } finally { setRefreshing(false); }
+    try { await load(); } catch { setFailed(true); } finally { setRefreshing(false); }
   };
 
   return (
@@ -71,7 +76,11 @@ export function InvoicesScreen({ fetchInvoices, onSelectInvoice }: {
         renderItem={({ item }) => <InvoiceRow invoice={item} onPress={() => onSelectInvoice(item)} />}
         ListHeaderComponent={<Text style={[theme.text("h1"), { color: theme.colors.primaryDeep, marginBottom: theme.spacing.md }]}>Invoices</Text>}
         ListEmptyComponent={
-          invoices && invoices.length === 0 ? (
+          failed ? (
+            <Text style={[theme.text("body"), { color: theme.colors.ink, marginTop: theme.spacing.xxl, textAlign: "center" }]}>
+              Couldn't load your invoices. Pull down to try again.
+            </Text>
+          ) : invoices && invoices.length === 0 ? (
             <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginTop: theme.spacing.xxl, textAlign: "center" }]}>
               No invoices yet
             </Text>

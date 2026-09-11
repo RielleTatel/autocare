@@ -51,14 +51,14 @@ describe("DayGrid", () => {
     render(<DayGrid bays={bays} appointments={[appt()]} slots={[]} />);
     expect(screen.getByText("ABC1234")).toBeDefined();
     expect(screen.getByText("BOOKED")).toBeDefined();
-    expect(screen.getByText("09:00")).toBeDefined();
+    expect(screen.getByText("9:00 AM")).toBeDefined();
   });
 
   it("renders an open cell labelled with the selected service once slots are available", () => {
     render(<DayGrid bays={bays} appointments={[]} slots={[slot()]} selectedServiceTypeName="Oil Change" />);
     expect(screen.getByText(/open/i)).toBeDefined();
     expect(screen.getByText("Oil Change")).toBeDefined();
-    expect(screen.getByText("10:00")).toBeDefined();
+    expect(screen.getByText("10:00 AM")).toBeDefined();
   });
 
   it("shows booked and open side by side without duplicating a shared row time", () => {
@@ -70,7 +70,7 @@ describe("DayGrid", () => {
         selectedServiceTypeName="Oil Change"
       />,
     );
-    expect(screen.getAllByText("10:00")).toHaveLength(1);
+    expect(screen.getAllByText("10:00 AM")).toHaveLength(1);
     expect(screen.getByText("ABC1234")).toBeDefined();
     expect(screen.getByText(/open/i)).toBeDefined();
   });

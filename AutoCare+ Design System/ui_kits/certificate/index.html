@@ -1,0 +1,30 @@
+<!-- @dsCard group="Public certificate" viewport="900x820" name="VHS certificate (public)" subtitle="Server-rendered proof of condition, shared at resale" -->
+<!-- @startingPoint section="Public certificate" subtitle="Public Vehicle Health Certificate page" viewport="900x820" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>AutoCare+ · VHS 69 — Fair</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>html,body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}
+.tabs{display:flex;gap:4px;justify-content:center;padding:12px 0 0}
+.tabs button{border:1px solid var(--ac-line);background:var(--ac-surface);color:var(--ac-ink);font:var(--type-label);padding:8px 12px;border-radius:var(--ac-radius-sm);cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--ac-primary);color:#fff;border-color:var(--ac-primary)}
+a{color:var(--ac-primary)}a:hover{color:var(--action-primary-hover)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel" src="CertificateScreens.jsx"></script>
+<script type="text/babel">
+const { ScoreGauge, StarRating, CategoryBar, Card, Button, FormField, Icon } = window.AutoCareDesignSystem_2155ba;
+Object.assign(window,{ScoreGauge,StarRating,CategoryBar,Card,Button,FormField,Icon});
+function App(){
+  const [v,setV]=React.useState("cert");
+  return (<>
+    <div className="tabs">
+      {[["cert","Certificate"],["verify","Verify form"],["revoked","Revoked notice"]].map(([k,l])=>
+        <button key={k} type="button" aria-pressed={v===k} onClick={()=>setV(k)}>{l}</button>)}
+    </div>
+    {v==="cert"&&<Certificate/>}{v==="verify"&&<VerifyForm/>}{v==="revoked"&&<RevokedNotice/>}
+  </>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script></body></html>

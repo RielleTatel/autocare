@@ -1,20 +1,25 @@
-<!-- @dsCard group="Components" viewport="700x360" name="Subscription" subtitle="Membership plan cards, selected and default" -->
-<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<!-- @dsCard group="Components" viewport="700x400" name="Subscription" subtitle="PlanCard, selected and unselected" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Subscription components</title>
+<link rel="stylesheet" href="../../styles.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="../../_ds_bundle.js"></script>
-<style>body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}#root{padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:start}</style>
-</head><body><div id="root"></div>
+<style>html,body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}
+#root{padding:20px;box-sizing:border-box}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.cap{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label)}
+a{color:var(--ac-primary)}a:hover{color:var(--action-primary-hover)}</style>
+</head><body><div id="root"></div><script>Object.assign(window, window.AutoCareDesignSystem_85f2c0);</script>
 <script type="text/babel">
-const { PlanCard } = window.AutoCareDesignSystem_2155ba;
-function Demo(){const [sel,setSel]=React.useState("Care Plus");return (<>
-<PlanCard name="Care Basic" price="₱899" lockInMonths={0} selected={sel==="Care Basic"} onSelect={()=>setSel("Care Basic")}
-  inclusions={["1 inspection/cycle","1 roadside call-out/cycle"]}/>
-<PlanCard name="Care Plus" price="₱1,499" lockInMonths={6} selected={sel==="Care Plus"} onSelect={()=>setSel("Care Plus")}
-  inclusions={["2 inspections/cycle","1 pick-up & delivery/cycle","2 roadside call-outs/cycle"]}/>
-<PlanCard name="Fleet" price="₱4,200" lockInMonths={12} selected={sel==="Fleet"} onSelect={()=>setSel("Fleet")} actionLabel="Talk to us"
-  inclusions={["4 inspections/cycle","4 pick-up & delivery/cycle","Unlimited roadside","Fleet dashboard"]}/>
-</>);}
+function Demo(){const[s,setS]=React.useState("plus");return(<div className="row" style={{alignItems:"stretch"}}>
+ <PlanCard style={{flex:1,minWidth:200}} name="Care Basic" price="&#8369;899" interval="MONTHLY" lockInMonths={0}
+  inclusions={["2 inspections a year","Maintenance reminders","1 roadside call-out"]}
+  selected={s==="basic"} onSelect={()=>setS("basic")} actionLabel={s==="basic"?"Current plan":"Choose Basic"}/>
+ <PlanCard style={{flex:1,minWidth:200}} name="Care Plus" price="&#8369;1,499" interval="MONTHLY" lockInMonths={6}
+  inclusions={["4 inspections a year","Pick-up and delivery","3 roadside call-outs","Priority booking"]}
+  selected={s==="plus"} onSelect={()=>setS("plus")} actionLabel={s==="plus"?"Current plan":"Choose Plus"}/>
+</div>);}
 ReactDOM.createRoot(document.getElementById("root")).render(<Demo/>);
 </script></body></html>

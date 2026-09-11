@@ -1,8 +1,8 @@
-/* @ds-bundle: {"format":4,"namespace":"AutoCareDesignSystem_2155ba","components":[{"name":"AttentionCard","sourcePath":"components/attention/AttentionCard.jsx"},{"name":"SEVERITY","sourcePath":"components/attention/AttentionItemRow.jsx"},{"name":"AttentionItemRow","sourcePath":"components/attention/AttentionItemRow.jsx"},{"name":"Button","sourcePath":"components/core/Button.jsx"},{"name":"Card","sourcePath":"components/core/Card.jsx"},{"name":"EmptyState","sourcePath":"components/core/EmptyState.jsx"},{"name":"FormField","sourcePath":"components/core/FormField.jsx"},{"name":"Icon","sourcePath":"components/core/Icon.jsx"},{"name":"Plate","sourcePath":"components/core/Plate.jsx"},{"name":"StatusPill","sourcePath":"components/core/StatusPill.jsx"},{"name":"StatusChoice","sourcePath":"components/field/StatusChoice.jsx"},{"name":"StatusChip","sourcePath":"components/field/StatusChoice.jsx"},{"name":"SyncBanner","sourcePath":"components/field/SyncBanner.jsx"},{"name":"BottomSheet","sourcePath":"components/shell/BottomSheet.jsx"},{"name":"MeasuredRow","sourcePath":"components/shell/BottomSheet.jsx"},{"name":"TabBar","sourcePath":"components/shell/TabBar.jsx"},{"name":"PlanCard","sourcePath":"components/subscription/PlanCard.jsx"},{"name":"BANDS","sourcePath":"components/vhs/BandChip.jsx"},{"name":"BandChip","sourcePath":"components/vhs/BandChip.jsx"},{"name":"CategoryBar","sourcePath":"components/vhs/CategoryBar.jsx"},{"name":"ScoreGauge","sourcePath":"components/vhs/ScoreGauge.jsx"},{"name":"StarRating","sourcePath":"components/vhs/StarRating.jsx"}],"sourceHashes":{"components/attention/AttentionCard.jsx":"e81aaa732c1c","components/attention/AttentionItemRow.jsx":"f7e8d4414204","components/core/Button.jsx":"c20308b0abbe","components/core/Card.jsx":"91e5332d3bc1","components/core/EmptyState.jsx":"f11339e9884d","components/core/FormField.jsx":"f5acfa81d724","components/core/Icon.jsx":"351b757e5215","components/core/Plate.jsx":"5016914d0b78","components/core/StatusPill.jsx":"6d9617c9a7d4","components/field/StatusChoice.jsx":"07a078fe10ff","components/field/SyncBanner.jsx":"de8501f09dab","components/shell/BottomSheet.jsx":"d98206ae8e35","components/shell/TabBar.jsx":"0f97df0f8cf0","components/subscription/PlanCard.jsx":"3fb58365bf33","components/vhs/BandChip.jsx":"936d15aa5eb0","components/vhs/CategoryBar.jsx":"10d1ff63728e","components/vhs/ScoreGauge.jsx":"62e0af9b54b8","components/vhs/StarRating.jsx":"2f484510e1a5","ui_kits/certificate/CertificateScreens.jsx":"3660d56d468c","ui_kits/field-app/InspectionScreens.jsx":"dd0022a488fd","ui_kits/field-app/TaskScreens.jsx":"153fecaf3cf5","ui_kits/field-app/data.jsx":"e81a2fb236ec","ui_kits/member-app/BookingFlow.jsx":"d7fa9669e339","ui_kits/member-app/HealthScoreScreen.jsx":"7072da4f9d09","ui_kits/member-app/HomeScreen.jsx":"851ceac65d73","ui_kits/member-app/OtherScreens.jsx":"14e34cef2d48","ui_kits/member-app/RoadsideScreens.jsx":"c41b8d02781b","ui_kits/member-app/data.jsx":"f6cededddd35","ui_kits/staff-web/AdminScreens.jsx":"1b5b3779005d","ui_kits/staff-web/StaffScreens.jsx":"cb0a39f5984f","ui_kits/staff-web/data.jsx":"4723edad18b9"},"inlinedExternals":[],"unexposedExports":[{"name":"bandForScore","sourcePath":"components/vhs/BandChip.jsx"}]} */
+/* @ds-bundle: {"format":4,"namespace":"AutoCareDesignSystem_85f2c0","components":[{"name":"AttentionCard","sourcePath":"components/attention/AttentionCard.jsx"},{"name":"SEVERITY","sourcePath":"components/attention/AttentionItemRow.jsx"},{"name":"AttentionItemRow","sourcePath":"components/attention/AttentionItemRow.jsx"},{"name":"Button","sourcePath":"components/core/Button.jsx"},{"name":"Card","sourcePath":"components/core/Card.jsx"},{"name":"EmptyState","sourcePath":"components/core/EmptyState.jsx"},{"name":"FormField","sourcePath":"components/core/FormField.jsx"},{"name":"Icon","sourcePath":"components/core/Icon.jsx"},{"name":"Plate","sourcePath":"components/core/Plate.jsx"},{"name":"StatusPill","sourcePath":"components/core/StatusPill.jsx"},{"name":"StatusChoice","sourcePath":"components/field/StatusChoice.jsx"},{"name":"StatusChip","sourcePath":"components/field/StatusChoice.jsx"},{"name":"SyncBanner","sourcePath":"components/field/SyncBanner.jsx"},{"name":"BottomSheet","sourcePath":"components/shell/BottomSheet.jsx"},{"name":"MeasuredRow","sourcePath":"components/shell/BottomSheet.jsx"},{"name":"TabBar","sourcePath":"components/shell/TabBar.jsx"},{"name":"PlanCard","sourcePath":"components/subscription/PlanCard.jsx"},{"name":"BANDS","sourcePath":"components/vhs/BandChip.jsx"},{"name":"BandChip","sourcePath":"components/vhs/BandChip.jsx"},{"name":"CategoryBar","sourcePath":"components/vhs/CategoryBar.jsx"},{"name":"ScoreGauge","sourcePath":"components/vhs/ScoreGauge.jsx"},{"name":"StarRating","sourcePath":"components/vhs/StarRating.jsx"}],"sourceHashes":{"components/attention/AttentionCard.jsx":"2b29761995e5","components/attention/AttentionItemRow.jsx":"8db80f7fd094","components/core/Button.jsx":"3f60cd608f0a","components/core/Card.jsx":"2d76250edc11","components/core/EmptyState.jsx":"013b75b828d6","components/core/FormField.jsx":"2510d9898e39","components/core/Icon.jsx":"4b65abb15bd3","components/core/Plate.jsx":"835ed479110e","components/core/StatusPill.jsx":"6d9617c9a7d4","components/field/StatusChoice.jsx":"07a078fe10ff","components/field/SyncBanner.jsx":"de8501f09dab","components/shell/BottomSheet.jsx":"36b017a12b6e","components/shell/TabBar.jsx":"ae7877d95baf","components/subscription/PlanCard.jsx":"279211605f77","components/vhs/BandChip.jsx":"936d15aa5eb0","components/vhs/CategoryBar.jsx":"10d1ff63728e","components/vhs/ScoreGauge.jsx":"62e0af9b54b8","components/vhs/StarRating.jsx":"2f484510e1a5","ui_kits/certificate/CertificateScreens.jsx":"3660d56d468c","ui_kits/field-app/InspectionScreens.jsx":"dd0022a488fd","ui_kits/field-app/TaskScreens.jsx":"153fecaf3cf5","ui_kits/field-app/data.jsx":"88fc34e73bd4","ui_kits/member-app/BookingFlow.jsx":"d2649183ace2","ui_kits/member-app/HealthScoreScreen.jsx":"7072da4f9d09","ui_kits/member-app/HomeScreen.jsx":"851ceac65d73","ui_kits/member-app/OtherScreens.jsx":"24f3992644ac","ui_kits/member-app/RoadsideScreens.jsx":"c41b8d02781b","ui_kits/member-app/data.jsx":"c25e4e8947d2","ui_kits/staff-web/AdminScreens.jsx":"1b5b3779005d","ui_kits/staff-web/StaffScreens.jsx":"cb0a39f5984f","ui_kits/staff-web/data.jsx":"0b4c882fa35a"},"inlinedExternals":[],"unexposedExports":[{"name":"bandForScore","sourcePath":"components/vhs/BandChip.jsx"}]} */
 
 (() => {
 
-const __ds_ns = (window.AutoCareDesignSystem_2155ba = window.AutoCareDesignSystem_2155ba || {});
+const __ds_ns = (window.AutoCareDesignSystem_85f2c0 = window.AutoCareDesignSystem_85f2c0 || {});
 
 const __ds_scope = {};
 
@@ -47,7 +47,8 @@ function AttentionItemRow({
     onClick: onClick,
     style: {
       background: "var(--ac-surface)",
-      border: "1px solid var(--ac-line)",
+      border: "1px solid var(--ac-line-soft)",
+      boxShadow: "var(--ac-elevation-card)",
       borderLeft: `var(--ac-border-accent-row) solid ${s.color}`,
       borderRadius: "var(--ac-radius-md)",
       padding: "var(--ac-space-md)",
@@ -106,9 +107,10 @@ function AttentionCard({
 }) {
   const shell = {
     background: "var(--ac-surface)",
-    border: "1px solid var(--ac-line)",
-    borderRadius: "var(--ac-radius-md)",
-    padding: "var(--ac-space-md)",
+    border: "1px solid var(--ac-line-soft)",
+    boxShadow: "var(--ac-elevation-card)",
+    borderRadius: "var(--ac-radius-lg)",
+    padding: "var(--ac-space-lg)",
     display: "flex",
     flexDirection: "column",
     gap: "var(--ac-space-sm)",
@@ -148,7 +150,8 @@ function AttentionCard({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       font: "var(--type-h1)",
-      color: "var(--ac-ink)"
+      color: "var(--ac-ink)",
+      whiteSpace: "nowrap"
     }
   }, "Needs attention"), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -218,9 +221,9 @@ const VARIANT = {
     border: "none"
   },
   secondary: {
-    background: "transparent",
-    color: "var(--ac-primary)",
-    border: "var(--ac-border-control) solid var(--ac-primary)"
+    background: "var(--ac-surface)",
+    color: "var(--ac-ink)",
+    border: "var(--ac-border-control) solid var(--ac-line)"
   },
   deep: {
     background: "var(--ac-primary-deep)",
@@ -267,11 +270,12 @@ function Button({
     lineHeight: 1,
     height,
     minHeight: height,
-    padding: `0 ${field ? "var(--ac-space-lg)" : "var(--ac-space-lg)"}`,
-    borderRadius: "var(--ac-radius-sm)",
+    padding: `0 ${field ? "var(--ac-space-xl)" : "var(--ac-space-lg)"}`,
+    borderRadius: "var(--ac-radius-pill)",
     cursor: disabled ? "not-allowed" : "pointer",
     width: block ? "100%" : undefined,
     textAlign: "center",
+    whiteSpace: "nowrap",
     transition: "background var(--ac-duration-fast) var(--ac-ease-standard), opacity var(--ac-duration-instant) linear",
     ...v
   };
@@ -296,26 +300,31 @@ Object.assign(__ds_scope, { Button });
 // components/core/Card.jsx
 try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
-/** The universal container: white surface, 1px steel hairline, radius 12.
- *  Elevation in AutoCare+ is the hairline, not a shadow. */
+/** The universal container. A card is a white surface resting on the chassis
+ *  grey: radius 20, soft two-layer shadow, soft border. `flat` drops the shadow
+ *  back to the shipped hairline for dense data surfaces (staff console tables).
+ *  `major` is the radius-28 hero card. */
 function Card({
   children,
   pad = "md",
   accent,
   interactive,
+  flat,
+  major,
   onClick,
   style,
   ...rest
 }) {
-  const padding = pad === "none" ? 0 : pad === "lg" ? "var(--ac-space-lg)" : "var(--ac-space-md)";
+  const padding = pad === "none" ? 0 : pad === "lg" ? "var(--ac-space-lg)" : pad === "sm" ? "var(--ac-space-sm)" : "var(--ac-space-md)";
   return /*#__PURE__*/React.createElement("div", _extends({
     onClick: onClick,
     role: interactive ? "button" : undefined,
     tabIndex: interactive ? 0 : undefined,
     style: {
       background: "var(--ac-surface)",
-      border: "1px solid var(--ac-line)",
-      borderRadius: "var(--ac-radius-md)",
+      border: flat ? "1px solid var(--ac-line)" : "1px solid var(--ac-line-soft)",
+      boxShadow: flat ? "var(--ac-elevation-flat)" : "var(--ac-elevation-card)",
+      borderRadius: major ? "var(--ac-radius-lg)" : "var(--ac-radius-md)",
       padding,
       borderLeft: accent ? `var(--ac-border-accent-row) solid ${accent}` : undefined,
       cursor: interactive ? "pointer" : undefined,
@@ -343,9 +352,10 @@ function EmptyState({
   return /*#__PURE__*/React.createElement("div", {
     style: {
       background: "var(--ac-surface)",
-      border: "1px solid var(--ac-line)",
+      border: "1px solid var(--ac-line-soft)",
+      boxShadow: "var(--ac-elevation-card)",
       borderRadius: "var(--ac-radius-md)",
-      padding: "var(--ac-space-md)",
+      padding: "var(--ac-space-lg)",
       display: "flex",
       flexDirection: "column",
       gap: "var(--ac-space-xs)",
@@ -434,11 +444,11 @@ function FormField({
       letterSpacing: mono ? "var(--ac-tracking-code)" : undefined,
       fontSize: "16px",
       color: "var(--ac-ink)",
-      background: "var(--ac-chassis)",
-      border: `var(--ac-border-control) solid ${error ? "var(--ac-danger)" : "var(--ac-line)"}`,
+      background: "var(--ac-surface-soft)",
+      border: `var(--ac-border-control) solid ${error ? "var(--ac-danger)" : "var(--ac-line-soft)"}`,
       borderRadius: "var(--ac-radius-sm)",
       height,
-      padding: "0 14px",
+      padding: "0 18px",
       boxSizing: "border-box",
       width: "100%"
     }
@@ -464,42 +474,62 @@ Object.assign(__ds_scope, { FormField });
 try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
 const CDN = "https://unpkg.com/lucide-static@0.544.0/icons/";
+const cache = new Map();
 
 /** SUBSTITUTED ICON SET. The AutoCare+ codebase ships no icon assets — the
  *  React Native apps use emoji glyphs inline (🏠 🚗 👤 🔧 📷 ⇅) and the web
  *  console uses text arrows. Lucide (2px stroke, square cap) is the closest
  *  match to the industrial register the design language calls for. Swap the CDN
  *  constant if the team adopts a different set.
- *  Recoloured via CSS mask so the glyph always takes currentColor. */
+ *
+ *  The SVG source is fetched once per name and inlined, with stroke set to
+ *  currentColor, so every glyph inherits the text colour beside it. */
 function Icon({
   name,
   size = 20,
   color = "currentColor",
-  strokeWidth,
+  strokeWidth = 2,
   style,
   ...rest
 }) {
-  return /*#__PURE__*/React.createElement("span", _extends({
+  const [markup, setMarkup] = React.useState(() => cache.get(name) || null);
+  React.useEffect(() => {
+    let live = true;
+    if (cache.has(name)) {
+      setMarkup(cache.get(name));
+      return;
+    }
+    fetch(`${CDN}${name}.svg`).then(r => r.ok ? r.text() : Promise.reject(new Error(name))).then(t => {
+      const inner = t.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>[\s\S]*$/, "");
+      cache.set(name, inner);
+      if (live) setMarkup(inner);
+    }).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [name]);
+  return /*#__PURE__*/React.createElement("svg", _extends({
     "aria-hidden": true,
+    focusable: "false",
     role: "presentation",
+    viewBox: "0 0 24 24",
+    width: size,
+    height: size,
+    fill: "none",
+    stroke: color,
+    strokeWidth: strokeWidth,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "data-icon": name,
     style: {
       display: "inline-block",
-      width: size,
-      height: size,
       flex: "none",
-      backgroundColor: color,
-      WebkitMaskImage: `url(${CDN}${name}.svg)`,
-      maskImage: `url(${CDN}${name}.svg)`,
-      WebkitMaskRepeat: "no-repeat",
-      maskRepeat: "no-repeat",
-      WebkitMaskSize: "contain",
-      maskSize: "contain",
-      WebkitMaskPosition: "center",
-      maskPosition: "center",
+      verticalAlign: "middle",
       ...style
     },
-    "data-icon": name,
-    "data-stroke": strokeWidth
+    dangerouslySetInnerHTML: {
+      __html: markup || ""
+    }
   }, rest));
 }
 Object.assign(__ds_scope, { Icon });
@@ -522,6 +552,7 @@ function Plate({
         fontWeight: 500,
         fontSize: "var(--ac-size-code)",
         letterSpacing: "var(--ac-tracking-code)",
+        whiteSpace: "nowrap",
         background: "var(--ac-primary-deep)",
         color: "var(--ac-on-primary)",
         borderRadius: "var(--ac-radius-sm)",
@@ -537,6 +568,7 @@ function Plate({
         fontWeight: 500,
         fontSize: "var(--ac-size-code)",
         letterSpacing: "var(--ac-tracking-code)",
+        whiteSpace: "nowrap",
         color: "var(--ac-ink)",
         ...style
       }
@@ -549,6 +581,7 @@ function Plate({
       fontWeight: 500,
       fontSize: "18px",
       letterSpacing: "var(--ac-tracking-plate)",
+      whiteSpace: "nowrap",
       background: "var(--ac-surface)",
       color: "var(--ac-ink)",
       border: "2px solid var(--ac-ink)",
@@ -765,9 +798,9 @@ function BottomSheet({
     style: {
       width: "100%",
       background: "var(--ac-surface)",
-      borderTopLeftRadius: "var(--ac-radius-md)",
-      borderTopRightRadius: "var(--ac-radius-md)",
-      padding: "var(--ac-space-lg)",
+      borderTopLeftRadius: "var(--ac-radius-lg)",
+      borderTopRightRadius: "var(--ac-radius-lg)",
+      padding: "var(--ac-space-lg) var(--ac-space-lg) var(--ac-space-xl)",
       display: "flex",
       flexDirection: "column",
       gap: "var(--ac-space-sm)",
@@ -796,7 +829,7 @@ function BottomSheet({
     style: {
       minHeight: "var(--ac-target-member)",
       border: "none",
-      borderRadius: "var(--ac-radius-md)",
+      borderRadius: "var(--ac-radius-pill)",
       background: "var(--ac-primary)",
       color: "var(--ac-on-primary)",
       font: "var(--type-h2)",
@@ -827,7 +860,7 @@ Object.assign(__ds_scope, { BottomSheet, MeasuredRow });
 
 // components/shell/TabBar.jsx
 try { (() => {
-/** Member app bottom tabs. Active tint is Gauge Blue, inactive is muted ink;
+/** Member app bottom tabs. Active tint is Ignition Red, inactive is muted ink;
  *  49dp bar over a hairline. Labels are nouns, never verbs. */
 function TabBar({
   tabs = [],
@@ -839,8 +872,9 @@ function TabBar({
     style: {
       display: "flex",
       height: 56,
-      borderTop: "1px solid var(--ac-line)",
+      borderTop: "1px solid var(--ac-line-soft)",
       background: "var(--ac-surface)",
+      boxShadow: "var(--ac-elevation-nav)",
       ...style
     }
   }, tabs.map(t => {
@@ -908,9 +942,10 @@ function PlanCard({
     tabIndex: 0,
     style: {
       background: "var(--ac-surface)",
-      borderRadius: "var(--ac-radius-md)",
-      padding: "var(--ac-space-md)",
-      border: selected ? "var(--ac-border-control) solid var(--ac-primary)" : "1px solid var(--ac-line)",
+      borderRadius: "var(--ac-radius-lg)",
+      padding: "var(--ac-space-lg)",
+      border: selected ? "var(--ac-border-control) solid var(--ac-primary)" : "1px solid var(--ac-line-soft)",
+      boxShadow: selected ? "var(--ac-elevation-raised)" : "var(--ac-elevation-card)",
       display: "flex",
       flexDirection: "column",
       cursor: "pointer",
@@ -962,7 +997,7 @@ function PlanCard({
     style: {
       height: "var(--ac-target-member)",
       marginTop: "var(--ac-space-sm)",
-      borderRadius: "var(--ac-radius-sm)",
+      borderRadius: "var(--ac-radius-pill)",
       background: "var(--ac-primary)",
       color: "var(--ac-on-primary)",
       display: "flex",
@@ -2152,7 +2187,7 @@ const {
   StatusChoice,
   StatusChip,
   EmptyState
-} = window.AutoCareDesignSystem_2155ba;
+} = window.AutoCareDesignSystem_85f2c0;
 const POINTS = [{
   code: "BRK-01",
   label: "Front pad thickness",
@@ -2319,6 +2354,84 @@ const ENTITLEMENT_LINE = {
   BRK: null,
   AC: null
 };
+const SERVICE_ICON = {
+  PM: "wrench",
+  INS: "clipboard-check",
+  BRK: "disc",
+  AC: "snowflake"
+};
+function ChevronPill() {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: 999,
+      background: "var(--ac-ink)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flex: "none"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "chevron-right",
+    size: 20,
+    color: "var(--ac-surface)"
+  }));
+}
+function ServiceRow({
+  s,
+  onClick
+}) {
+  return /*#__PURE__*/React.createElement(Card, {
+    interactive: true,
+    onClick: onClick,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: "var(--ac-space-md)",
+      minHeight: "var(--ac-target-member)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 58,
+      height: 58,
+      borderRadius: "var(--ac-radius-md)",
+      background: s.entitled ? "var(--ac-primary-soft)" : "var(--ac-chassis)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flex: "none"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: SERVICE_ICON[s.code],
+    size: 26,
+    color: s.entitled ? "var(--ac-primary)" : "var(--ac-ink-muted)"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
+      flexDirection: "column",
+      gap: 2
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      font: "var(--type-h2)",
+      color: "var(--ac-ink)"
+    }
+  }, s.name), /*#__PURE__*/React.createElement("span", {
+    style: {
+      font: "var(--type-label)",
+      color: "var(--ac-ink-muted)"
+    }
+  }, "Time: ", s.durationMin, " min"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      font: "var(--type-label)",
+      fontWeight: 600,
+      color: s.entitled ? "var(--ac-success)" : "var(--ac-ink)"
+    }
+  }, s.entitled ? "Included in your plan" : s.price)), /*#__PURE__*/React.createElement(ChevronPill, null));
+}
 function BookingFlow({
   onBack,
   onDone
@@ -2349,38 +2462,29 @@ function BookingFlow({
     }
   }, step === 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
-      font: "var(--type-h2)",
-      color: "var(--ac-ink)"
-    }
-  }, "Book a service"), SERVICE_TYPES.map(s => /*#__PURE__*/React.createElement(Card, {
-    key: s.code,
-    interactive: true,
-    onClick: () => {
-      setService(s);
-      setStep(1);
-    },
-    style: {
       display: "flex",
       flexDirection: "column",
-      gap: 4,
-      minHeight: "var(--ac-target-member)"
+      gap: 2,
+      marginBottom: "var(--ac-space-xs)"
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      font: "var(--type-body)",
+      font: "var(--type-h1)",
       color: "var(--ac-ink)"
     }
-  }, s.name), /*#__PURE__*/React.createElement("span", {
+  }, "Book a service"), /*#__PURE__*/React.createElement("span", {
     style: {
-      font: "var(--type-label)",
+      font: "var(--type-body)",
       color: "var(--ac-ink-muted)"
     }
-  }, s.durationMin, " min"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      font: "var(--type-label)",
-      color: s.entitled ? "var(--ac-primary)" : "var(--ac-ink)"
+  }, "What does ABC 1234 need today?")), SERVICE_TYPES.map(s => /*#__PURE__*/React.createElement(ServiceRow, {
+    key: s.code,
+    s: s,
+    onClick: () => {
+      setService(s);
+      setStep(1);
     }
-  }, s.entitled ? "Included in your plan" : s.price)))), step === 1 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }))), step === 1 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       font: "var(--type-h2)",
       color: "var(--ac-ink)"
@@ -2456,12 +2560,35 @@ function BookingFlow({
   }, "Confirm booking"), /*#__PURE__*/React.createElement(Card, {
     style: {
       display: "flex",
+      alignItems: "center",
+      gap: "var(--ac-space-md)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 58,
+      height: 58,
+      borderRadius: "var(--ac-radius-md)",
+      background: "var(--ac-primary-soft)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flex: "none"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: SERVICE_ICON[service?.code] || "wrench",
+    size: 26,
+    color: "var(--ac-primary)"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
       flexDirection: "column",
-      gap: 6
+      gap: 3
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      font: "var(--type-body)",
+      font: "var(--type-h2)",
       color: "var(--ac-ink)"
     }
   }, service?.name), /*#__PURE__*/React.createElement("span", {
@@ -2469,12 +2596,13 @@ function BookingFlow({
       font: "var(--type-label)",
       color: "var(--ac-ink-muted)"
     }
-  }, "Tue, Sep 2, ", slot), ENTITLEMENT_LINE[service?.code] && /*#__PURE__*/React.createElement("span", {
+  }, "Tue, Sep 2 \xB7 ", slot, " \xB7 ", service?.durationMin, " min"), ENTITLEMENT_LINE[service?.code] && /*#__PURE__*/React.createElement("span", {
     style: {
       font: "var(--type-label)",
-      color: "var(--ac-primary)"
+      fontWeight: 600,
+      color: "var(--ac-success)"
     }
-  }, ENTITLEMENT_LINE[service.code])), /*#__PURE__*/React.createElement(Button, {
+  }, ENTITLEMENT_LINE[service.code]))), /*#__PURE__*/React.createElement(Button, {
     block: true,
     disabled: submitting,
     onClick: () => {
@@ -2975,60 +3103,161 @@ function BookingsScreen({
   const upcoming = [{
     id: "1",
     name: "Preventive maintenance",
-    when: "Tue, Sep 2, 09:00",
+    icon: "wrench",
+    day: "02",
+    mon: "SEP",
+    when: "Tue · 09:00 · 2 hrs",
     status: "CONFIRMED",
     cancellable: true
   }, {
     id: "2",
     name: "Full inspection",
-    when: "Mon, Sep 22, 11:00",
+    icon: "clipboard-check",
+    day: "22",
+    mon: "SEP",
+    when: "Mon · 11:00 · 2 hrs",
     status: "BOOKED",
     cancellable: true
   }];
   const past = [{
     id: "3",
     name: "Brake service",
-    when: "Sun, May 3, 14:00",
+    icon: "disc",
+    day: "03",
+    mon: "MAY",
+    when: "Sun · 14:00",
     status: "COMPLETED"
   }, {
     id: "4",
     name: "Aircon service",
-    when: "Thu, Apr 10, 10:00",
+    icon: "snowflake",
+    day: "10",
+    mon: "APR",
+    when: "Thu · 10:00",
     status: "CANCELLED"
   }];
   const [cancelled, setCancelled] = React.useState([]);
+  const STATUS = {
+    CONFIRMED: {
+      bg: "var(--ac-band-excellent-soft)",
+      fg: "var(--ac-band-excellent-text)"
+    },
+    BOOKED: {
+      bg: "var(--ac-chassis)",
+      fg: "var(--ac-ink-muted)"
+    },
+    COMPLETED: {
+      bg: "var(--ac-chassis)",
+      fg: "var(--ac-ink-muted)"
+    },
+    CANCELLED: {
+      bg: "var(--ac-primary-soft)",
+      fg: "var(--ac-primary)"
+    }
+  };
   const Row = ({
     a,
-    cancellable
-  }) => /*#__PURE__*/React.createElement(Card, {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 4
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      font: "var(--type-body)",
-      color: "var(--ac-ink)"
-    }
-  }, a.name), /*#__PURE__*/React.createElement("span", {
-    style: {
-      font: "var(--type-label)",
+    cancellable,
+    dim
+  }) => {
+    const status = cancelled.includes(a.id) ? "CANCELLED" : a.status;
+    const tone = STATUS[status] || STATUS.BOOKED;
+    return /*#__PURE__*/React.createElement(Card, {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--ac-space-md)",
+        opacity: dim ? 0.72 : 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 58,
+        height: 58,
+        borderRadius: "var(--ac-radius-md)",
+        background: dim ? "var(--ac-chassis)" : "var(--ac-primary-soft)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        flex: "none",
+        lineHeight: 1
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "var(--ac-font-display, var(--ac-font-mono))",
+        fontSize: 22,
+        fontWeight: 700,
+        color: dim ? "var(--ac-ink-muted)" : "var(--ac-primary)"
+      }
+    }, a.day), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "var(--ac-font-mono)",
+        fontSize: 10,
+        letterSpacing: ".08em",
+        color: dim ? "var(--ac-ink-muted)" : "var(--ac-primary)",
+        marginTop: 3
+      }
+    }, a.mon)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 7
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: a.icon,
+      size: 16,
       color: "var(--ac-ink-muted)"
-    }
-  }, a.when, " \xB7 ", cancelled.includes(a.id) ? "CANCELLED" : a.status.replace("_", " ")), cancellable && !cancelled.includes(a.id) && /*#__PURE__*/React.createElement("div", {
-    role: "button",
-    tabIndex: 0,
-    onClick: () => setCancelled([...cancelled, a.id]),
-    style: {
-      minHeight: "var(--ac-target-member)",
-      display: "flex",
-      alignItems: "center",
-      font: "var(--type-label)",
-      color: "var(--ac-danger)",
-      cursor: "pointer"
-    }
-  }, "Cancel"));
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        font: "var(--type-h2)",
+        color: "var(--ac-ink)"
+      }
+    }, a.name)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        font: "var(--type-label)",
+        color: "var(--ac-ink-muted)"
+      }
+    }, a.when), /*#__PURE__*/React.createElement("span", {
+      style: {
+        alignSelf: "flex-start",
+        background: tone.bg,
+        color: tone.fg,
+        borderRadius: 999,
+        padding: "3px 10px",
+        fontFamily: "var(--ac-font-mono)",
+        fontSize: 10,
+        letterSpacing: ".08em"
+      }
+    }, status)), cancellable && !cancelled.includes(a.id) && /*#__PURE__*/React.createElement("div", {
+      role: "button",
+      tabIndex: 0,
+      onClick: () => setCancelled([...cancelled, a.id]),
+      "aria-label": `Cancel ${a.name}`,
+      style: {
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        border: "1px solid var(--ac-line)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flex: "none",
+        cursor: "pointer"
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "x",
+      size: 18,
+      color: "var(--ac-ink-muted)"
+    })));
+  };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "var(--ac-space-lg)",
@@ -3040,33 +3269,76 @@ function BookingsScreen({
     style: {
       display: "flex",
       justifyContent: "space-between",
-      alignItems: "center"
+      alignItems: "flex-start",
+      gap: "var(--ac-space-md)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 2
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      font: "var(--type-h2)",
+      font: "var(--type-h1)",
       color: "var(--ac-ink)"
     }
-  }, "My bookings"), /*#__PURE__*/React.createElement("div", {
+  }, "My bookings"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      font: "var(--type-body)",
+      color: "var(--ac-ink-muted)"
+    }
+  }, "2 upcoming visits")), /*#__PURE__*/React.createElement("div", {
     role: "button",
     tabIndex: 0,
     onClick: onBookNew,
+    "aria-label": "Book a new service",
     style: {
-      minHeight: "var(--ac-target-member)",
+      width: 44,
+      height: 44,
+      borderRadius: 999,
+      background: "var(--ac-ink)",
       display: "flex",
       alignItems: "center",
-      font: "var(--type-label)",
-      color: "var(--ac-primary)",
+      justifyContent: "center",
+      flex: "none",
       cursor: "pointer"
     }
-  }, "Book new")), /*#__PURE__*/React.createElement(Card, {
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 20,
+    color: "var(--ac-surface)"
+  }))), /*#__PURE__*/React.createElement(Card, {
     accent: "var(--ac-sev-attention)",
     interactive: true,
     onClick: onApprove,
     style: {
       display: "flex",
+      alignItems: "center",
+      gap: "var(--ac-space-md)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: "var(--ac-radius-sm)",
+      background: "var(--ac-band-attention-soft)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flex: "none"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "triangle-alert",
+    size: 20,
+    color: "var(--ac-band-attention-text)"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
       flexDirection: "column",
-      gap: 4
+      gap: 3
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -3078,10 +3350,16 @@ function BookingsScreen({
       font: "var(--type-label)",
       color: "var(--ac-primary)"
     }
-  }, "Approve your service \u203A")), /*#__PURE__*/React.createElement("span", {
+  }, "Approve your service")), /*#__PURE__*/React.createElement(Icon, {
+    name: "chevron-right",
+    size: 20,
+    color: "var(--ac-ink-muted)"
+  })), /*#__PURE__*/React.createElement("span", {
     style: {
       font: "var(--type-label)",
-      color: "var(--ac-ink-muted)"
+      color: "var(--ac-ink-muted)",
+      letterSpacing: ".06em",
+      textTransform: "uppercase"
     }
   }, "Upcoming"), upcoming.map(a => /*#__PURE__*/React.createElement(Row, {
     key: a.id,
@@ -3090,12 +3368,16 @@ function BookingsScreen({
   })), /*#__PURE__*/React.createElement("span", {
     style: {
       font: "var(--type-label)",
-      color: "var(--ac-ink-muted)"
+      color: "var(--ac-ink-muted)",
+      letterSpacing: ".06em",
+      textTransform: "uppercase",
+      marginTop: "var(--ac-space-xs)"
     }
   }, "Past"), past.map(a => /*#__PURE__*/React.createElement(Row, {
     key: a.id,
     a: a,
-    cancellable: false
+    cancellable: false,
+    dim: true
   })));
 }
 
@@ -3750,7 +4032,7 @@ const {
   MeasuredRow,
   PlanCard,
   EmptyState
-} = window.AutoCareDesignSystem_2155ba;
+} = window.AutoCareDesignSystem_85f2c0;
 const ATTENTION = [{
   id: "1",
   severity: "CRITICAL",
@@ -4655,7 +4937,7 @@ const {
   BandChip,
   StarRating,
   EmptyState
-} = window.AutoCareDesignSystem_2155ba;
+} = window.AutoCareDesignSystem_85f2c0;
 const APPTS = [{
   id: "a1",
   hour: "09:00",
@@ -4781,6 +5063,7 @@ const TopBar = ({
     font: "var(--type-body)",
     fontSize: 14,
     padding: "8px 12px",
+    whiteSpace: "nowrap",
     borderRadius: "var(--ac-radius-sm)",
     cursor: "pointer"
   }

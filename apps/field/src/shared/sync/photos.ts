@@ -65,3 +65,10 @@ export class SqlitePhotoUploader implements PhotoUploader {
     return r?.n ?? 0;
   }
 }
+
+/** Drop queued photos belonging to a discarded record. Their owner record will
+ *  never sync, so uploading them would orphan bytes in the bucket. */
+export async function deletePhotosFor(ownerClientUuid: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM photos_pending WHERE owner_client_uuid = ?", ownerClientUuid);
+}

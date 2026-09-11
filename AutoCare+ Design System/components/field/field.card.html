@@ -1,0 +1,28 @@
+<!-- @dsCard group="Components" viewport="700x330" name="Field" subtitle="SyncBanner + 56dp inspection status choices" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--ac-chassis);font-family:var(--ac-font-body);color:var(--ac-ink)}#root{padding:0}.lab{font:var(--type-label);color:var(--ac-ink-muted);text-transform:uppercase;letter-spacing:var(--ac-tracking-label);margin-bottom:6px}.grid{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { SyncBanner, StatusChoice, StatusChip, FormField } = window.AutoCareDesignSystem_2155ba;
+function Demo(){const [sel,setSel]=React.useState("ATTENTION");return (<>
+<SyncBanner pendingCount={3}/>
+<div className="grid">
+<div><div class="lab">Measured point · derived</div>
+  <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <FormField size="field" value="3.0" style={{flex:1}}/>
+    <span style={{font:"var(--type-h2)",color:"var(--ac-ink-muted)"}}>mm</span>
+  </div>
+  <div style={{marginTop:8}}><StatusChip status="ATTENTION"/></div>
+  <div style={{marginTop:10,font:"var(--type-label)",color:"var(--ac-ink-muted)"}}>Threshold derived the status; the other choices lock.</div>
+</div>
+<div><div class="lab">Status choices · 56dp</div><div style={{display:"flex",flexDirection:"column",gap:8}}>
+  {["GOOD","MONITOR","ATTENTION","CRITICAL","NOT_APPLICABLE"].map(s=>
+    <StatusChoice key={s} status={s} selected={sel===s} disabled={s!=="ATTENTION"} onClick={()=>setSel(s)}/>)}
+</div></div>
+</div></>);}
+ReactDOM.createRoot(document.getElementById("root")).render(<Demo/>);
+</script></body></html>

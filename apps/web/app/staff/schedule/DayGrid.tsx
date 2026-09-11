@@ -6,8 +6,15 @@ import { EmptyState } from "../../../components/EmptyState";
 import { Plate } from "../../../components/Plate";
 import { ApptStatus } from "./Board";
 
-const manilaTime = (iso: string) =>
+/** 24-hour HH:mm — the row identity, not a label. Rows are de-duplicated into a
+ *  Set, sorted lexicographically, and matched against appointments/slots, all of
+ *  which need a zero-padded 24-hour value: "1:00 PM" would sort before "9:00 AM". */
+const manilaTimeKey = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hour12: false });
+
+/** What the row header actually shows. */
+const manilaTimeLabel = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true });
 
 /**
  * Bay-by-time availability grid — the day's shape at a glance, not just what's
@@ -40,9 +47,13 @@ export function DayGrid({
     return <EmptyState title="No active bays configured" body="Add a bay under Capacity settings to see it here." />;
   }
 
-  const rowTimes = Array.from(
-    new Set([...appointments.map((a) => manilaTime(a.scheduledStart)), ...slots.map((s) => manilaTime(s.start))]),
-  ).sort();
+  // Keyed by the 24-hour value so rows stay chronological, carrying the 12-hour
+  // label for display.
+  const labelByKey = new Map<string, string>();
+  for (const iso of [...appointments.map((a) => a.scheduledStart), ...slots.map((s) => s.start)]) {
+    labelByKey.set(manilaTimeKey(iso), manilaTimeLabel(iso));
+  }
+  const rowTimes = Array.from(labelByKey.keys()).sort();
 
   if (rowTimes.length === 0) {
     return (
@@ -69,14 +80,14 @@ export function DayGrid({
         <tbody>
           {rowTimes.map((time) => (
             <tr key={time}>
-              <td className="font-mono text-ink-muted text-sm align-top pt-2 pr-2 whitespace-nowrap">{time}</td>
+              <td className="font-mono text-ink-muted text-sm align-top pt-2 pr-2 whitespace-nowrap">{labelByKey.get(time)}</td>
               {bays.map((b) => {
-                const booked = appointments.find((a) => a.bayId === b.id && manilaTime(a.scheduledStart) === time);
-                const open = !booked && slots.find((s) => s.bayId === b.id && manilaTime(s.start) === time);
+                const booked = appointments.find((a) => a.bayId === b.id && manilaTimeKey(a.scheduledStart) === time);
+                const open = !booked && slots.find((s) => s.bayId === b.id && manilaTimeKey(s.start) === time);
                 return (
                   <td key={b.id} className="align-top p-1 min-w-[180px]">
                     {booked ? (
-                      <Card pad="md" className="flex flex-col gap-1">
+                      <Card pad="md" flat className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <Plate variant="plain" className="text-sm font-semibold">{booked.vehiclePlateNo}</Plate>
                           <ApptStatus status={booked.status} />
