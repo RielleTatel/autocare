@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pressable, Text, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, Text, type ViewStyle } from "react-native";
 import { theme } from "../theme";
 import { Icon, type IconName } from "./Icon";
 
@@ -17,13 +17,15 @@ const VARIANT: Record<Variant, Look> = {
 };
 
 export function Button({
-  children, variant = "primary", size = "member", block, disabled, onPress, testID, icon, accessibilityLabel, style,
+  children, variant = "primary", size = "member", block, disabled, loading = false, onPress, testID, icon, accessibilityLabel, style,
 }: {
   children: ReactNode;
   variant?: Variant;
   size?: Size;
   block?: boolean;
   disabled?: boolean;
+  /** Keeps the action visually primary while preventing repeat submissions. */
+  loading?: boolean;
   onPress?: () => void;
   testID?: string;
   /** Leading glyph, sized to the DS inline step and tinted with the label. */
@@ -33,7 +35,9 @@ export function Button({
   style?: ViewStyle;
 }) {
   const v = VARIANT[variant];
-  const fg = disabled ? theme.colors.inkMuted : v.fg;
+  const inactive = !!disabled || loading;
+  const visuallyDisabled = !!disabled && !loading;
+  const fg = visuallyDisabled ? theme.colors.inkMuted : v.fg;
   const height = size === "field" ? 56 : theme.minTarget;
   const base: ViewStyle = {
     height,
@@ -44,7 +48,7 @@ export function Button({
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing.sm,
-    backgroundColor: disabled ? theme.colors.line : v.bg,
+    backgroundColor: visuallyDisabled ? theme.colors.line : v.bg,
     borderWidth: v.border ? theme.borders.control : 0,
     borderColor: v.border,
     alignSelf: block ? "stretch" : "flex-start",
@@ -56,12 +60,16 @@ export function Button({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (typeof children === "string" ? children : undefined)}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: inactive, busy: loading }}
+      disabled={inactive}
       onPress={onPress}
-      style={({ pressed }) => [base, pressed && !disabled ? { opacity: theme.motion.pressOpacity } : null]}
+      style={({ pressed }) => [base, pressed && !inactive ? { opacity: theme.motion.pressOpacity } : null]}
     >
-      {icon ? <Icon name={icon} size={size === "field" ? 20 : 18} color={fg} /> : null}
+      {loading ? (
+        <ActivityIndicator testID={testID ? `${testID}-loading` : undefined} size="small" color={fg} />
+      ) : icon ? (
+        <Icon name={icon} size={size === "field" ? 20 : 18} color={fg} />
+      ) : null}
       <Text
         style={{
           ...theme.text("body", 600),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { Button } from "../../components/Button";
@@ -19,19 +19,35 @@ export function VehiclePhotosScreen({ vehicleId, initialPhotoUrls = [], initialO
   const [orCrUrls, setOrCrUrls] = useState<string[]>(initialOrCrUrls);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // State updates are not synchronous, so keep an immediate lock as well. This
+  // prevents two quick taps from launching Android's single activity contract
+  // twice before the disabled prop has rendered.
+  const actionInFlight = useRef(false);
 
   const addPhoto = async (kind: "PHOTO" | "ORCR") => {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setError(null);
-    const uri = await pickImage();
-    if (!uri) return;
     setBusy(true);
     try {
+      // Picking can reject before an asset is returned (for example if Android
+      // recreated the host Activity and its launcher is not registered yet), so
+      // it must live inside the same error boundary as the upload.
+      const uri = await pickImage();
+      if (!uri) return;
+
       const publicUrl = await uploadPhoto(vehicleId, uri, kind);
       if (kind === "PHOTO") setPhotoUrls((u) => [...u, publicUrl]);
       else setOrCrUrls((u) => [...u, publicUrl]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed — try again");
+      const message = e instanceof Error ? e.message : "";
+      setError(
+        message.includes("unregistered ActivityResultLauncher")
+          ? "The photo library isn't ready. Restart AutoCare+ and try again."
+          : message || "Couldn't add that photo — try again."
+      );
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   };
@@ -92,7 +108,7 @@ export function VehiclePhotosScreen({ vehicleId, initialPhotoUrls = [], initialO
         </Text>
       ) : null}
 
-      {busy ? <ActivityIndicator style={{ marginTop: theme.spacing.md }} /> : null}
+      {busy ? <ActivityIndicator testID="activity-indicator" style={{ marginTop: theme.spacing.md }} /> : null}
 
       <Button block style={{ marginTop: theme.spacing.lg }} testID="done" disabled={busy} onPress={finish}>
         Done

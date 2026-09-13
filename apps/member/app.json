@@ -8,6 +8,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#EEF1F3",
+          "image": "./assets/autocare-splash.png",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
+      ],
       "expo-secure-store",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",

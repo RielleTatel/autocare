@@ -52,6 +52,19 @@ export const roadsideDispatchSchema = z.object({
 });
 export type RoadsideDispatchInput = z.infer<typeof roadsideDispatchSchema>;
 
+/** Global roadside-access policy exposed only to portal administrators. */
+export const roadsideEligibilityConfigSchema = z.object({
+  waitingDays: z.number().int().min(0).max(365),
+  requireClearedPayment: z.boolean(),
+});
+export type RoadsideEligibilityConfig = z.infer<typeof roadsideEligibilityConfigSchema>;
+
+/** Every policy change is attributable in the audit log. */
+export const roadsideEligibilityConfigUpdateSchema = roadsideEligibilityConfigSchema.extend({
+  reason: z.string().trim().min(5).max(300),
+});
+export type RoadsideEligibilityConfigUpdate = z.infer<typeof roadsideEligibilityConfigUpdateSchema>;
+
 /** FR-039 — driving distance, null whenever the Directions call could not answer. */
 export const roadsideDistanceSchema = z.object({ distanceKm: z.number().nullable().optional() });
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
-import { Text, View } from "react-native";
+import { Image, Text } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
@@ -16,6 +17,13 @@ import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
 import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { InspectionDetailScreen } from "../features/history/InspectionDetailScreen";
 import { startSyncListener } from "../shared/sync";
+
+const splashMark = require("../../assets/splash-icon.png");
+
+// Register before React mounts so a cold launch remains branded while fonts
+// load, instead of flashing Expo's generic splash or an empty screen.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+SplashScreen.setOptions({ duration: 180, fade: true });
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +43,7 @@ function useScreenOptions() {
 function Splash() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: fieldTheme.colors.chassis, alignItems: "center", justifyContent: "center" }}>
+      <Image source={splashMark} style={{ width: 180, height: 180, borderRadius: fieldTheme.radii.md }} />
       <Text style={[fieldTheme.text("h1"), { color: fieldTheme.colors.primaryDeep }]}>AutoCare+ Field</Text>
     </SafeAreaView>
   );
@@ -73,6 +82,12 @@ function AppShell() {
     bootstrapStaff().then(setBoot);
     startSyncListener();
   }, []);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return <Splash />;
 

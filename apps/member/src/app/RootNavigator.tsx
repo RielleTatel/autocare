@@ -53,7 +53,7 @@ import { AttentionCard } from "../features/attention/AttentionCard";
 import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { AttentionListScreen } from "../features/attention/AttentionListScreen";
 
-const logoMark = require("../../assets/logo-mark.png");
+const splashMark = require("../../assets/autocare-splash.png");
 
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
@@ -86,7 +86,7 @@ function useScreenOptions() {
 function Splash() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", gap: theme.spacing.md }}>
-      <Image source={logoMark} style={{ width: 88, height: 88, borderRadius: 20 }} />
+      <Image source={splashMark} style={{ width: 180, height: 180, borderRadius: theme.radii.md }} />
       <Text style={[theme.text("h1"), { color: theme.colors.primaryDeep }]}>AutoCare+</Text>
     </SafeAreaView>
   );
@@ -588,7 +588,10 @@ function PhotosContainer({ navigation, route, refreshVehicles }: any) {
       pickImage={async () => {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) return null;
-        const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.7,
+        });
         if (result.canceled || result.assets.length === 0) return null;
         return result.assets[0].uri;
       }}

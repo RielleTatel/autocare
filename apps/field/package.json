@@ -30,6 +30,7 @@
     "expo-image-manipulator": "~57.0.12",
     "expo-network": "~57.0.1",
     "expo-secure-store": "~57.0.1",
+    "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.18.0",

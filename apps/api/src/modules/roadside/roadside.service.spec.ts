@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CLOCK } from "../../common/clock/clock";
 import { RoadsideService, ROADSIDE_WAITING_DAYS } from "./roadside.service";
 import { AnnouncementsService } from "../announcements/announcements.service";
+import { RoadsideConfigService, DEFAULT_ROADSIDE_ELIGIBILITY_CONFIG } from "./roadside-config.service";
 
 // Spy rather than the real service: these tests are about which updates reach
 // the member's feed, not how the row is written (covered in its own spec).
@@ -21,13 +22,14 @@ function prismaStub(over: Partial<Record<string, any>> = {}) {
   } as unknown as PrismaService;
 }
 
-async function build(prisma: PrismaService) {
+async function build(prisma: PrismaService, policy = DEFAULT_ROADSIDE_ELIGIBILITY_CONFIG) {
   const mod = await Test.createTestingModule({
     providers: [
       RoadsideService,
       { provide: PrismaService, useValue: prisma },
       { provide: CLOCK, useValue: { now: () => NOW } },
       { provide: AnnouncementsService, useValue: announcementsStub },
+      { provide: RoadsideConfigService, useValue: { get: jest.fn().mockResolvedValue(policy) } },
     ],
   }).compile();
   return mod.get(RoadsideService);
@@ -97,6 +99,15 @@ describe("RoadsideService.eligibility (BR-02, FR-034/FR-035)", () => {
       }),
     );
     expect((await svc.eligibility("user-1")).eligible).toBe(true);
+  });
+
+  it("can use subscription start instead of payment when an admin disables the payment requirement", async () => {
+    const startedAt = new Date(NOW.getTime() - 31 * DAY);
+    const svc = await build(
+      prismaStub({ subscription: { findFirst: jest.fn().mockResolvedValue({ id: "sub-1", status: "ACTIVE", startedAt }) } }),
+      { waitingDays: 30, requireClearedPayment: false },
+    );
+    await expect(svc.eligibility("user-1")).resolves.toEqual({ eligible: true });
   });
 
   it("refuses a suspended subscription even after the waiting period", async () => {

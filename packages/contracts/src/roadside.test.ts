@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { roadsideRequestSchema, roadsideStatusSchema, incidentTypes, roadsideStatuses } from "./roadside";
+import {
+  roadsideEligibilityConfigSchema,
+  roadsideEligibilityConfigUpdateSchema,
+  roadsideRequestSchema,
+  roadsideStatusSchema,
+  incidentTypes,
+  roadsideStatuses,
+} from "./roadside";
 
 describe("roadside contracts", () => {
   it("accepts a request with coordinates and an incident type", () => {
@@ -61,5 +68,20 @@ describe("roadside contracts", () => {
 
   it("rejects a status transition payload with an unknown status", () => {
     expect(() => roadsideStatusSchema.parse({ status: "LOST" })).toThrow();
+  });
+
+  it("accepts bounded roadside eligibility configuration with an audit reason", () => {
+    expect(
+      roadsideEligibilityConfigUpdateSchema.parse({
+        waitingDays: 0,
+        requireClearedPayment: false,
+        reason: "Launch promotion",
+      }),
+    ).toMatchObject({ waitingDays: 0, requireClearedPayment: false });
+  });
+
+  it("rejects an unsafe roadside eligibility configuration", () => {
+    expect(() => roadsideEligibilityConfigSchema.parse({ waitingDays: 366, requireClearedPayment: true })).toThrow();
+    expect(() => roadsideEligibilityConfigUpdateSchema.parse({ waitingDays: 30, requireClearedPayment: true, reason: "no" })).toThrow();
   });
 });

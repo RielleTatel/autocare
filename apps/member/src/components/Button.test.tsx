@@ -14,4 +14,13 @@ describe("member Button", () => {
     fireEvent.press(screen.getByText("Nope"));
     expect(onPress).not.toHaveBeenCalled();
   });
+  it("announces a busy state and prevents repeat presses while loading", () => {
+    const onPress = jest.fn();
+    render(<Button loading testID="action" onPress={onPress}>Signing in…</Button>);
+
+    expect(screen.getByTestId("action-loading")).toBeTruthy();
+    expect(screen.getByTestId("action").props.accessibilityState).toEqual({ disabled: true, busy: true });
+    fireEvent.press(screen.getByTestId("action"));
+    expect(onPress).not.toHaveBeenCalled();
+  });
 });

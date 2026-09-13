@@ -14,13 +14,12 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CLOCK, type Clock } from "../../common/clock/clock";
 import { routeDistanceKm, workshopOrigin } from "./route-distance";
 import { AnnouncementsService } from "../announcements/announcements.service";
+import { RoadsideConfigService } from "./roadside-config.service";
 
 /**
- * BR-02 waiting period, in days, measured from the first cleared payment.
- *
- * Named rather than inlined because the MOC still carries "minimum lock-in
- * period for roadside assistance eligibility" as an open decision, while BR-02
- * and FR-034 state 30. Change here, change the tests, change nothing else.
+ * Default waiting period, in days, measured from the first cleared payment.
+ * Runtime policy now comes from RoadsideConfigService; this remains exported
+ * for existing tests and documents the safe fallback when config is absent.
  */
 export const ROADSIDE_WAITING_DAYS = 30;
 
@@ -41,6 +40,7 @@ export class RoadsideService {
     private prisma: PrismaService,
     @Inject(CLOCK) private clock: Clock,
     private announcements: AnnouncementsService,
+    private config: RoadsideConfigService,
   ) {}
 
   /**
@@ -89,29 +89,38 @@ export class RoadsideService {
       };
     }
 
+    const policy = await this.config.get();
+
     // BR-02 is measured from money actually clearing, not from signup: a
     // subscription can exist for months with a failed card behind it.
-    const firstCleared = await this.prisma.payment.findFirst({
-      where: { status: "SUCCEEDED", invoice: { subscriptionId: subscription.id } },
-      select: { createdAt: true },
-      orderBy: { createdAt: "asc" },
-    });
+    const firstCleared = policy.requireClearedPayment
+      ? await this.prisma.payment.findFirst({
+          where: { status: "SUCCEEDED", invoice: { subscriptionId: subscription.id } },
+          select: { createdAt: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : null;
 
-    if (!firstCleared) {
+    if (policy.requireClearedPayment && !firstCleared) {
       return {
         eligible: false,
         reason: "Roadside assistance unlocks once your first payment clears. We'll let you know as soon as it does.",
       };
     }
 
-    const opensAt = new Date(firstCleared.createdAt.getTime() + ROADSIDE_WAITING_DAYS * DAY_MS);
+    const eligibilityBase = firstCleared?.createdAt ?? subscription.startedAt;
+    const opensAt = new Date(eligibilityBase.getTime() + policy.waitingDays * DAY_MS);
     if (this.clock.now() < opensAt) {
       return {
         eligible: false,
         eligibleFrom: opensAt.toISOString(),
-        reason: `Roadside assistance opens ${ROADSIDE_WAITING_DAYS} days after your first payment. You're covered from ${opensAt
+        reason: policy.requireClearedPayment
+          ? `Roadside assistance opens ${policy.waitingDays} days after your first payment. You're covered from ${opensAt
           .toISOString()
-          .slice(0, 10)}.`,
+          .slice(0, 10)}.`
+          : `Roadside assistance opens ${policy.waitingDays} days after your subscription starts. You're covered from ${opensAt
+              .toISOString()
+              .slice(0, 10)}.`,
       };
     }
 

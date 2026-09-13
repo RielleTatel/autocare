@@ -25,6 +25,7 @@ export default function AdminPage() {
         <nav className="flex items-center gap-4">
           <Link href="/admin/staff" className="text-primary text-sm font-medium">Staff</Link>
           <Link href="/admin/checklists" className="text-primary text-sm font-medium">Checklists</Link>
+          <Link href="/admin/settings/roadside" className="text-primary text-sm font-medium">Roadside settings</Link>
         </nav>
       </header>
       {err && <p className="text-danger text-sm">{err}</p>}

@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { EmailAuthScreen } from "./EmailAuthScreen";
 
 const noop = jest.fn();
@@ -15,7 +15,7 @@ describe("EmailAuthScreen", () => {
     expect(getByTestId("submit").props.accessibilityState.disabled).toBe(false);
   });
 
-  it("signs in with email + password in sign-in mode", () => {
+  it("signs in with email + password in sign-in mode", async () => {
     const p = props();
     const { getByTestId } = render(<EmailAuthScreen {...p} />);
     fireEvent.changeText(getByTestId("email-input"), "juan@example.com");
@@ -23,9 +23,32 @@ describe("EmailAuthScreen", () => {
     fireEvent.press(getByTestId("submit"));
     expect(p.onSignIn).toHaveBeenCalledWith("juan@example.com", "s3cret!");
     expect(p.onRegister).not.toHaveBeenCalled();
+    await waitFor(() => expect(getByTestId("submit").props.accessibilityState.busy).toBe(false));
   });
 
-  it("registers when toggled to create-account mode", () => {
+  it("shows progress and prevents duplicate submissions while sign-in is pending", async () => {
+    let finishSignIn!: () => void;
+    const p = {
+      ...props(),
+      onSignIn: jest.fn(() => new Promise<void>((resolve) => { finishSignIn = resolve; })),
+    };
+    const { getByTestId, getByText } = render(<EmailAuthScreen {...p} />);
+    fireEvent.changeText(getByTestId("email-input"), "juan@example.com");
+    fireEvent.changeText(getByTestId("password-input"), "s3cret!");
+
+    fireEvent.press(getByTestId("submit"));
+    expect(getByText("Signing in…")).toBeTruthy();
+    expect(getByTestId("submit-loading")).toBeTruthy();
+    expect(getByTestId("submit").props.accessibilityState.busy).toBe(true);
+
+    fireEvent.press(getByTestId("submit"));
+    expect(p.onSignIn).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishSignIn());
+    await waitFor(() => expect(getByTestId("submit").props.accessibilityState.busy).toBe(false));
+  });
+
+  it("registers when toggled to create-account mode", async () => {
     const p = props();
     const { getByTestId } = render(<EmailAuthScreen {...p} />);
     fireEvent.press(getByTestId("toggle-mode"));
@@ -34,14 +57,16 @@ describe("EmailAuthScreen", () => {
     fireEvent.press(getByTestId("submit"));
     expect(p.onRegister).toHaveBeenCalledWith("new@example.com", "s3cret!");
     expect(p.onSignIn).not.toHaveBeenCalled();
+    await waitFor(() => expect(getByTestId("submit").props.accessibilityState.busy).toBe(false));
   });
 
-  it("triggers password reset with the entered email in sign-in mode", () => {
+  it("triggers password reset with the entered email in sign-in mode", async () => {
     const p = props();
     const { getByTestId } = render(<EmailAuthScreen {...p} />);
     fireEvent.changeText(getByTestId("email-input"), "juan@example.com");
     fireEvent.press(getByTestId("forgot-password"));
     expect(p.onForgotPassword).toHaveBeenCalledWith("juan@example.com");
+    await waitFor(() => expect(getByTestId("forgot-password").props.accessibilityState.busy).toBe(false));
   });
 
   it("shows an error message when provided", () => {
@@ -72,8 +97,10 @@ describe("EmailAuthScreen", () => {
 
   it("greets a returning member, and switches the heading in create-account mode", () => {
     const { getByTestId } = render(<EmailAuthScreen {...props()} />);
+    const signInArt = getByTestId("auth-illustration").props.source;
     expect(getByTestId("auth-heading").props.children).toBe("Welcome back");
     fireEvent.press(getByTestId("toggle-mode"));
     expect(getByTestId("auth-heading").props.children).toBe("Create your account");
+    expect(getByTestId("auth-illustration").props.source).not.toEqual(signInArt);
   });
 });
