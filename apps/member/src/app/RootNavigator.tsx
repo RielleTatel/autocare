@@ -573,14 +573,18 @@ function AddVehicleContainer({ navigation, refreshVehicles }: any) {
 
 function PhotosContainer({ navigation, route, refreshVehicles }: any) {
   const { vehicle } = route.params;
-  const goHome = async () => {
+  const editing = route.params?.editing === true;
+  const finish = async () => {
     await refreshVehicles();
-    navigation.reset({ index: 0, routes: [{ name: "HomeTabsScreen" }] });
+    if (editing) navigation.goBack();
+    else navigation.reset({ index: 0, routes: [{ name: "HomeTabsScreen" }] });
   };
   return (
     <VehiclePhotosScreen
       vehicleId={vehicle.id}
-      onDone={goHome}
+      initialPhotoUrls={vehicle.photoUrls ?? []}
+      initialOrCrUrls={vehicle.orCrUrls ?? []}
+      onDone={finish}
       pickImage={async () => {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) return null;
@@ -595,7 +599,8 @@ function PhotosContainer({ navigation, route, refreshVehicles }: any) {
 }
 
 function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
-  const { vehicle } = route.params;
+  const initialVehicle = route.params.vehicle as Vehicle;
+  const [vehicle, setVehicle] = useState<Vehicle>(initialVehicle);
   const [health, setHealth] = useState<{ score: number; band: any } | null>(null);
   // null while unknown, so the stat shows "—" rather than a confident zero.
   const [openItems, setOpenItems] = useState<number | null>(null);
@@ -604,6 +609,7 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
   // "Coming with your first inspection" case, not an error worth surfacing.
   // Refreshes on focus so a review completed elsewhere shows up on return.
   const loadHealth = useCallback(() => {
+    api.get<Vehicle>(`/vehicles/${initialVehicle.id}`).then(setVehicle).catch(() => undefined);
     healthScoreApi.getScore(vehicle.id)
       .then((s) => setHealth({ score: s.score, band: s.band }))
       .catch(() => setHealth(null));
@@ -612,7 +618,7 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
     attentionApi.mine()
       .then((items) => setOpenItems(items.filter((i) => i.vehicleId === vehicle.id).length))
       .catch(() => setOpenItems(null));
-  }, [vehicle.id]);
+  }, [initialVehicle.id, vehicle.id]);
   useEffect(() => {
     const unsub = navigation.addListener("focus", loadHealth);
     loadHealth();
@@ -636,6 +642,7 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
         navigation.goBack();
       }}
       onBack={() => navigation.goBack()}
+      onEditPhotos={() => navigation.navigate("Photos", { vehicle, editing: true })}
       onManageSubscription={async () => {
         const subs = await subApi.listSubscriptions();
         const manageable = selectManageableSubscription(subs, vehicle.id);

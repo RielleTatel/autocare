@@ -6,15 +6,17 @@ import { Button } from "../../components/Button";
 const MAX_PHOTOS = 6;
 const MAX_ORCR = 2;
 
-export function VehiclePhotosScreen({ vehicleId, onDone, pickImage, uploadPhoto, patchVehicle }: {
+export function VehiclePhotosScreen({ vehicleId, initialPhotoUrls = [], initialOrCrUrls = [], onDone, pickImage, uploadPhoto, patchVehicle }: {
   vehicleId: string;
+  initialPhotoUrls?: string[];
+  initialOrCrUrls?: string[];
   onDone: () => void;
   pickImage: () => Promise<string | null>;
   uploadPhoto: (vehicleId: string, localUri: string, kind: "PHOTO" | "ORCR") => Promise<string>;
   patchVehicle: (id: string, body: { photoUrls: string[]; orCrUrls: string[] }) => Promise<unknown>;
 }) {
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [orCrUrls, setOrCrUrls] = useState<string[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<string[]>(initialPhotoUrls);
+  const [orCrUrls, setOrCrUrls] = useState<string[]>(initialOrCrUrls);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -4,6 +4,17 @@ import { api } from "../../shared/api";
 import { currentIdToken } from "./firebaseAuth";
 
 const THIRTY_DAYS_MS = 30 * 24 * 3600 * 1000;
+const BOOT_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), BOOT_TIMEOUT_MS);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      () => { clearTimeout(timer); resolve(fallback); },
+    );
+  });
+}
 
 /** Pure, testable core: what does the stored state imply? */
 export function classifySession(token: string | null, lastActiveAt: string | null, nowMs: number): "ANONYMOUS" | "TOKEN_OK" {
@@ -26,13 +37,15 @@ export async function biometricGate(): Promise<boolean> {
 export type BootState = "ANONYMOUS" | "NEEDS_CONSENT" | "READY";
 
 export async function bootstrap(): Promise<BootState> {
-  const token = await currentIdToken();
-  const lastActive = await SecureStore.getItemAsync("last_active_at");
-  if (classifySession(token, lastActive, Date.now()) === "ANONYMOUS") return "ANONYMOUS";
-  if (!(await biometricGate())) return "ANONYMOUS";
-  try {
-    const session = await api.createSession();
-    await SecureStore.setItemAsync("last_active_at", String(Date.now()));
-    return session.consentRequired ? "NEEDS_CONSENT" : "READY";
-  } catch { return "ANONYMOUS"; }
+  return withTimeout((async () => {
+    const token = await currentIdToken();
+    const lastActive = await SecureStore.getItemAsync("last_active_at");
+    if (classifySession(token, lastActive, Date.now()) === "ANONYMOUS") return "ANONYMOUS";
+    if (!(await biometricGate())) return "ANONYMOUS";
+    try {
+      const session = await api.createSession();
+      await SecureStore.setItemAsync("last_active_at", String(Date.now()));
+      return session.consentRequired ? "NEEDS_CONSENT" : "READY";
+    } catch { return "ANONYMOUS"; }
+  })(), "ANONYMOUS");
 }

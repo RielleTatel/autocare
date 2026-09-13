@@ -127,7 +127,7 @@ Concretely this needs:
 | `WORKSHOP_LAT` / `WORKSHOP_LNG` | `6.9214` / `122.0790` | no | Origin for that distance |
 | `PAYMONGO_SECRET_KEY` | PayMongo **test** key | yes | Optional in the schema; the real adapter throws at call time if a payment is attempted without it |
 | `PAYMONGO_WEBHOOK_SECRET` | PayMongo test webhook | yes | Optional |
-| `NODE_VERSION` | `20` | no | `engines` pins `>=20 <21`; Render defaults higher |
+| `NODE_VERSION` | `22` | no | Supabase JS requires Node 22+; `engines` pins `>=22 <25` |
 
 **The `FIREBASE_PRIVATE_KEY` newline trap.** The key is a PEM block whose `\n` sequences survive `.env` files as literal backslash-n. Pasted into Render's dashboard, they may stay literal, and `firebase-admin` then fails to parse the key with an error that does not name the cause. The fix is either to paste the key with real newlines, or to `.replace(/\\n/g, "\n")` where it is read. Whichever is chosen must be verified by an actual token verification against the deployed service, not assumed.
 

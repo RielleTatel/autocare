@@ -1,9 +1,15 @@
 import "reflect-metadata";
 import "./common/bigint-serializer";
+import { config } from "dotenv";
+import { join } from "node:path";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { loadEnv } from "./config/env";
+
+// Local development starts the API from the monorepo root, so load the API
+// env file explicitly instead of relying on the current working directory.
+config({ path: join(__dirname, "..", ".env") });
 
 async function bootstrap() {
   const env = loadEnv();

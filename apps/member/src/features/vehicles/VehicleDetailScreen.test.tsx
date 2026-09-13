@@ -55,6 +55,14 @@ describe("VehicleDetailScreen", () => {
     const { getByTestId } = render(<VehicleDetailScreen {...props()} />);
     expect(getByTestId("odometer-update")).toBeTruthy();
   });
+
+  it("opens photo editing from the vehicle options menu", () => {
+    const onEditPhotos = jest.fn();
+    const { getByTestId } = render(<VehicleDetailScreen {...props()} onEditPhotos={onEditPhotos} />);
+    fireEvent.press(getByTestId("overflow-menu"));
+    fireEvent.press(getByTestId("edit-photos-action"));
+    expect(onEditPhotos).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("VehicleDetailScreen — hero and detail sheet", () => {

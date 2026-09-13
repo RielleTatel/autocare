@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { subject } from "@casl/ability";
 import type { OdometerCreate, VehicleCreate, VehicleUpdate } from "@autocare/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { DomainError } from "../../common/errors/domain-error";
 import { AbilityFactory, AbilityUser, Action } from "../../common/policies/ability.factory";
+import { STORAGE_PORT, StoragePort } from "../../common/storage/storage.port";
+import { storagePathFromReference } from "../../common/storage/storage-reference";
 
 const VEHICLE_SELECT = { id: true, plateNo: true, make: true, model: true, year: true, variant: true,
   engineCc: true, fuelType: true, transmission: true, color: true, vin: true, photoUrls: true,
@@ -23,14 +25,41 @@ const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "DRIVER", "ADMIN"]);
  * `findForUser` keeps those fields for CASL's `subject("Vehicle", row)` matching — only the
  * response-facing paths call this mapper.
  */
-const toVehicleResponse = ({ ownerUserId: _ownerUserId, orgOwnerId: _orgOwnerId, lastServiceAt, ...rest }: VehicleRow) => ({
-  ...rest,
-  lastServiceAt: lastServiceAt ? lastServiceAt.toISOString().slice(0, 10) : null,
-});
-
 @Injectable()
 export class VehiclesService {
-  constructor(private prisma: PrismaService, private abilities: AbilityFactory) {}
+  constructor(
+    private prisma: PrismaService,
+    private abilities: AbilityFactory,
+    @Inject(STORAGE_PORT) private storage: StoragePort,
+  ) {}
+
+  private async signReferences(references: string[]) {
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET as string;
+    return Promise.all(references.map(async (reference) => {
+      const path = storagePathFromReference(reference, bucket);
+      if (!path) return reference;
+      return this.storage.createDownloadUrl(path, 60 * 60);
+    }));
+  }
+
+  private async toVehicleResponse({ ownerUserId: _ownerUserId, orgOwnerId: _orgOwnerId, lastServiceAt, ...rest }: VehicleRow) {
+    const [photoUrls, orCrUrls] = await Promise.all([
+      this.signReferences(rest.photoUrls),
+      this.signReferences(rest.orCrUrls),
+    ]);
+    return {
+      ...rest,
+      photoUrls,
+      orCrUrls,
+      lastServiceAt: lastServiceAt ? lastServiceAt.toISOString().slice(0, 10) : null,
+    };
+  }
+
+  private stableReferences(references: string[] | undefined) {
+    if (!references) return undefined;
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET as string;
+    return references.map((reference) => storagePathFromReference(reference, bucket) ?? reference);
+  }
 
   async list(user: AbilityUser) {
     if (user.role === "FLEET_MANAGER" && !user.orgId) return []; // fleet manager not yet attached to an org
@@ -40,7 +69,7 @@ export class VehiclesService {
         ? { orgOwnerId: user.orgId }
         : { ownerUserId: user.id };
     const rows = await this.prisma.vehicle.findMany({ where: { ...owner, status: "ACTIVE" }, select: VEHICLE_SELECT, orderBy: { createdAt: "asc" } });
-    return rows.map(toVehicleResponse);
+    return Promise.all(rows.map((row) => this.toVehicleResponse(row)));
   }
 
   async create(user: AbilityUser, dto: VehicleCreate) {
@@ -57,7 +86,7 @@ export class VehiclesService {
                 odometerReadings: { create: { km: odometerKm, source: "MEMBER", recordedBy: user.id } } },
         select: VEHICLE_SELECT,
       });
-      return toVehicleResponse(row);
+      return this.toVehicleResponse(row);
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
         throw new DomainError("PLATE_ALREADY_REGISTERED", `Plate ${dto.plateNo} is already registered`, 409);
@@ -82,24 +111,29 @@ export class VehiclesService {
   /** Response-facing GET :id — authorizes via findForUser, then strips owner fields for the client. */
   async get(user: AbilityUser, id: string) {
     const vehicle = await this.findForUser(user, id, "read");
-    return toVehicleResponse(vehicle);
+    return this.toVehicleResponse(vehicle);
   }
 
   async update(user: AbilityUser, id: string, dto: VehicleUpdate) {
     await this.findForUser(user, id, "update");
-    const { lastServiceAt, ...rest } = dto;
+    const { lastServiceAt, photoUrls, orCrUrls, ...rest } = dto;
     const row = await this.prisma.vehicle.update({
       where: { id },
-      data: { ...rest, ...(lastServiceAt !== undefined ? { lastServiceAt: lastServiceAt ? new Date(`${lastServiceAt}T00:00:00Z`) : null } : {}) },
+      data: {
+        ...rest,
+        ...(photoUrls !== undefined ? { photoUrls: this.stableReferences(photoUrls) } : {}),
+        ...(orCrUrls !== undefined ? { orCrUrls: this.stableReferences(orCrUrls) } : {}),
+        ...(lastServiceAt !== undefined ? { lastServiceAt: lastServiceAt ? new Date(`${lastServiceAt}T00:00:00Z`) : null } : {}),
+      },
       select: VEHICLE_SELECT,
     });
-    return toVehicleResponse(row);
+    return this.toVehicleResponse(row);
   }
 
   async archive(user: AbilityUser, id: string) {
     await this.findForUser(user, id, "delete");
     const row = await this.prisma.vehicle.update({ where: { id }, data: { status: "ARCHIVED" }, select: VEHICLE_SELECT });
-    return toVehicleResponse(row);
+    return this.toVehicleResponse(row);
   }
 
   async recordOdometer(user: AbilityUser, id: string, dto: OdometerCreate) {

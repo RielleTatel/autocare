@@ -38,8 +38,10 @@ export const vehicleUpdateSchema = vehicleCreateSchema
   .omit({ plateNo: true, odometerKm: true }) // plate is identity; odometer has its own endpoint
   .partial()
   .extend({
-    photoUrls: z.array(z.string().url()).max(10).optional(),
-    orCrUrls: z.array(z.string().url()).max(4).optional(),
+    // The API accepts either legacy object URLs, temporary signed URLs, or the
+    // stable Storage path and normalizes all three before persisting them.
+    photoUrls: z.array(z.string().min(1).max(2048)).max(10).optional(),
+    orCrUrls: z.array(z.string().min(1).max(2048)).max(4).optional(),
   });
 export type VehicleUpdate = z.infer<typeof vehicleUpdateSchema>;
 

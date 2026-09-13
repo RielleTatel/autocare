@@ -50,7 +50,7 @@ function Stat({ testID, value, label, last }: { testID: string; value: string; l
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-PH", { day: "numeric", month: "short" });
 
-export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt, onUpdateOdometer, onArchive, onArchived, onBack, onManageSubscription, onViewHealthScore, onBookService }: {
+export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt, onUpdateOdometer, onArchive, onArchived, onBack, onEditPhotos, onManageSubscription, onViewHealthScore, onBookService }: {
   vehicle: Vehicle;
   /** Latest score, when the vehicle has been inspected. Absent is normal for a
    *  new vehicle and must not read as an error. */
@@ -63,6 +63,7 @@ export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt,
   onArchive: (id: string) => Promise<void>;
   onArchived: () => void;
   onBack?: () => void;
+  onEditPhotos?: () => void;
   onManageSubscription?: () => void;
   onViewHealthScore?: () => void;
   onBookService?: () => void;
@@ -240,10 +241,18 @@ export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt,
         </View>
 
         {menuOpen && (
-          <Pressable testID="archive-action" onPress={() => { setMenuOpen(false); setConfirmArchive(true); }}
-            style={{ height: theme.minTarget, justifyContent: "center" }}>
-            <Text style={[theme.text("body"), { color: theme.colors.danger }]}>Archive vehicle</Text>
-          </Pressable>
+          <View style={{ gap: theme.spacing.xs }}>
+            {onEditPhotos ? (
+              <Pressable testID="edit-photos-action" onPress={() => { setMenuOpen(false); onEditPhotos(); }}
+                style={{ height: theme.minTarget, justifyContent: "center" }}>
+                <Text style={[theme.text("body"), { color: theme.colors.primary }]}>Edit photos & documents</Text>
+              </Pressable>
+            ) : null}
+            <Pressable testID="archive-action" onPress={() => { setMenuOpen(false); setConfirmArchive(true); }}
+              style={{ height: theme.minTarget, justifyContent: "center" }}>
+              <Text style={[theme.text("body"), { color: theme.colors.danger }]}>Archive vehicle</Text>
+            </Pressable>
+          </View>
         )}
 
         {confirmArchive && (
