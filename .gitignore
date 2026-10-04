@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store/
 dist
 .next
 .expo
@@ -17,3 +18,12 @@ dump.rdb
 
 # Subagent-driven-development scratch workspace
 .superpowers/
+
+# Kept in the local workspace, excluded from the application repository
+/README.md
+/apps/web/README.md
+/.obsidian/
+/.claude/skills/autocare-plus-design/
+/AutoCare+ Docs/
+/AutoCare+ Design System/
+/docs/
