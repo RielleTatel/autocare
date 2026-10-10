@@ -18,6 +18,9 @@ export class PaymentsService {
   /** POST /payments/intents — a member-initiated intent to pay an invoice by e-payment (API §9.1). */
   async createIntent(user: AbilityUser, invoiceId: string) {
     const invoice = await this.loadInvoiceForUser(user, invoiceId);
+    if (invoice.status === "PAID") {
+      throw new DomainError("INVOICE_ALREADY_PAID", "This invoice is already settled", 409);
+    }
     const { checkoutUrl } = await this.provider.createCheckout({
       id: invoice.id,
       totalCentavos: Number(invoice.totalCentavos),
@@ -87,6 +90,16 @@ export class PaymentsService {
         return;
       }
 
+      if (
+        event.succeeded &&
+        event.amountCentavos !== undefined &&
+        (!Number.isSafeInteger(event.amountCentavos) ||
+          event.amountCentavos <= 0 ||
+          BigInt(event.amountCentavos) !== invoice.totalCentavos)
+      ) {
+        throw new DomainError("PAYMENT_FAILED", "Payment amount does not match the invoice", 422);
+      }
+
       const nextAttempt = invoice.chargeAttempts + 1;
       const nextInvoiceState: InvoiceState = nextState(
         invoice.status as InvoiceState,
@@ -105,7 +118,7 @@ export class PaymentsService {
       await tx.payment.create({
         data: {
           invoiceId: invoice.id,
-          method: "CARD",
+          method: event.method ?? "CARD",
           amountCentavos: BigInt(event.amountCentavos ?? Number(invoice.totalCentavos)),
           status: event.succeeded ? "SUCCEEDED" : "FAILED",
           pspReference: event.pspReference,

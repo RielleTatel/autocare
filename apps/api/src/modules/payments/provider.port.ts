@@ -12,6 +12,7 @@ export interface PspEvent {
   pspReference: string;
   invoiceId?: string;
   amountCentavos?: number;
+  method?: "CARD" | "GCASH" | "MAYA";
   succeeded: boolean;
   raw: unknown;
 }
@@ -21,7 +22,7 @@ export interface ProviderPort {
     checkoutUrl: string;
     pspRef: string;
   }>;
-  /** Verifies the HMAC signature over the RAW body and maps the payload to a PspEvent. Throws (WEBHOOK_SIGNATURE_INVALID, 401) on a bad/missing signature. */
+  /** Verifies the provider's signature over the RAW body and maps the payload to a PspEvent. Throws (WEBHOOK_SIGNATURE_INVALID, 401) on a bad/missing signature. */
   verifyWebhook(rawBody: Buffer | string, signature: string): PspEvent;
   /**
    * Maps an already-persisted, already-verified webhook payload (PspWebhookEvent.rawPayload)

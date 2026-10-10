@@ -13,16 +13,20 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SUPABASE_STORAGE_BUCKET: z.string().min(1),
-  API_PORT: z.coerce.number().default(3001),
+  // Render supplies PORT. API_PORT remains the local development fallback.
+  PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   POLICY_VERSION: z.string().min(1),
   // Shared with the Next.js staff web app: the API opens the same jose-sealed `ac_session` cookie
   // (see auth.guard) so desk-bound staff surfaces can authenticate without a Firebase token. Must
   // be byte-identical to apps/web SESSION_SECRET. 32+ chars (SHA-256 derives the AES key from it).
   SESSION_SECRET: z.string().min(32),
   // Optional so tests (which use the fake provider adapter, see payments.module.ts) don't need
-  // real PayMongo credentials. The real adapter throws at call-time in production if unset.
-  PAYMONGO_SECRET_KEY: z.string().min(1).optional(),
+  // real PayMongo credentials. Live keys are disabled throughout this integration phase.
+  PAYMONGO_SECRET_KEY: z.string().startsWith("sk_test_").optional(),
   PAYMONGO_WEBHOOK_SECRET: z.string().min(1).optional(),
+  PAYMONGO_SUCCESS_URL: z.string().url().startsWith("https://").optional(),
+  PAYMONGO_CANCEL_URL: z.string().url().startsWith("https://").optional(),
   // route-distance.ts reads these straight off process.env at call time (FR-039). Validating
   // them here is what makes a missing one fail the deploy instead of failing the first roadside
   // request on a service that otherwise looks healthy.
