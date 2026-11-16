@@ -28,14 +28,14 @@ describe("VehicleDiagram", () => {
 
   it("leaves unscored shapes neutral", () => {
     render(<VehicleDiagram results={results} />);
-    expect(fillOf("zone-WHEEL_RR")).toBe(argb(statusColor("GOOD")));
+    expect(fillOf("zone-WHEEL_RR")).toBe(argb(statusColor(undefined)));
   });
 
   it("spreads an axle status across both wheels on that axle", () => {
     render(<VehicleDiagram results={[{ diagramZone: "AXLE_FRONT", status: "ATTENTION" }] as any} />);
     expect(fillOf("zone-WHEEL_FL")).toBe(argb(statusColor("ATTENTION")));
     expect(fillOf("zone-WHEEL_FR")).toBe(argb(statusColor("ATTENTION")));
-    expect(fillOf("zone-WHEEL_RL")).toBe(argb(statusColor("GOOD")));
+    expect(fillOf("zone-WHEEL_RL")).toBe(argb(statusColor(undefined)));
   });
 
   it("reports the tapped shape", () => {

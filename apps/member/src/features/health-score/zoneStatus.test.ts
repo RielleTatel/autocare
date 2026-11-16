@@ -56,3 +56,19 @@ describe("zoneStatuses", () => {
     expect(zoneStatuses([])).toEqual({});
   });
 });
+
+it("derives a measured status even when the stored status is absent", () => {
+  expect(zoneStatuses([{ diagramZone: "WHEEL_FL", status: null, measuredValue: 1,
+    thresholds: { direction: "HIGHER_BETTER", good: 5, monitor: 3, attention: 2 } }]).WHEEL_FL).toBe("CRITICAL");
+});
+
+it("measurement thresholds take precedence over a stale stored status", () => {
+  expect(zoneStatuses([{ diagramZone: "WHEEL_FL", status: "GOOD", measuredValue: 1,
+    thresholds: { direction: "HIGHER_BETTER", good: 5, monitor: 3, attention: 2 } }]).WHEEL_FL).toBe("CRITICAL");
+});
+
+
+it("does not infer measured status for an explicit STATUS checklist point", () => {
+  expect(zoneStatuses([{ diagramZone: "ENGINE_BAY", inputType: "STATUS", status: "MONITOR", measuredValue: 1,
+    thresholds: { direction: "HIGHER_BETTER", good: 5, monitor: 3, attention: 2 } }]).ENGINE_BAY).toBe("MONITOR");
+});

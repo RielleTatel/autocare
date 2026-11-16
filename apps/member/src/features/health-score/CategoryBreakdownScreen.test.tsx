@@ -50,3 +50,25 @@ describe("CategoryBreakdownScreen (M-14, FR-115)", () => {
     expect(screen.getByTestId("explain-sentence")).toHaveTextContent(/working correctly/);
   });
 });
+
+it("explains null status as unavailable and retains measured status resolution", () => {
+  render(<CategoryBreakdownScreen score={score} results={[
+    { ...results[0], status: null },
+    { ...results[1], status: null },
+  ]} />);
+  fireEvent.press(screen.getByLabelText("Show Brakes components"));
+  fireEvent.press(screen.getByLabelText(/Front brake pads, Needs attention/));
+  expect(screen.getByTestId("explain-sentence")).toHaveTextContent(/needs attention/);
+  fireEvent.press(screen.getByLabelText("Got it"));
+  fireEvent.press(screen.getByLabelText("Show Lights components"));
+  fireEvent.press(screen.getByLabelText(/Headlights, Status unavailable/));
+  expect(screen.getByTestId("explain-sentence")).toHaveTextContent(/does not provide a usable status/);
+});
+
+it("offers retry when findings fail without hiding category scores", () => {
+  const retry = jest.fn();
+  render(<CategoryBreakdownScreen score={score} resultsError="Inspection findings could not be loaded. Please retry." onRetryResults={retry} />);
+  expect(screen.getByTestId("bar-BRAKES")).toBeTruthy();
+  fireEvent.press(screen.getByText("Retry findings"));
+  expect(retry).toHaveBeenCalledTimes(1);
+});

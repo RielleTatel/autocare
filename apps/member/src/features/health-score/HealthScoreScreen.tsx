@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { ScoreGauge } from "./ScoreGauge";
@@ -6,7 +6,8 @@ import { statusColor } from "./statusColor";
 import { StarRating } from "./StarRating";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
-import { VehicleDiagram } from "./VehicleDiagram";
+import { VehicleHealthViewer } from "./VehicleHealthViewer";
+import { effectiveStatus } from "./zoneStatus";
 import { DiagramZoneSheet } from "./DiagramZoneSheet";
 import { ExplainSheet, type ExplainTarget } from "./ExplainSheet";
 import type { ShapeId } from "./diagramGeometry";
@@ -21,12 +22,15 @@ const SEVERITY_WORD: Record<string, string> = { CRITICAL: "Critical", ATTENTION:
 
 /** M-13 — gauge + plain-language top-detractor cards + "why this score?" */
 export function HealthScoreScreen({
-  score, results, onOpenBreakdown, onOpenHistory, onShare,
+  score, results, resultsLoading = false, resultsError, onRetryResults, onOpenBreakdown, onOpenHistory, onShare,
 }: {
   score: HealthScore;
   /** Per-point results, needed to colour the diagram. Absent until an
    *  inspection exists, which is what hides the Diagram toggle. */
   results?: InspectionResultDetail[];
+  resultsLoading?: boolean;
+  resultsError?: string | null;
+  onRetryResults?: () => void;
   onOpenBreakdown?: () => void;
   onOpenHistory?: () => void;
   onShare?: () => void;
@@ -35,8 +39,10 @@ export function HealthScoreScreen({
   const daysAgo = Math.round((Date.now() - new Date(score.computedAt).getTime()) / 86_400_000);
 
   const [view, setView] = useState<"list" | "diagram">("list");
+  const [diagramMode, setDiagramMode] = useState<"2d" | "3d" | undefined>(undefined);
   const [openShape, setOpenShape] = useState<ShapeId | null>(null);
   const [explain, setExplain] = useState<ExplainTarget | null>(null);
+  useEffect(() => { setOpenShape(null); setExplain(null); setView("list"); }, [score.vehicleId, score.inspectionId]);
   const hasResults = (results?.length ?? 0) > 0;
 
   return (
@@ -49,6 +55,12 @@ export function HealthScoreScreen({
           {daysAgo === 0 ? "Inspected today" : `Inspected ${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`}
         </Text>
       </Card>
+
+      {resultsLoading && <Text accessibilityLiveRegion="polite" style={{ ...t.text("body"), color: t.colors.inkMuted }}>Loading inspection findings…</Text>}
+      {resultsError && <Card>
+        <Text accessibilityRole="alert" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{resultsError}</Text>
+        {onRetryResults && <Button onPress={onRetryResults}>Retry findings</Button>}
+      </Card>}
 
       {/* Diagram is an alternative view of the same inspection, not a new screen
           (M-39). Hidden entirely until an inspection exists, so a new vehicle
@@ -84,7 +96,7 @@ export function HealthScoreScreen({
 
       {hasResults && view === "diagram" && (
         <Card pad="lg">
-          <VehicleDiagram results={results!} onShapePress={setOpenShape} />
+          <VehicleHealthViewer key={`${score.vehicleId}:${score.inspectionId}`} results={results!} onShapePress={setOpenShape} initialMode={diagramMode} onModeChange={setDiagramMode} />
           <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textAlign: "center", marginTop: t.spacing.sm }}>
             Tap a part of the car to see what was checked there.
           </Text>
@@ -168,7 +180,7 @@ export function HealthScoreScreen({
               thresholds: r.thresholds,
               unit: r.unit,
             } as ExplainTarget["point"],
-            status: r.status ?? "NOT_APPLICABLE",
+            status: effectiveStatus(r),
             measuredValue: r.measuredValue ?? undefined,
             photoUrl: r.photoUrls?.[0],
           });

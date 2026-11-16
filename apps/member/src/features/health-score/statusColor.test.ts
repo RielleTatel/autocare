@@ -8,8 +8,9 @@ describe("statusColor", () => {
     expect(statusColor("MONITOR")).toBe(theme.vhsBands.FAIR.fill);
   });
 
-  it("falls back to muted ink for GOOD, NOT_APPLICABLE and unknown values", () => {
-    expect(statusColor("GOOD")).toBe(theme.colors.inkMuted);
+  it("separates healthy from unrecorded, N/A and unknown values", () => {
+    expect(statusColor("GOOD")).toBe(theme.vhsBands.GOOD.fill);
+    expect(statusColor(undefined)).toBe(theme.colors.inkMuted);
     expect(statusColor("NOT_APPLICABLE")).toBe(theme.colors.inkMuted);
     expect(statusColor("SOMETHING_NEW")).toBe(theme.colors.inkMuted);
   });

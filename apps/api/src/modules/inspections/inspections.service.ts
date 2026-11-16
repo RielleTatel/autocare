@@ -105,6 +105,7 @@ export class InspectionsService {
         categoryId: r.point.categoryId,
         categoryCode: r.point.category.code,
         diagramZone: (r.point.diagramZoneId ?? null) as DiagramZone | null,
+        inputType: r.point.inputType,
         status: r.status,
         measuredValue: r.measuredValue,
         unit: r.point.unit,

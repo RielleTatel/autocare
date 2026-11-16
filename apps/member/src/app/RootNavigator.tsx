@@ -7,6 +7,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { Skeleton } from "../components/Skeleton";
+import { Button } from "../components/Button";
+import { useHealthInspection } from "../features/health-score/useHealthInspection";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { bootstrap, type BootState } from "../features/auth/session";
 import { signInWithEmail, registerWithEmail, sendPasswordReset, signInWithGoogle, signOut } from "../features/auth/firebaseAuth";
@@ -39,7 +41,7 @@ import { newIdempotencyKey } from "../features/subscription/billingPreview";
 import { makeBookingApi } from "../features/booking/bookingApi";
 import { BookingContainer } from "../features/booking/BookingContainer";
 import { BookingsListScreen } from "../features/booking/BookingsListScreen";
-import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint, type InspectionResultDetail } from "../features/health-score/healthScoreApi";
+import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint } from "../features/health-score/healthScoreApi";
 import { HealthScoreScreen } from "../features/health-score/HealthScoreScreen";
 import { CategoryBreakdownScreen } from "../features/health-score/CategoryBreakdownScreen";
 import { ScoreHistoryScreen } from "../features/health-score/ScoreHistoryScreen";
@@ -610,41 +612,31 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
   );
 }
 
+function HealthInspectionError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", padding: theme.spacing.lg, gap: theme.spacing.md }}>
+    <Text accessibilityRole="alert" style={[theme.text("body"), { color: theme.colors.inkMuted, textAlign: "center" }]}>{message}</Text>
+    <Button onPress={onRetry}>Retry health score</Button>
+  </View>;
+}
+
 function HealthScoreContainer({ navigation, route }: any) {
   const { vehicleId } = route.params;
-  const [score, setScore] = useState<HealthScore | null>(null);
-  const [results, setResults] = useState<InspectionResultDetail[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Refreshes on focus so a review completed elsewhere (e.g. field app) shows up on return.
-  const loadScore = useCallback(() => {
-    healthScoreApi.getScore(vehicleId).then(async (s) => {
-      setScore(s);
-      setError(null);
-      // Per-point results power the diagram view (M-39). Secondary to the score:
-      // if this fails the screen still renders, just without the Diagram toggle.
-      const detail = await healthScoreApi.getInspection(vehicleId, s.inspectionId).catch(() => null);
-      if (detail) setResults(detail.results);
-    }).catch((e) => setError(e instanceof Error ? e.message : "No score yet"));
-  }, [vehicleId]);
+  const { score, results, error, resultsLoading, resultsError, load: loadScore } = useHealthInspection(healthScoreApi, vehicleId);
   useEffect(() => {
     const unsub = navigation.addListener("focus", loadScore);
-    loadScore();
+    void loadScore();
     return unsub;
   }, [navigation, loadScore]);
 
-  if (error) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.chassis, alignItems: "center", justifyContent: "center", padding: theme.spacing.lg }}>
-        <Text style={[theme.text("body"), { color: theme.colors.inkMuted, textAlign: "center" }]}>{error}</Text>
-      </View>
-    );
-  }
+  if (error) return <HealthInspectionError message={error} onRetry={loadScore} />;
   if (!score) return <Skeleton.Screen cards={3} />;
   return (
     <HealthScoreScreen
       score={score}
       results={results}
+      resultsLoading={resultsLoading}
+      resultsError={resultsError}
+      onRetryResults={loadScore}
       onOpenBreakdown={() => navigation.navigate("CategoryBreakdown", { vehicleId })}
       onOpenHistory={() => navigation.navigate("ScoreHistory", { vehicleId })}
       onShare={() => navigation.navigate("ShareCertificate", { vehicleId, healthScoreId: score.id })}
@@ -652,19 +644,17 @@ function HealthScoreContainer({ navigation, route }: any) {
   );
 }
 
-function CategoryBreakdownContainer({ route }: any) {
+function CategoryBreakdownContainer({ navigation, route }: any) {
   const { vehicleId } = route.params;
-  const [score, setScore] = useState<HealthScore | null>(null);
-  const [results, setResults] = useState<InspectionResultDetail[]>([]);
+  const { score, results, error, resultsLoading, resultsError, load } = useHealthInspection(healthScoreApi, vehicleId);
   useEffect(() => {
-    healthScoreApi.getScore(vehicleId).then(async (s) => {
-      setScore(s);
-      const detail = await healthScoreApi.getInspection(vehicleId, s.inspectionId).catch(() => null);
-      if (detail) setResults(detail.results);
-    }).catch(() => undefined);
-  }, [vehicleId]);
+    const unsubscribe = navigation.addListener("focus", load);
+    void load();
+    return unsubscribe;
+  }, [navigation, load]);
+  if (error) return <HealthInspectionError message={error} onRetry={load} />;
   if (!score) return <Skeleton.Screen cards={3} />;
-  return <CategoryBreakdownScreen score={score} results={results} />;
+  return <CategoryBreakdownScreen score={score} results={results} resultsLoading={resultsLoading} resultsError={resultsError} onRetryResults={load} />;
 }
 
 function ScoreHistoryContainer({ route }: any) {

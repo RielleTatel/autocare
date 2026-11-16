@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { BottomSheet } from "../../components/BottomSheet";
+import { effectiveStatus, statusLabel } from "./zoneStatus";
 import { statusColor } from "./statusColor";
 import { SHAPES, zonesForShape, type ShapeId } from "./diagramGeometry";
 import type { InspectionResultDetail } from "./healthScoreApi";
@@ -58,10 +59,10 @@ export function DiagramZoneSheet({
                 width: 10,
                 height: 10,
                 borderRadius: 5,
-                backgroundColor: statusColor(r.status ?? "GOOD"),
+                backgroundColor: statusColor(effectiveStatus(r)),
               }}
             />
-            <Text style={{ ...t.text("body"), color: t.colors.ink, flex: 1 }}>{r.label}</Text>
+            <Text style={{ ...t.text("body"), color: t.colors.ink, flex: 1 }}>{r.label} — {statusLabel(effectiveStatus(r))}{r.diagramZone === "AXLE_FRONT" ? " · Both front wheels" : r.diagramZone === "AXLE_REAR" ? " · Both rear wheels" : r.diagramZone === "CORNERS_ALL" ? " · All four corners" : r.diagramZone === "LIGHTS_ALL" ? " · All lights" : ""}</Text>
           </Pressable>
         ))
       )}

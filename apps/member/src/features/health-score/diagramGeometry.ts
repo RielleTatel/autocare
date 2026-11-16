@@ -19,7 +19,7 @@ export type ShapeId =
   | "WHEEL_FL" | "WHEEL_FR" | "WHEEL_RL" | "WHEEL_RR";
 
 export const SHAPES: readonly { id: ShapeId; d: string; label: string }[] = [
-  { id: "BODY_SHELL",    label: "Body and undercarriage", d: "M 70 20 L 130 20 L 150 60 L 155 200 L 152 330 L 140 375 L 60 375 L 48 330 L 45 200 L 50 60 Z" },
+  { id: "BODY_SHELL",    label: "Body shell", d: "M 70 20 L 130 20 L 150 60 L 155 200 L 152 330 L 140 375 L 60 375 L 48 330 L 45 200 L 50 60 Z" },
   { id: "ENGINE_BAY",    label: "Engine bay",             d: "M 62 45 L 138 45 L 145 120 L 55 120 Z" },
   { id: "CABIN",         label: "Cabin",                  d: "M 57 130 L 143 130 L 145 240 L 55 240 Z" },
   { id: "UNDERBODY",     label: "Underbody",              d: "M 55 250 L 145 250 L 142 350 L 58 350 Z" },

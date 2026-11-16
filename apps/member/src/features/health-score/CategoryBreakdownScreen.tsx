@@ -1,23 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { bandForScore, vhsBands } from "@autocare/design-tokens";
+import { bandForScore } from "@autocare/design-tokens";
 import type { ExplainPoint, PointStatus } from "@autocare/scoring";
+import { effectiveStatus, statusLabel } from "./zoneStatus";
+import { statusColor } from "./statusColor";
 import { theme } from "../../theme";
 import { ExplainSheet, type ExplainTarget } from "./ExplainSheet";
 import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
 import { CategoryBar } from "../../components/CategoryBar";
 import type { CategoryScore, HealthScore, InspectionResultDetail } from "./healthScoreApi";
-
-function statusColor(status: PointStatus | null): string {
-  switch (status) {
-    case "CRITICAL": return vhsBands.CRITICAL.fill;
-    case "ATTENTION": return vhsBands.NEEDS_ATTENTION.fill;
-    case "MONITOR": return vhsBands.FAIR.fill;
-    case "GOOD": return vhsBands.EXCELLENT.fill;
-    default: return theme.colors.inkMuted;
-  }
-}
-const STATUS_WORD: Record<string, string> = { GOOD: "Good", MONITOR: "Monitor", ATTENTION: "Attention", CRITICAL: "Critical", NOT_APPLICABLE: "N/A" };
 
 function toExplainPoint(r: InspectionResultDetail): ExplainPoint {
   return {
@@ -34,10 +26,17 @@ function toExplainPoint(r: InspectionResultDetail): ExplainPoint {
 /** M-14 — per-category bars, and EVERY category row plus EVERY constituent
  *  result beneath it is independently tappable (FR-115 works for all
  *  components, healthy ones included), opening the ExplainSheet. */
-export function CategoryBreakdownScreen({ score, results = [] }: { score: HealthScore; results?: InspectionResultDetail[] }) {
+export function CategoryBreakdownScreen({ score, results = [], resultsLoading = false, resultsError, onRetryResults }: {
+  score: HealthScore;
+  results?: InspectionResultDetail[];
+  resultsLoading?: boolean;
+  resultsError?: string | null;
+  onRetryResults?: () => void;
+}) {
   const t = theme;
   const [expanded, setExpanded] = useState<string | null>(null);
   const [target, setTarget] = useState<ExplainTarget | null>(null);
+  useEffect(() => { setTarget(null); setExpanded(null); }, [score.vehicleId, score.inspectionId]);
 
   const byCategory = useMemo(() => {
     const m = new Map<string, InspectionResultDetail[]>();
@@ -55,9 +54,9 @@ export function CategoryBreakdownScreen({ score, results = [] }: { score: Health
   const openResult = (r: InspectionResultDetail) => {
     setTarget({
       point: toExplainPoint(r),
-      status: (r.status ?? "NOT_APPLICABLE") as PointStatus,
+      status: effectiveStatus(r),
       measuredValue: r.measuredValue ?? undefined,
-      photoUrl: r.photoUrls[0],
+      photoUrl: r.photoUrls?.[0],
     });
   };
 
@@ -66,6 +65,11 @@ export function CategoryBreakdownScreen({ score, results = [] }: { score: Health
       <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.sm }}>
         <Text style={{ ...t.text("h1"), color: t.colors.ink }}>Category breakdown</Text>
         <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Tap any category or component to see what it means.</Text>
+        {resultsLoading && <Text accessibilityLiveRegion="polite" style={{ ...t.text("body"), color: t.colors.inkMuted }}>Loading inspection findings…</Text>}
+        {resultsError && <Card>
+          <Text accessibilityRole="alert" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{resultsError}</Text>
+          {onRetryResults && <Button onPress={onRetryResults}>Retry findings</Button>}
+        </Card>}
         {score.categoryScores.map((c) => {
           const rows = byCategory.get(c.categoryCode) ?? [];
           const isOpen = expanded === c.categoryCode;
@@ -95,7 +99,7 @@ export function CategoryBreakdownScreen({ score, results = [] }: { score: Health
                 <Pressable
                   key={r.pointCode}
                   accessibilityRole="button"
-                  accessibilityLabel={`${r.label}, ${STATUS_WORD[r.status ?? "NOT_APPLICABLE"]}. Tap to explain.`}
+                  accessibilityLabel={`${r.label}, ${statusLabel(effectiveStatus(r))}. Tap to explain.`}
                   onPress={() => openResult(r)}
                   style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: t.spacing.sm, paddingVertical: t.spacing.sm, paddingHorizontal: t.spacing.md, borderTopWidth: 1, borderTopColor: t.colors.line }}
                 >
@@ -103,8 +107,8 @@ export function CategoryBreakdownScreen({ score, results = [] }: { score: Health
                   {/* Band-coloured rather than a generic StatusPill tone: point
                       status is score data, and collapsing CRITICAL and ATTENTION
                       into one "danger" tone would lose a safety distinction. */}
-                  <View style={{ borderRadius: t.radii.pill, backgroundColor: statusColor(r.status), paddingHorizontal: t.spacing.sm, paddingVertical: 1 }}>
-                    <Text style={{ ...t.text("label"), color: "#FFFFFF" }}>{STATUS_WORD[r.status ?? "NOT_APPLICABLE"]}</Text>
+                  <View style={{ borderRadius: t.radii.pill, backgroundColor: statusColor(effectiveStatus(r)), paddingHorizontal: t.spacing.sm, paddingVertical: 1 }}>
+                    <Text style={{ ...t.text("label"), color: "#FFFFFF" }}>{statusLabel(effectiveStatus(r))}</Text>
                   </View>
                 </Pressable>
               ))}

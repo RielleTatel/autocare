@@ -10,7 +10,7 @@ import type { InspectionResultDetail } from "./healthScoreApi";
  * M-39 — the vehicle diagram. Presentational: it takes inspection results and
  * emits taps, and fetches nothing itself.
  *
- * A shape with no scored points renders in the GOOD colour rather than being
+ * A shape with no scored points renders in a neutral colour rather than being
  * hidden, so the car always reads as a whole car.
  */
 export function VehicleDiagram({
@@ -30,7 +30,7 @@ export function VehicleDiagram({
             key={s.id}
             testID={`zone-${s.id}`}
             d={s.d}
-            fill={statusColor(byShape[s.id] ?? "GOOD")}
+            fill={statusColor(byShape[s.id])}
             stroke={theme.colors.line}
             strokeWidth={1.5}
             opacity={s.id === "BODY_SHELL" ? 0.35 : 1}

@@ -10,9 +10,9 @@ const results = [
 describe("DiagramZoneSheet", () => {
   it("lists only the points in the tapped shape", () => {
     render(<DiagramZoneSheet shapeId="ENGINE_BAY" results={results} onClose={jest.fn()} />);
-    expect(screen.getByText("Engine idle quality")).toBeTruthy();
-    expect(screen.getByText("Battery voltage")).toBeTruthy();
-    expect(screen.queryByText("Front-left tyre tread")).toBeNull();
+    expect(screen.getByText(/Engine idle quality/)).toBeTruthy();
+    expect(screen.getByText(/Battery voltage/)).toBeTruthy();
+    expect(screen.queryByText(/Front-left tyre tread/)).toBeNull();
   });
 
   it("includes points reaching a wheel through an axle or corners-all zone", () => {
@@ -22,9 +22,9 @@ describe("DiagramZoneSheet", () => {
       { pointCode: "SHOCKS", label: "Shock absorbers", diagramZone: "CORNERS_ALL", status: "GOOD", categoryCode: "SUSP" },
     ] as any;
     render(<DiagramZoneSheet shapeId="WHEEL_FL" results={withAxle} onClose={jest.fn()} />);
-    expect(screen.getByText("Front-left tyre tread")).toBeTruthy();
-    expect(screen.getByText("Front brake pads")).toBeTruthy();
-    expect(screen.getByText("Shock absorbers")).toBeTruthy();
+    expect(screen.getByText(/Front-left tyre tread/)).toBeTruthy();
+    expect(screen.getByText(/Front brake pads/)).toBeTruthy();
+    expect(screen.getByText(/Shock absorbers/)).toBeTruthy();
   });
 
   it("renders nothing when no shape is selected", () => {

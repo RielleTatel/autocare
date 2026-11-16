@@ -30,6 +30,7 @@ describe("InspectionsService.inspectionDetail — diagram zones (FR-116)", () =>
     photoUrls: [],
     point: {
       label: code,
+      inputType: code === "TREAD_FL" ? "MEASURED" : "STATUS",
       labelFil: null,
       categoryId: "cat-1",
       category: { code: "TYRES" },
@@ -55,6 +56,12 @@ describe("InspectionsService.inspectionDetail — diagram zones (FR-116)", () =>
   it("returns the zone for a point whose position is known", async () => {
     const detail = await service.inspectionDetail(staff, "veh-1", "insp-1");
     expect(detail.results.find((r) => r.pointCode === "TREAD_FL")?.diagramZone).toBe("WHEEL_FL");
+  });
+
+  it("returns the versioned input type used to resolve measurement status", async () => {
+    const detail = await service.inspectionDetail(staff, "veh-1", "insp-1");
+    expect(detail.results.find((r) => r.pointCode === "TREAD_FL")?.inputType).toBe("MEASURED");
+    expect(detail.results.find((r) => r.pointCode === "WHEEL_CONDITION")?.inputType).toBe("STATUS");
   });
 
   it("returns null for a point with no unambiguous position", async () => {

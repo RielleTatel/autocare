@@ -6,7 +6,7 @@ import { BottomSheet, MeasuredRow } from "../../components/BottomSheet";
 
 export interface ExplainTarget {
   point: ExplainPoint;
-  status: PointStatus;
+  status: PointStatus | undefined;
   measuredValue?: number;
   /** Category-level rows pass a band-derived score for the star row. */
   score?: number;
@@ -30,15 +30,15 @@ export function ExplainSheet({ target, onClose }: { target: ExplainTarget | null
   const t = theme;
   if (!target) return null;
 
-  const sentence = target.status === "NOT_APPLICABLE"
+  const sentence = !target.status ? "The inspection does not provide a usable status for this finding." : target.status === "NOT_APPLICABLE"
     ? "This component does not apply to your vehicle, so it was not scored."
     : renderExplanation(target.point, target.status, { measuredValue: target.measuredValue }) ?? "";
-  const starScore = target.score ?? statusBandScore(target.status);
+  const starScore = target.score ?? statusBandScore(target.status ?? "GOOD");
   const th = target.point.thresholds;
 
   return (
     <BottomSheet title={target.point.label} onClose={onClose}>
-      {target.status !== "NOT_APPLICABLE" && <StarRating score={starScore} size={22} />}
+      {target.status && target.status !== "NOT_APPLICABLE" && <StarRating score={starScore} size={22} />}
       <Text testID="explain-sentence" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{sentence}</Text>
 
       {target.measuredValue !== undefined && th && (

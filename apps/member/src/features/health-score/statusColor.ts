@@ -10,8 +10,9 @@ import { theme } from "../../theme";
  * Unknown values fall back to muted ink so a newer checklist can never crash
  * an older app.
  */
-export function statusColor(status: PointStatus | string): string {
+export function statusColor(status: PointStatus | string | undefined): string {
   switch (status) {
+    case "GOOD": return theme.vhsBands.GOOD.fill;
     case "CRITICAL": return theme.vhsBands.CRITICAL.fill;
     case "ATTENTION": return theme.vhsBands.NEEDS_ATTENTION.fill;
     case "MONITOR": return theme.vhsBands.FAIR.fill;

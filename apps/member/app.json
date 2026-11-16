@@ -9,6 +9,12 @@
     "userInterfaceStyle": "light",
     "plugins": [
       [
+        "expo-asset",
+        {
+          "assets": ["./assets/vehicle/generic-vehicle.glb"]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#EEF1F3",

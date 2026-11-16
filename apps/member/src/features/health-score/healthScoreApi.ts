@@ -58,6 +58,8 @@ export type InspectionResultDetail = {
   categoryCode: string;
   /** Where this point sits on the vehicle diagram; null when ambiguous (FR-116). */
   diagramZone: DiagramZone | null;
+  /** Optional while older API releases omit this field. */
+  inputType?: "STATUS" | "MEASURED";
   status: PointStatus | null;
   measuredValue: number | null;
   unit: string | null;
@@ -70,6 +72,8 @@ export type InspectionResultDetail = {
 };
 export type InspectionDetail = {
   id: string;
+  /** Older cached/API responses can omit vehicle identity. */
+  vehicleId?: string;
   submittedAt: string | null;
   odometerKm: number | null;
   results: InspectionResultDetail[];
