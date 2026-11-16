@@ -29,6 +29,10 @@ export type InspectionResultDetail = {
 
 export type InspectionDetail = {
   id: string;
+  appointmentId?: string | null;
+  vehicleId?: string;
+  score?: number | null;
+  band?: Band | null;
   submittedAt: string | null;
   odometerKm: number | null;
   results: InspectionResultDetail[];
@@ -46,17 +50,19 @@ const historyKey = (vehicleId: string) => `vhs:${API_BASE_URL}:${vehicleId}`;
  */
 export async function getVehicleHistory(
   vehicleId: string,
-): Promise<{ history: VehicleHistoryPoint[]; stale: boolean }> {
+): Promise<{ history: VehicleHistoryPoint[]; stale: boolean; downloadedAt?: number }> {
   try {
     const fresh = await api.get<VehicleHistoryPoint[]>(`/vehicles/${vehicleId}/health-score/history`);
     // The endpoint returns oldest-first; the useful order here is most recent.
     const ordered = [...fresh].reverse();
-    await kvSet(historyKey(vehicleId), JSON.stringify(ordered));
-    return { history: ordered, stale: false };
-  } catch {
+    const downloadedAt = Date.now();
+    await kvSet(historyKey(vehicleId), JSON.stringify({ history: ordered, downloadedAt }));
+    return { history: ordered, stale: false, downloadedAt };
+  } catch (error) {
     const cached = await kvGet(historyKey(vehicleId));
-    if (!cached) return { history: [], stale: false };
-    return { history: JSON.parse(cached) as VehicleHistoryPoint[], stale: true };
+    if (!cached) throw error;
+    const saved = JSON.parse(cached);
+    return Array.isArray(saved) ? { history: saved, stale: true } : { ...saved, stale: true };
   }
 }
 

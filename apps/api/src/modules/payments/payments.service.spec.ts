@@ -17,7 +17,8 @@ function makeInvoice(status = "AWAITING_AUTO_CHARGE") {
     chargeAttempts: 0,
     firstFailedAt: null,
     subscriptionId: "subscription-1",
-    subscription: { id: "subscription-1", vehicleId: "vehicle-1" },
+    workOrderId: null as string | null,
+    subscription: { id: "subscription-1", vehicleId: "vehicle-1", status: "ACTIVE", paymentMethod: "E_PAYMENT" },
   };
 }
 
@@ -36,19 +37,21 @@ function makeEvent(overrides: Partial<PspEvent> = {}): PspEvent {
 
 function setup(invoice = makeInvoice()) {
   const tx = {
-    invoice: { findUnique: jest.fn().mockResolvedValue(invoice), update: jest.fn() },
+    invoice: { findUnique: jest.fn().mockResolvedValue(invoice), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     payment: { create: jest.fn() },
-    subscription: { update: jest.fn() },
+    subscription: { updateMany: jest.fn() },
     pspWebhookEvent: { update: jest.fn() },
   };
   const prisma = {
     invoice: { findUnique: jest.fn().mockResolvedValue(invoice) },
-    pspWebhookEvent: { create: jest.fn().mockResolvedValue({ id: "webhook-1" }) },
+    auditLog: { findFirst: jest.fn().mockResolvedValue({ after: { kind: "INITIAL_SUBSCRIPTION", subscriptionId: "subscription-1" } }) },
+    pspWebhookEvent: { create: jest.fn().mockResolvedValue({ id: "webhook-1" }), findUnique: jest.fn().mockResolvedValue({ id: "webhook-1", processedAt: new Date(), rawPayload: {} }) },
     $transaction: jest.fn((callback: (transaction: typeof tx) => Promise<void>) => callback(tx)),
   };
   const vehicles = { findForUser: jest.fn().mockResolvedValue({ id: "vehicle-1" }) };
   const provider = {
     createCheckout: jest.fn().mockResolvedValue({ checkoutUrl: "https://checkout.paymongo.com/test", pspRef: "checkout-1" }),
+    mapEvent: jest.fn().mockReturnValue(makeEvent()),
   };
   const service = new PaymentsService(
     prisma as unknown as PrismaService,
@@ -64,10 +67,10 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
       const { service, vehicles, provider } = setup();
 
       await expect(service.createIntent(user, "invoice-1")).resolves.toEqual({
-        checkoutUrl: "https://checkout.paymongo.com/test",
+        checkoutUrl: "https://checkout.paymongo.com/test", invoiceId: "invoice-1", sandbox: true,
       });
 
-      expect(vehicles.findForUser).toHaveBeenCalledWith(user, "vehicle-1", "read");
+      expect(vehicles.findForUser).toHaveBeenCalledWith(user, "vehicle-1", "update");
       expect(provider.createCheckout).toHaveBeenCalledWith({
         id: "invoice-1", totalCentavos: 89900, description: "Invoice INV-2026-000001",
       });
@@ -83,7 +86,7 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
         code: "INVOICE_ALREADY_PAID", httpStatus: 409,
       });
 
-      expect(vehicles.findForUser).toHaveBeenCalledWith(user, "vehicle-1", "read");
+      expect(vehicles.findForUser).toHaveBeenCalledWith(user, "vehicle-1", "update");
       expect(provider.createCheckout).not.toHaveBeenCalled();
     });
 
@@ -95,6 +98,27 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
       await expect(service.createIntent(user, "invoice-1")).rejects.toBe(denied);
 
       expect(provider.createCheckout).not.toHaveBeenCalled();
+    });
+
+    it.each(["COD", "CANCELLED", "WORK_ORDER", "UNMARKED", "ETF"])("rejects unsupported %s invoices without requesting checkout", async (kind) => {
+      const invoice = makeInvoice();
+      if (kind === "COD") invoice.subscription.paymentMethod = "COD";
+      if (kind === "CANCELLED") invoice.subscription.status = "CANCELLED";
+      if (kind === "WORK_ORDER") invoice.workOrderId = "work-order-1";
+      const { service, provider, prisma } = setup(invoice);
+      if (kind === "UNMARKED") prisma.auditLog.findFirst.mockResolvedValue(null);
+      if (kind === "ETF") prisma.auditLog.findFirst.mockResolvedValue({ after: { kind: "EARLY_TERMINATION", subscriptionId: "subscription-1" } });
+      await expect(service.createIntent(user, "invoice-1")).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus: 422 });
+      expect(provider.createCheckout).not.toHaveBeenCalled();
+    });
+
+    it("a failed checkout request leaves the same invoice available for a new attempt", async () => {
+      const { service, provider, prisma } = setup();
+      provider.createCheckout.mockRejectedValueOnce(new Error("provider unavailable"));
+      await expect(service.createIntent(user, "invoice-1")).rejects.toThrow("provider unavailable");
+      await expect(service.createIntent(user, "invoice-1")).resolves.toHaveProperty("invoiceId", "invoice-1");
+      expect(prisma.invoice.findUnique).toHaveBeenCalledTimes(2);
+      expect(provider.createCheckout.mock.calls[0][0].id).toBe(provider.createCheckout.mock.calls[1][0].id);
     });
 
     it("rejects an unknown invoice without contacting the provider", async () => {
@@ -122,12 +146,12 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
           status: "SUCCEEDED", pspReference: "payment-1", clientUuid: "event-1",
         },
       });
-      expect(tx.invoice.update).toHaveBeenCalledWith({
-        where: { id: "invoice-1" },
+      expect(tx.invoice.updateMany).toHaveBeenCalledWith({
+        where: { id: "invoice-1", status: "AWAITING_AUTO_CHARGE", chargeAttempts: 0 },
         data: { status: "PAID", chargeAttempts: 0, firstFailedAt: null },
       });
-      expect(tx.subscription.update).toHaveBeenCalledWith({
-        where: { id: "subscription-1" }, data: { status: "ACTIVE" },
+      expect(tx.subscription.updateMany).toHaveBeenCalledWith({
+        where: { id: "subscription-1", status: { not: "CANCELLED" } }, data: { status: "ACTIVE" },
       });
       expect(tx.pspWebhookEvent.update).toHaveBeenCalledWith({
         where: { id: "webhook-1" }, data: { processedAt: expect.any(Date) },
@@ -162,8 +186,8 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
 
       expect(prisma.pspWebhookEvent.create).toHaveBeenCalledTimes(1);
       expect(tx.payment.create).not.toHaveBeenCalled();
-      expect(tx.invoice.update).not.toHaveBeenCalled();
-      expect(tx.subscription.update).not.toHaveBeenCalled();
+      expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+      expect(tx.subscription.updateMany).not.toHaveBeenCalled();
       expect(tx.pspWebhookEvent.update).not.toHaveBeenCalled();
     });
 
@@ -177,8 +201,50 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(tx.payment.create).not.toHaveBeenCalled();
-      expect(tx.invoice.update).not.toHaveBeenCalled();
-      expect(tx.subscription.update).not.toHaveBeenCalled();
+      expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+      expect(tx.subscription.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("re-reads a competing success and does not record another successful payment", async () => {
+      const { service, tx } = setup();
+      tx.invoice.updateMany.mockResolvedValueOnce({ count: 0 });
+      tx.invoice.findUnique.mockResolvedValueOnce(makeInvoice()).mockResolvedValueOnce(makeInvoice("PAID"));
+      await service.handleWebhook(makeEvent());
+      expect(tx.payment.create).not.toHaveBeenCalled();
+      expect(tx.subscription.updateMany).not.toHaveBeenCalled();
+      expect(tx.pspWebhookEvent.update).toHaveBeenCalled();
+      expect(tx.invoice.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not discard a verified success when a failed charge won the first transition", async () => {
+      const { service, tx } = setup();
+      tx.invoice.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
+      tx.invoice.findUnique.mockResolvedValueOnce(makeInvoice()).mockResolvedValueOnce({ ...makeInvoice("RETRYING"), chargeAttempts: 1 });
+      await service.handleWebhook(makeEvent());
+      expect(tx.invoice.updateMany).toHaveBeenLastCalledWith({ where: { id: "invoice-1", status: "RETRYING", chargeAttempts: 1 }, data: { status: "PAID", chargeAttempts: 1, firstFailedAt: null } });
+      expect(tx.payment.create).toHaveBeenCalledTimes(1);
+      expect(tx.payment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ status: "SUCCEEDED" }) });
+      expect(tx.pspWebhookEvent.update).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves an event pending instead of losing it when all bounded CAS attempts conflict", async () => {
+      const { service, tx } = setup();
+      tx.invoice.updateMany.mockResolvedValue({ count: 0 });
+      await expect(service.handleWebhook(makeEvent())).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus: 409 });
+      expect(tx.invoice.findUnique).toHaveBeenCalledTimes(5);
+      expect(tx.pspWebhookEvent.update).not.toHaveBeenCalled();
+      expect(tx.payment.create).not.toHaveBeenCalled();
+    });
+
+    it("reprocesses the stored verified payload when a provider redelivers an unprocessed event", async () => {
+      const { service, prisma, provider, tx } = setup();
+      prisma.pspWebhookEvent.create.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("Duplicate event", { code: "P2002", clientVersion: "5" }));
+      const storedRaw = { original: "signed event" };
+      prisma.pspWebhookEvent.findUnique.mockResolvedValue({ id: "webhook-1", processedAt: null, rawPayload: storedRaw });
+      await expect(service.handleWebhook(makeEvent())).resolves.toEqual({ alreadyProcessed: true });
+      expect(provider.mapEvent).toHaveBeenCalledWith(storedRaw);
+      expect(tx.payment.create).toHaveBeenCalledTimes(1);
+      expect(tx.pspWebhookEvent.update).toHaveBeenCalledTimes(1);
     });
 
     it("does not create a second payment for a new event referencing an already paid invoice", async () => {
@@ -187,8 +253,8 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
       await expect(service.handleWebhook(makeEvent())).resolves.toEqual({ alreadyProcessed: false });
 
       expect(tx.payment.create).not.toHaveBeenCalled();
-      expect(tx.invoice.update).not.toHaveBeenCalled();
-      expect(tx.subscription.update).not.toHaveBeenCalled();
+      expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+      expect(tx.subscription.updateMany).not.toHaveBeenCalled();
       expect(tx.pspWebhookEvent.update).toHaveBeenCalledWith({
         where: { id: "webhook-1" }, data: { processedAt: expect.any(Date) },
       });

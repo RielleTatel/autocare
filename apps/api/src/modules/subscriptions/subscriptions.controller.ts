@@ -29,6 +29,8 @@ export class SubscriptionsController {
   entitlements(@CurrentUser() u: AbilityUser, @Param("id") id: string) { return this.subscriptions.entitlements(u, id); }
 
   @Post(":id/upgrade")
+  @Idempotent()
+  @UseInterceptors(IdempotencyInterceptor)
   upgrade(@CurrentUser() u: AbilityUser, @Param("id") id: string,
           @Body(new ZodValidationPipe(subscriptionUpgradeSchema)) dto: SubscriptionUpgrade) {
     return this.subscriptions.upgrade(u, id, dto);

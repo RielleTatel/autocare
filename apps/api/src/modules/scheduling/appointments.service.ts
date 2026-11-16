@@ -259,8 +259,14 @@ export class AppointmentsService {
     });
     if (past.length === 0) return { flagged: 0 };
 
-    await this.prisma.appointment.updateMany({
-      where: { id: { in: past.map((a) => a.id) } },
+    const changed = await this.prisma.appointment.updateMany({
+      // Recheck eligibility at write time: sync may have completed a candidate
+      // or staff may have rescheduled/cancelled it since the read above.
+      where: {
+        id: { in: past.map((a) => a.id) },
+        status: { in: ["BOOKED", "CONFIRMED"] },
+        scheduledEnd: { lt: now },
+      },
       data: { status: "NO_SHOW" },
     });
 
@@ -282,7 +288,7 @@ export class AppointmentsService {
         });
       }
     }
-    return { flagged: past.length };
+    return { flagged: changed.count };
   }
 
   /** A member's own appointments (or a vehicle's, for staff). Newest first. */

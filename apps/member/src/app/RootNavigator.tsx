@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Image, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
@@ -23,7 +23,7 @@ import { VehiclesListScreen } from "../features/vehicles/VehiclesListScreen";
 import { VehicleDetailScreen } from "../features/vehicles/VehicleDetailScreen";
 import { uploadVehiclePhoto } from "../features/vehicles/uploadPhoto";
 import { ProfileScreen } from "../features/profile/ProfileScreen";
-import { AccountScreen } from "../features/account/AccountScreen";
+import { AccountContainer } from "../features/account/AccountContainer";
 import { PrivacyScreen } from "../features/profile/PrivacyScreen";
 import { makeSubscriptionApi, type SubscriptionWithPlan } from "../features/subscription/subscriptionApi";
 import { selectManageableSubscription } from "../features/subscription/subscriptionSelection";
@@ -33,7 +33,9 @@ import { SubscriptionDashboardScreen } from "../features/subscription/Subscripti
 import { UpgradeDowngradeScreen } from "../features/subscription/UpgradeDowngradeScreen";
 import { CancellationScreen } from "../features/subscription/CancellationScreen";
 import { InvoicesScreen } from "../features/subscription/InvoicesScreen";
-import { InvoiceDetailScreen } from "../features/subscription/InvoiceDetailScreen";
+import { InvoicePaymentScreen } from "../features/subscription/InvoicePaymentScreen";
+import { openCheckout } from "../features/subscription/openCheckout";
+import { newIdempotencyKey } from "../features/subscription/billingPreview";
 import { makeBookingApi } from "../features/booking/bookingApi";
 import { BookingContainer } from "../features/booking/BookingContainer";
 import { BookingsListScreen } from "../features/booking/BookingsListScreen";
@@ -53,7 +55,7 @@ import { AttentionCard } from "../features/attention/AttentionCard";
 import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { AttentionListScreen } from "../features/attention/AttentionListScreen";
 
-const splashMark = require("../../assets/autocare-splash.png");
+const splashMark = require("../../assets/logo-mark.png");
 
 const subApi = makeSubscriptionApi(api);
 const bookingApi = makeBookingApi(api);
@@ -493,57 +495,8 @@ function PersonalDetailsContainer({ navigation }: any) {
  *  member's first vehicle carries the manageable subscription. */
 function AccountTabContainer({ navigation }: any) {
   const { vehicles, firstName, setBootState } = useReady();
-  const vehicle = vehicles[0] ?? null;
-  const [profile, setProfile] = useState<any>(null);
-  const [subscription, setSubscription] = useState<SubscriptionWithPlan | null>(null);
-  const [entitlements, setEntitlements] = useState<EntitlementSummary[]>([]);
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async () => {
-    await Promise.all([
-      api.get("/users/me").then(setProfile).catch(() => setProfile({})),
-      subApi.listPlans().then(setPlans).catch(() => setPlans([])),
-      (async () => {
-        if (!vehicle) return;
-        const subs = await subApi.listSubscriptions().catch(() => []);
-        const sub = selectManageableSubscription(subs, vehicle.id) ?? null;
-        setSubscription(sub);
-        if (sub) setEntitlements(await subApi.getEntitlements(sub.id).catch(() => []));
-      })(),
-    ]);
-  }, [vehicle]);
-
-  useEffect(() => { load().catch(() => {}); }, [load]);
-
-  const parent = () => navigation.getParent() ?? navigation;
-
-  return (
-    <AccountScreen
-      name={profile?.name || firstName}
-      email={profile?.email}
-      subscription={subscription}
-      entitlements={entitlements}
-      plans={plans}
-      refreshing={refreshing}
-      onRefresh={async () => {
-        setRefreshing(true);
-        try { await load(); } finally { setRefreshing(false); }
-      }}
-      // Plan changes go through the existing upgrade/downgrade flow, which owns
-      // the proration preview and the lock-in ETF rules — the inline cards are
-      // an entry point to it, not a second way to mutate a subscription.
-      onChangePlan={() => subscription && parent().navigate("UpgradeDowngrade", { subscriptionId: subscription.id })}
-      onPersonalDetails={() => parent().navigate("PersonalDetails")}
-      onSubscriptionDetails={() => subscription && parent().navigate("SubscriptionDashboard", { subscriptionId: subscription.id })}
-      onInvoices={() => parent().navigate("Invoices")}
-      onPrivacy={() => parent().navigate("Privacy")}
-      onSignOut={async () => {
-        await signOut();
-        setBootState("ANONYMOUS");
-      }}
-    />
-  );
+  return <AccountContainer vehicles={vehicles} firstName={firstName} navigation={navigation}
+    onSignOut={async () => { await signOut(); setBootState("ANONYMOUS"); }} />;
 }
 
 // Stable component references — passed straight through, never redefined per
@@ -784,39 +737,24 @@ function PlanSelectionContainer({ navigation, route }: any) {
   );
 }
 
-/** Finds the most recently issued invoice for a subscription — POST /subscriptions doesn't
- * return the invoice it creates, and there's no `subscriptionId` query filter on GET
- * /invoices, so the freshest matching invoice is looked up client-side right after create. */
-async function findLatestInvoiceForSubscription(subscriptionId: string) {
-  const invoices = await subApi.listInvoices();
-  const matches = invoices
-    .filter((i) => i.subscriptionId === subscriptionId)
-    .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
-  if (!matches[0]) throw new Error("Couldn't find an invoice for this subscription");
-  return matches[0];
-}
-
 function PaymentMethodContainer({ navigation, route }: any) {
   const { vehicleId, plan } = route.params;
-  return (
-    <PaymentMethodScreen
-      plan={plan}
-      createSubscription={(method: "E_PAYMENT" | "COD") => subApi.createSubscription(vehicleId, plan.id, method)}
-      createPaymentIntent={async (sub) => {
-        const invoice = await findLatestInvoiceForSubscription(sub.id);
-        return subApi.createPaymentIntent(invoice.id);
-      }}
-      openCheckout={(url: string) => WebBrowser.openAuthSessionAsync(url, Linking.createURL("payment-result"))}
-      refreshSubscriptionStatus={(id: string) => subApi.getSubscription(id)}
-      onDone={(sub) => navigation.reset({ index: 0, routes: [{ name: "SubscriptionDashboard", params: { subscriptionId: sub.id } }] })}
-    />
-  );
+  const keys = useRef<Record<string, string>>({});
+  return <PaymentMethodScreen plan={plan}
+    createSubscription={(method) => {
+      const key = keys.current[method] ?? (keys.current[method] = newIdempotencyKey());
+      return subApi.createSubscription(vehicleId, plan.id, method, key);
+    }}
+    onCheckoutInvoice={(invoiceId) => navigation.replace("InvoiceDetail", { invoiceId })}
+    onDone={(sub) => navigation.navigate("SubscriptionDashboard", { subscriptionId: sub.id })}
+  />;
 }
 
 function SubscriptionDashboardContainer({ navigation, route }: any) {
   const { subscriptionId } = route.params;
   return (
     <SubscriptionDashboardScreen
+      navigation={navigation}
       fetchDashboard={async () => {
         const [subscription, entitlements] = await Promise.all([
           subApi.getSubscription(subscriptionId),
@@ -826,13 +764,14 @@ function SubscriptionDashboardContainer({ navigation, route }: any) {
       }}
       onManagePlan={() => navigation.navigate("UpgradeDowngrade", { subscriptionId })}
       onCancel={() => navigation.navigate("Cancellation", { subscriptionId })}
-      onViewInvoices={() => navigation.navigate("Invoices")}
+      onViewInvoices={() => navigation.navigate("Invoices", { subscriptionId })}
     />
   );
 }
 
 function UpgradeDowngradeContainer({ navigation, route }: any) {
-  const { subscriptionId } = route.params;
+  const { subscriptionId, targetPlan } = route.params;
+  const operationKeys = useRef<Record<string, string>>({});
   const [currentPlan, setCurrentPlan] = useState<{ id: string; name: string; priceCentavos: number; billingInterval: string; lockInMonths: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -855,8 +794,13 @@ function UpgradeDowngradeContainer({ navigation, route }: any) {
   return (
     <UpgradeDowngradeScreen
       currentPlan={currentPlan}
+      targetPlan={targetPlan}
+      onCheckoutInvoice={(invoiceId) => navigation.replace("InvoiceDetail", { invoiceId })}
       fetchPlans={subApi.listPlans}
-      onUpgrade={(planId: string) => subApi.upgrade(subscriptionId, planId)}
+      onUpgrade={(planId: string) => {
+        const key = operationKeys.current[planId] ?? (operationKeys.current[planId] = newIdempotencyKey());
+        return subApi.upgrade(subscriptionId, planId, key);
+      }}
       onDowngrade={(planId: string) => subApi.downgrade(subscriptionId, planId)}
       onDone={() => navigation.navigate("SubscriptionDashboard", { subscriptionId })}
     />
@@ -874,27 +818,25 @@ function CancellationContainer({ navigation, route }: any) {
   );
 }
 
-function InvoicesContainer({ navigation }: any) {
-  return (
-    <InvoicesScreen
-      fetchInvoices={subApi.listInvoices}
-      onSelectInvoice={(invoice) => navigation.navigate("InvoiceDetail", { invoice })}
-    />
-  );
+function InvoicesContainer({ navigation, route }: any) {
+  const subscriptionId = route.params?.subscriptionId;
+  const fetchInvoices = useCallback(async () => {
+    const invoices = await subApi.listInvoices();
+    return subscriptionId ? invoices.filter(invoice => invoice.subscriptionId === subscriptionId) : invoices;
+  }, [subscriptionId]);
+  return <InvoicesScreen navigation={navigation} fetchInvoices={fetchInvoices}
+    onSelectInvoice={(invoice) => navigation.navigate("InvoiceDetail", { invoiceId: invoice.id })} />;
 }
 
 function InvoiceDetailContainer({ navigation, route }: any) {
-  const { invoice } = route.params;
-  return (
-    <InvoiceDetailScreen
-      invoice={invoice}
-      onDownloadReceipt={async () => {
-        const { url } = await subApi.getInvoicePdf(invoice.id);
-        await WebBrowser.openBrowserAsync(url);
-      }}
-      onBack={() => navigation.goBack()}
-    />
-  );
+  const invoiceId = route.params.invoiceId ?? route.params.invoice?.id;
+  return <InvoicePaymentScreen key={`${invoiceId}:${route.params.outcome ?? ""}`} invoiceId={invoiceId} returnOutcome={route.params.outcome} fetchInvoice={subApi.getInvoice}
+    createPaymentIntent={subApi.createPaymentIntent} navigation={navigation}
+    openCheckout={openCheckout}
+    onDownloadReceipt={async () => {
+      const { url } = await subApi.getInvoicePdf(invoiceId);
+      await WebBrowser.openBrowserAsync(url);
+    }} onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("HomeTabsScreen")} />;
 }
 
 function PrivacyContainer() {
@@ -994,7 +936,7 @@ export function RootNavigator() {
 
   if (state === "READY") {
     return (
-      <NavigationContainer>
+      <NavigationContainer linking={{ prefixes: [Linking.createURL("/")], config: { screens: { InvoiceDetail: "payment-result" } } }}>
         <ReadyStack setBootState={setState} />
       </NavigationContainer>
     );

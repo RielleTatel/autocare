@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { InspectionDetailScreen } from "./InspectionDetailScreen";
 import { getInspectionDetail } from "./historyApi";
 
@@ -51,7 +51,7 @@ describe("InspectionDetailScreen", () => {
 
     render(<InspectionDetailScreen vehicleId="veh-1" inspectionId="insp-1" />);
 
-    expect(await screen.findByText("All points")).toBeTruthy();
+    expect(await screen.findByLabelText("All points (1)")).toBeTruthy();
     expect(screen.queryByText("Findings")).toBeNull();
   });
 
@@ -63,7 +63,8 @@ describe("InspectionDetailScreen", () => {
 
     render(<InspectionDetailScreen vehicleId="veh-1" inspectionId="insp-1" />);
 
-    expect(await screen.findByText("8 mm")).toBeTruthy();
+    fireEvent.press(await screen.findByLabelText("All points (1)"));
+    expect(screen.getByText("8 mm")).toBeTruthy();
   });
 
   it("explains that detail needs a connection rather than failing silently", async () => {

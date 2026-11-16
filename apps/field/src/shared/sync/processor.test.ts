@@ -175,3 +175,15 @@ describe("SyncProcessor.drain", () => {
     expect((await proc.snapshot()).lastError).toBeNull();
   });
 });
+
+it("manual retry bypasses pending network backoff without changing UUID or payload", async () => {
+  const outbox = new MemoryOutboxRepo();
+  await outbox.enqueue(item(1));
+  await outbox.recordAttempt("uuid-1", 1000, "offline");
+  const transport = fakeTransport((items) => items.map((i) => ({ clientUuid: i.clientUuid, status: "APPLIED" as const })));
+  const processor = new SyncProcessor({ outbox, transport, now: () => 1001 });
+  expect((await processor.drain()).deferred).toBe(1);
+  const result = await processor.drain({ force: true });
+  expect(result.applied).toBe(1);
+  expect(transport.calls[0][0]).toMatchObject(item(1));
+});

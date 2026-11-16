@@ -1,13 +1,18 @@
-import type { LocalResult } from "../../shared/db/inspections.repo";
+import type { LocalInspection, LocalResult } from "../../shared/db/inspections.repo";
 import type { DraftInspectionsStore } from "./draft";
 
 /** Jest-side DraftInspectionsStore mirroring the SQLite repo semantics. */
 export class MemoryInspectionsStore implements DraftInspectionsStore {
-  drafts = new Map<string, { checklistVersionId: string; checklistJson: string; status: "DRAFT" | "LOCKED"; submittedAt: number | null }>();
+  drafts = new Map<string, LocalInspection>();
   private resultRows = new Map<string, Map<string, LocalResult>>();
 
-  async createDraft(d: { clientUuid: string; checklistVersionId: string; checklistJson: string }): Promise<void> {
-    this.drafts.set(d.clientUuid, { checklistVersionId: d.checklistVersionId, checklistJson: d.checklistJson, status: "DRAFT", submittedAt: null });
+  async findByBooking(appointmentId: string): Promise<LocalInspection | null> {
+    return [...this.drafts.values()].find((r) => r.appointmentId === appointmentId) ?? null;
+  }
+
+  async createDraft(d: Omit<LocalInspection, "status" | "submittedAt">): Promise<void> {
+    if (d.appointmentId && await this.findByBooking(d.appointmentId)) return;
+    this.drafts.set(d.clientUuid, { ...d, status: "DRAFT", submittedAt: null });
     this.resultRows.set(d.clientUuid, new Map());
   }
 

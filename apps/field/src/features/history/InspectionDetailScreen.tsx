@@ -1,90 +1,49 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { fieldTheme } from "../../theme";
+import { Image, ScrollView, Text, View } from "react-native";
+import { fieldTheme as t } from "../../theme";
+import { Button } from "../../components/Button";
+import { Reference } from "../../components/References";
 import { Card } from "../../components/Card";
 import { FieldNav } from "../../components/FieldNav";
-import { StatusChip } from "../../components/StatusChip";
+import { Disclosure, workContent } from "../../components/FieldLayout";
+import { FindingRow } from "../../components/FindingRow";
 import { EmptyState } from "../../components/EmptyState";
+import { Plate } from "../../components/Plate";
 import { getInspectionDetail, type InspectionDetail, type InspectionResultDetail } from "./historyApi";
 
-const ADVERSE = new Set(["ATTENTION", "CRITICAL"]);
+const severity = { CRITICAL: 3, ATTENTION: 2, MONITOR: 1, GOOD: 0, NOT_APPLICABLE: 0 };
+const manilaDate = (iso: string) => new Date(iso).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", day: "numeric", month: "short", year: "numeric" });
 
-const manilaDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", day: "numeric", month: "short", year: "numeric" });
-
-/** What was actually found last time, point by point. Adverse findings first —
- *  a technician opening history is looking for what was wrong, not reading all
- *  50 points in checklist order. */
-export function InspectionDetailScreen({
-  vehicleId,
-  inspectionId,
-  onBack,
-}: {
-  vehicleId: string;
-  inspectionId: string;
-  onBack?: () => void;
-}) {
-  const t = fieldTheme;
+export function InspectionDetailScreen({ vehicleId, inspectionId, vehiclePlateNo, onBack }: { vehicleId: string; inspectionId: string; vehiclePlateNo?: string; onBack?: () => void }) {
   const [detail, setDetail] = useState<InspectionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let mounted = true;
-    getInspectionDetail(vehicleId, inspectionId)
-      .then((d) => { if (mounted) setDetail(d); })
-      .catch(() => { if (mounted) setError("Could not load this inspection. It needs a connection."); });
+    setError(null); setDetail(null);
+    getInspectionDetail(vehicleId, inspectionId).then((result) => { if (mounted) setDetail(result); }).catch(() => { if (mounted) setError("Could not load this inspection. It needs a connection."); });
     return () => { mounted = false; };
-  }, [vehicleId, inspectionId]);
-
-  const body = () => {
-    if (error) return <EmptyState tone="error" title="Unavailable" body={error} />;
-    if (!detail) return null;
-
-    const adverse = detail.results.filter((r) => r.status && ADVERSE.has(r.status));
-    const rest = detail.results.filter((r) => !(r.status && ADVERSE.has(r.status)));
-
-    return (
-      <>
-        <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
-          {detail.submittedAt ? manilaDate(detail.submittedAt) : "Not yet submitted"}
-          {detail.odometerKm !== null ? ` · ${detail.odometerKm.toLocaleString("en-PH")} km` : ""}
-        </Text>
-
-        {adverse.length > 0 && (
-          <>
-            <Text style={{ ...t.text("h2"), color: t.colors.danger }}>Findings</Text>
-            {adverse.map((r) => <Point key={r.pointCode} r={r} />)}
-          </>
-        )}
-
-        <Text style={{ ...t.text("h2"), color: t.colors.ink }}>All points</Text>
-        {rest.map((r) => <Point key={r.pointCode} r={r} />)}
-      </>
-    );
-  };
-
-  return (
-    <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
-      <FieldNav title="Past inspection" onBack={onBack} />
-      <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.sm }}>{body()}</ScrollView>
-    </View>
-  );
+  }, [vehicleId, inspectionId, attempt]);
+  const concerns = detail?.results.filter((r) => severity[r.status ?? "GOOD"] > 0).sort((a, b) => severity[b.status!] - severity[a.status!]) ?? [];
+  const band = detail?.band ? t.vhsBands[detail.band] : null;
+  return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+    <FieldNav title="Inspection report" onBack={onBack} />
+    <ScrollView contentContainerStyle={workContent}>
+      {error ? <EmptyState tone="error" title="Unavailable" body={error} action={<Button variant="secondary" onPress={() => setAttempt((n) => n + 1)}>Try again</Button>} /> : !detail ? <EmptyState tone="loading" title="Loading inspection report…" /> : <>
+        {vehiclePlateNo ? <Plate variant="plain">{vehiclePlateNo}</Plate> : null}
+        <Card accent={band?.fill} style={{ gap: 8 }}>
+          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{detail.submittedAt ? "Accepted inspection" : "Inspection in progress"}</Text>
+          {detail.score != null ? <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", gap: 12 }}><Text style={[t.text("h1"), { fontSize: 48, color: band?.text ?? t.colors.ink }]}>{detail.score}<Text style={[t.text("body"), { color: t.colors.inkMuted }]}> / 100</Text></Text>{band ? <Text style={[t.text("body", 600), { color: band.text }]}>{band.labelEn}</Text> : null}</View> : detail.submittedAt ? <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Report accepted. Health score calculation is pending.</Text> : null}
+          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{detail.submittedAt ? manilaDate(detail.submittedAt) : "Not yet submitted"}{detail.odometerKm !== null ? ` · ${detail.odometerKm.toLocaleString("en-PH")} km` : ""}</Text>
+        </Card>
+        {concerns.length ? <View><Text style={[t.text("h2"), { color: t.colors.ink }]}>Findings</Text>{concerns.map((result) => <Point key={result.pointCode} result={result} />)}</View> : <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>No findings need attention.</Text>}
+        <Disclosure title={`All points (${detail.results.length})`}>{detail.results.map((result) => <Point key={result.pointCode} result={result} />)}</Disclosure>
+        <Disclosure title="References"><Reference label="Inspection ID" value={detail.id} />{detail.appointmentId ? <Reference label="Booking ID" value={detail.appointmentId} /> : null}<Reference label="Vehicle ID" value={vehicleId} /></Disclosure>
+      </>}
+    </ScrollView>
+  </View>;
 }
 
-function Point({ r }: { r: InspectionResultDetail }) {
-  const t = fieldTheme;
-  return (
-    <Card style={{ gap: 4 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}>
-        <Text style={{ ...t.text("body"), color: t.colors.ink, flex: 1 }}>{r.label}</Text>
-        {r.status ? <StatusChip status={r.status} /> : null}
-      </View>
-      {r.measuredValue !== null ? (
-        <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
-          {r.measuredValue}{r.unit ? ` ${r.unit}` : ""}
-        </Text>
-      ) : null}
-      {r.notes ? <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>{r.notes}</Text> : null}
-    </Card>
-  );
+function Point({ result }: { result: InspectionResultDetail }) {
+  return <View><FindingRow label={result.label} status={result.status ?? undefined} measurement={result.measuredValue !== null ? `${result.measuredValue}${result.unit ? ` ${result.unit}` : ""}` : undefined} notes={result.notes} photoCount={result.photoUrls?.length} />{result.photoUrls?.length ? <ScrollView horizontal contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>{result.photoUrls.map((uri) => <Image key={uri} source={{ uri }} accessibilityLabel={`Photo of ${result.label}`} style={{ width: 120, height: 90, borderRadius: 8 }} resizeMode="cover" />)}</ScrollView> : null}</View>;
 }

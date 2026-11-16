@@ -14,7 +14,7 @@ export type BoardAppointment = {
   memberName: string | null;
 };
 
-export type ServiceType = { id: string; code: string; name: string; standardDurationMin: number };
+export type ServiceType = { id: string; code: string; name: string; standardDurationMin: number; inspectionRequired?: boolean };
 export type Bay = { id: string; name: string; capabilities: string[]; isActive: boolean };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -46,7 +46,10 @@ export const cancelAppointment = (id: string) =>
 export const createBay = (name: string, capabilities: string[]) =>
   call<Bay>("scheduling/bays", { method: "POST", body: JSON.stringify({ name, capabilities }) });
 
-export const createServiceType = (input: { code: string; name: string; standardDurationMin: number; requiredSkills: string[]; priceCentavos: number }) =>
+export const updateServiceType = (id: string, input: { inspectionRequired: boolean }) =>
+  call<ServiceType>(`scheduling/service-types/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+
+export const createServiceType = (input: { code: string; name: string; standardDurationMin: number; requiredSkills: string[]; priceCentavos: number; inspectionRequired?: boolean }) =>
   call<ServiceType>("scheduling/service-types", { method: "POST", body: JSON.stringify(input) });
 
 export const upsertOperatingHours = (input: { weekday?: string; dateOverride?: string; openTime?: string; closeTime?: string; walkInBufferPct: number }) =>

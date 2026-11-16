@@ -1,177 +1,76 @@
-import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { fieldTheme } from "../../theme";
+import { fieldTheme as t } from "../../theme";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Plate } from "../../components/Plate";
 import { StatusPill } from "../../components/StatusPill";
 import { EmptyState } from "../../components/EmptyState";
 import { FieldNav } from "../../components/FieldNav";
-import { SyncBanner } from "../../shared/SyncBanner";
+import { workContent } from "../../components/FieldLayout";
+import { Icon } from "../../components/Icon";
 import { syncProcessor } from "../../shared/sync";
 import { useSyncStatus } from "../../shared/sync/useSyncStatus";
-import { getTodaysTasks, type FieldTask } from "./tasksApi";
+import { getBookings, manilaSchedule, type BookingBucket, type FieldTask } from "./tasksApi";
 
-type Tone = "neutral" | "info" | "success" | "warn" | "danger";
-
-/** Appointment lifecycle → pill tone. Mirrors the mockup's STATUS_TONE. */
-const STATUS_TONE: Record<string, Tone> = {
-  BOOKED: "info",
-  CONFIRMED: "info",
-  IN_PROGRESS: "info",
-  COMPLETED: "success",
-  CANCELLED: "neutral",
-  NO_SHOW: "danger",
-};
-
-/** Mirrors DISPATCH_ROLES in the API's roadside service — a mechanic has no
- *  business in the dispatch queue, and the server would refuse them anyway. */
-const ROADSIDE_ROLES = new Set(["DRIVER", "ADVISOR", "ADMIN"]);
-
-const manilaTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", hour12: true });
-
-const manilaDay = () =>
-  new Date().toLocaleDateString("en-PH", { timeZone: "Asia/Manila", day: "numeric", month: "short" });
-
-/** F-01 — the mechanic's day. Work is listed in start order; the two standing
- *  actions sit under it. */
-export function TaskListScreen({
-  name, role, onStartInspection, onOpenSyncQueue, onOpenRoadside, onLogout,
-}: {
-  name: string | null;
-  role: string;
-  /** Called with the booking's context when started from a task card, and with
-   *  nothing for a walk-in (the technician then picks the vehicle by plate). An
-   *  object rather than positional args so adding context can't silently shift. */
-  onStartInspection?: (from?: { vehicleId: string; appointmentId: string }) => void;
-  onOpenSyncQueue?: () => void;
-  /** F-17/F-18. Only rendered for the roles that may work an incident. */
-  onOpenRoadside?: () => void;
-  /** Ends the session and returns to the staff login screen. */
-  onLogout?: () => void;
+export const bookingTone = (status: string) => status === "COMPLETED" ? "success" as const : status === "NO_SHOW" ? "danger" as const : status === "CANCELLED" ? "neutral" as const : "info" as const;
+export const bookingStatusLabel = (status: string) => status.toLowerCase().replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
+const BUCKETS: BookingBucket[] = ["today", "upcoming", "past", "all"];
+export function TaskListScreen({ name, onOpenBooking, onStartInspection, active = true }: {
+  name: string | null; role: string; active?: boolean;
+  onOpenBooking?: (task: FieldTask) => void;
+  onStartInspection?: (from: { vehicleId: string; appointmentId: string }) => void;
+  onOpenSyncQueue?: () => void; onOpenRoadside?: () => void; onLogout?: () => void;
 }) {
-  const t = fieldTheme;
   const sync = useSyncStatus(syncProcessor);
-  const [tasks, setTasks] = useState<FieldTask[] | null>(null);
-  const [confirmLogout, setConfirmLogout] = useState(false);
-  const [stale, setStale] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  const load = useCallback(async () => {
-    setFailed(false);
+  const [bucket, setBucket] = useState<BookingBucket>("today");
+  const [tasks, setTasks] = useState<FieldTask[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cacheError, setCacheError] = useState<string | null>(null);
+  const [cached, setCached] = useState<{ day: string; at: number } | null>(null);
+  const generation = useRef(0);
+  const load = useCallback(async (next?: string) => {
+    const request = ++generation.current;
+    setLoading(true); setError(null);
     try {
-      const { tasks: fresh, stale: isStale } = await getTodaysTasks();
-      setTasks(fresh);
-      setStale(isStale);
-    } catch {
-      setTasks(null);
-      setFailed(true);
-    }
-  }, []);
-
-  // On focus, not just on mount: returning from a finished inspection reuses
-  // this screen instance, so a plain useEffect would re-render the same stale
-  // list and the task would still look outstanding.
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
-
-  // A sync landing while this screen is open is the other moment the board
-  // changes underneath us — that is when the appointment flips to COMPLETED.
+      const page = await getBookings(bucket, next);
+      if (request !== generation.current) return;
+      setTasks((old) => next ? [...old, ...page.items.filter((i) => !old.some((o) => o.id === i.id))] : page.items);
+      setCursor(page.nextCursor); setCacheError(page.cacheError ?? null);
+      setCached(page.stale ? { day: page.day, at: page.downloadedAt } : null);
+    } catch (e) {
+      if (request === generation.current) setError(e instanceof Error ? e.message : "Could not load bookings.");
+    } finally { if (request === generation.current) setLoading(false); }
+  }, [bucket]);
+  useFocusEffect(useCallback(() => { setTasks([]); setCursor(null); setCached(null); void load(); return () => { ++generation.current; }; }, [load]));
+  useEffect(() => { if (active) void load(); }, [active, load]);
   useEffect(() => { if (sync.lastSyncAt) void load(); }, [sync.lastSyncAt, load]);
-
-  return (
-    <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
-      <FieldNav
-        title={`Today · ${manilaDay()}`}
-        right={
-          <Text style={{ ...t.text("label"), color: t.colors.inkMuted, paddingRight: t.spacing.sm }}>
-            {role.charAt(0) + role.slice(1).toLowerCase()} · {name ?? "Staff"}
-          </Text>
-        }
-      />
-      <SyncBanner
-        pendingCount={sync.pendingCount}
-        rejectedCount={sync.rejectedCount}
-        lastError={sync.lastError}
-        onPress={onOpenSyncQueue}
-      />
-      <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.sm }}>
-        {stale ? (
-          <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
-            Showing the last list downloaded — reconnect to refresh it.
-          </Text>
-        ) : null}
-
-        {failed ? (
-          <EmptyState
-            tone="error"
-            title="Could not load today's work"
-            body="You are offline and this device has not downloaded a list yet."
-            action={<Button variant="secondary" icon="refresh-cw" onPress={() => void load()}>Try again</Button>}
-          />
-        ) : tasks === null ? (
-          <EmptyState tone="loading" title="Loading today's work…" />
-        ) : tasks.length === 0 ? (
-          <EmptyState title="Nothing booked today" body="Walk-ins will appear here once an advisor books them." />
-        ) : (
-          tasks.map((task) => (
-            <Card key={task.id} interactive onPress={() => onStartInspection?.({ vehicleId: task.vehicleId, appointmentId: task.id })} accessibilityLabel={`Open ${task.serviceTypeName} for ${task.vehiclePlateNo}`} style={{ gap: 6 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}>
-                <Text style={{ ...t.text("code"), color: t.colors.ink }}>{manilaTime(task.scheduledStart)}</Text>
-                <Plate variant="plain">{task.vehiclePlateNo}</Plate>
-                <View style={{ flex: 1 }} />
-                <StatusPill tone={STATUS_TONE[task.status] ?? "neutral"}>{task.status.replace("_", " ")}</StatusPill>
-              </View>
-              <Text style={{ ...t.text("h2"), color: t.colors.ink }}>{task.serviceTypeName}</Text>
-              {task.memberName ? (
-                <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>{task.memberName}</Text>
-              ) : null}
-            </Card>
-          ))
-        )}
-
-        <Button icon="wrench" onPress={() => onStartInspection?.()} style={{ marginTop: t.spacing.sm }}>
-          Start inspection
-        </Button>
-        {confirmLogout ? (
-          <Card style={{ gap: t.spacing.sm }}>
-            <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Sign out of this device?</Text>
-            {sync.pendingCount > 0 ? (
-              /* Once the token is gone the queue is invisible, so the number has
-                 to be named before the decision rather than discovered after. */
-              <Text testID="staff-logout-pending-warning" style={{ ...t.text("body"), color: t.colors.danger }}>
-                {sync.pendingCount} {sync.pendingCount === 1 ? "entry has" : "entries have"} not synced yet. Sync first
-                or they stay on this device.
-              </Text>
-            ) : (
-              <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>
-                You will need to sign in again to pick up work.
-              </Text>
-            )}
-            <Button testID="staff-logout-confirm" variant="danger" onPress={onLogout}>
-              Sign out
-            </Button>
-            <Button testID="staff-logout-cancel" variant="secondary" onPress={() => setConfirmLogout(false)}>
-              Stay signed in
-            </Button>
-          </Card>
-        ) : null}
-
-        {ROADSIDE_ROLES.has(role) ? (
-          <Button variant="secondary" icon="truck" testID="open-roadside" onPress={onOpenRoadside}>
-            Roadside calls
-          </Button>
-        ) : null}
-        <Button variant="secondary" icon="refresh-cw" onPress={onOpenSyncQueue}>
-          {sync.pendingCount > 0 ? `Sync queue (${sync.pendingCount})` : "Sync queue"}
-        </Button>
-        {onLogout ? (
-          <Button testID="staff-logout" variant="ghost" onPress={() => setConfirmLogout(true)}>
-            Sign out
-          </Button>
-        ) : null}
-      </ScrollView>
-    </View>
-  );
+  return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+    <FieldNav title="Bookings" right={<Text style={[t.text("label"), { color: t.colors.inkMuted, paddingRight: 12 }]}>{name ?? "Staff"}</Text>} />
+    <ScrollView contentContainerStyle={{ ...workContent, gap: 12 }}>
+      <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Shop schedule · Philippine time</Text>
+      <View accessibilityRole="tablist" style={{ flexDirection: "row", borderBottomWidth: 1, borderColor: t.colors.line }}>
+        {BUCKETS.map((b) => <Pressable key={b} accessibilityRole="tab" accessibilityLabel={b[0].toUpperCase() + b.slice(1)} accessibilityState={{ selected: b === bucket }} onPress={() => setBucket(b)} style={{ flex: 1, minHeight: t.minTarget, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderColor: bucket === b ? t.colors.primaryDeep : "transparent" }}><Text style={[t.text("label", 600), { color: bucket === b ? t.colors.primaryDeep : t.colors.inkMuted }]}>{b[0].toUpperCase() + b.slice(1)}</Text></Pressable>)}
+      </View>
+      {cacheError ? <Text style={[t.text("label"), { color: t.colors.danger }]}>{cacheError}</Text> : null}
+      {cached ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Offline copy: {bucket}, as of {cached.day}. Downloaded {manilaSchedule(new Date(cached.at).toISOString())}. Reconnect to refresh this coverage.</Text> : null}
+      {error ? <EmptyState tone="error" title="Could not refresh bookings" body={error} action={<Button variant="secondary" onPress={() => void load()}>Try again</Button>} /> : null}
+      {loading && tasks.length === 0 ? <EmptyState tone="loading" title="Loading bookings…" /> : !error && tasks.length === 0 ? <EmptyState title={`No ${bucket === "all" ? "" : `${bucket} `}bookings`} body="Try another date filter. Walk-ins appear after an advisor creates their booking." /> : null}
+      {tasks.map((task) => <Card key={task.id} interactive accessibilityLabel={`Open ${task.serviceTypeName} for ${task.vehiclePlateNo}`} onPress={() => onOpenBooking ? onOpenBooking(task) : onStartInspection?.({ vehicleId: task.vehicleId, appointmentId: task.id })} style={{ gap: 6, padding: 14 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+          <Plate variant="plain">{task.vehiclePlateNo}</Plate>
+          <StatusPill tone={bookingTone(task.status)}>{bookingStatusLabel(task.status)}</StatusPill>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><View style={{ flex: 1, gap: 4 }}>
+          <Text style={[t.text("body", 600), { color: t.colors.ink }]}>{task.serviceTypeName}</Text>
+          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{manilaSchedule(task.scheduledStart)}</Text>
+          {task.vehicleMake || task.vehicleModel ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{[task.vehicleMake, task.vehicleModel, task.vehicleYear].filter(Boolean).join(" ")}</Text> : null}
+        </View><Icon name="chevron-right" size={22} color={t.colors.inkMuted} /></View>
+      </Card>)}
+      {cursor ? <Button variant="secondary" disabled={loading} onPress={() => void load(cursor)}>{loading ? "Loading…" : "Load more bookings"}</Button> : null}
+    </ScrollView>
+  </View>;
 }

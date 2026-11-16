@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { Button } from "../../components/Button";
@@ -22,7 +22,9 @@ export interface PlanSummary {
   lockInMonths: number;
 }
 
-export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onDowngrade, onDone }: {
+export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onDowngrade, onDone, targetPlan, onCheckoutInvoice }: {
+  targetPlan?: Plan;
+  onCheckoutInvoice?: (invoiceId: string) => void;
   currentPlan: PlanSummary;
   fetchPlans: () => Promise<Plan[]>;
   onUpgrade: (planId: string) => Promise<UpgradeResult>;
@@ -30,9 +32,10 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
   onDone: () => void;
 }) {
   const [plans, setPlans] = useState<Plan[] | null>(null);
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(targetPlan && targetPlan.id !== currentPlan.id ? { plan: targetPlan, direction: targetPlan.priceCentavos > currentPlan.priceCentavos ? "UPGRADE" : "DOWNGRADE" } : null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
   const [result, setResult] = useState<Result | null>(null);
 
   useEffect(() => {
@@ -40,13 +43,15 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
   }, [fetchPlans]);
 
   const confirm = async () => {
-    if (!selection) return;
+    if (!selection || busy.current) return;
+    busy.current = true;
     setSubmitting(true);
     setError(null);
     try {
       if (selection.direction === "UPGRADE") {
         const r = await onUpgrade(selection.plan.id);
-        setResult({ direction: "UPGRADE", text: upgradePreviewText(r.proratedChargeCentavos) });
+        setResult({ direction: "UPGRADE", text: `Your plan is applied. The prorated invoice is ${formatCentavos(r.proratedChargeCentavos)}. Payment is not confirmed; you can pay or retry from Invoices.` });
+        if (r.invoiceId) onCheckoutInvoice?.(r.invoiceId);
       } else {
         const r = await onDowngrade(selection.plan.id);
         setResult({ direction: "DOWNGRADE", text: downgradePreviewText(r.effectiveAt) });
@@ -54,6 +59,7 @@ export function UpgradeDowngradeScreen({ currentPlan, fetchPlans, onUpgrade, onD
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't change your plan. Try again.");
     } finally {
+      busy.current = false;
       setSubmitting(false);
     }
   };

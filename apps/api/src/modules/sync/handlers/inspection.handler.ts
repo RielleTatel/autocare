@@ -37,6 +37,19 @@ export class InspectionSyncHandler implements SyncEntityHandler {
     }
     const p = parsed.data;
 
+    if (p.appointmentId) {
+      const booking = await tx.appointment.findUnique({ where: { id: p.appointmentId }, select: { vehicleId: true, serviceType: { select: { inspectionRequired: true } } } });
+      if (!booking) {
+        throw new DomainError("INSPECTION_BOOKING_NOT_FOUND", "the inspection's booking no longer exists", 422);
+      }
+      if (booking.vehicleId !== p.vehicleId) {
+        throw new DomainError("INSPECTION_BOOKING_MISMATCH", "the inspection vehicle does not match its booking", 422);
+      }
+      if (!booking.serviceType.inspectionRequired) {
+        throw new DomainError("INSPECTION_INCOMPLETE", "this booked service does not require an inspection", 422);
+      }
+    }
+
     const version = await tx.checklistVersion.findUnique({ where: { id: p.checklistVersionId } });
     if (!version) {
       // Names both ids: this rejection is almost always a device that cached a
@@ -112,11 +125,17 @@ export class InspectionSyncHandler implements SyncEntityHandler {
     // app offline-first (this rides the same sync batch).
     //
     // updateMany, not update: a missing appointment must not throw and roll back
-    // an otherwise-valid inspection. The status filter is what stops a CANCELLED
-    // or NO_SHOW booking being resurrected by a late-syncing device.
+    // an otherwise-valid inspection. Accepted work resolves an automatic
+    // NO_SHOW even when the device uploads after the nightly sweep. An explicit
+    // cancellation remains authoritative. Match the vehicle as well so legacy
+    // bad links cannot complete another vehicle's appointment.
     if (inspection.appointmentId) {
       await tx.appointment.updateMany({
-        where: { id: inspection.appointmentId, status: { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] } },
+        where: {
+          id: inspection.appointmentId,
+          vehicleId: inspection.vehicleId,
+          status: { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS", "NO_SHOW"] },
+        },
         data: { status: "COMPLETED" },
       });
     }

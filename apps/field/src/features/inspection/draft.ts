@@ -1,6 +1,6 @@
 import { deriveStatus } from "@autocare/scoring";
 import type { ChecklistConfig, ConfigCategory, ConfigPoint, PointStatus } from "@autocare/scoring";
-import type { LocalResult } from "../../shared/db/inspections.repo";
+import type { LocalInspection, LocalResult } from "../../shared/db/inspections.repo";
 import type { OutboxRepo } from "../../shared/sync/types";
 
 /** The cached GET /checklists/active payload the draft snapshots at start.
@@ -13,6 +13,8 @@ export interface CachedChecklist {
 }
 
 export interface DraftInspectionsStore {
+  findByBooking?(appointmentId: string): Promise<LocalInspection | null>;
+  persistSubmission?(clientUuid: string, submitUuid: string, create: Record<string, unknown>, submit: Record<string, unknown>, at: number): Promise<void>;
   createDraft(d: {
     clientUuid: string; vehicleId: string; appointmentId: string | null;
     checklistVersionId: string; checklistJson: string; odometerKm: number | null;
@@ -30,8 +32,6 @@ export interface DraftDeps {
   now: () => number;
 }
 
-const ADVERSE: PointStatus[] = ["ATTENTION", "CRITICAL"];
-
 export interface CategoryProgress {
   code: string;
   label: string;
@@ -45,7 +45,7 @@ export interface CategoryProgress {
 export interface Completeness {
   complete: boolean;
   missingPoints: string[];
-  /** Adverse findings whose point requires a photo but has none yet. */
+  /** Legacy compatibility field. Inspection photos are always optional. */
   missingPhotos: string[];
 }
 
@@ -79,7 +79,7 @@ export function overallProgress(checklist: CachedChecklist, results: LocalResult
 
 /** Same precedence as the server engine: a measured value derives its status
  *  from thresholds; a bare status is the offline fallback. */
-function resolveStatus(p: ConfigPoint, r: LocalResult | undefined): PointStatus | undefined {
+export function resolveStatus(p: ConfigPoint, r: LocalResult | undefined): PointStatus | undefined {
   if (!r) return undefined;
   if (p.inputType === "MEASURED" && r.measuredValue !== undefined && p.thresholds) {
     return deriveStatus(r.measuredValue, p.thresholds);
@@ -98,11 +98,10 @@ export function completeness(checklist: CachedChecklist, results: LocalResult[])
       missingPoints.push(point.code);
       continue;
     }
-    if (point.requiresPhotoOnAdverse && ADVERSE.includes(status) && r!.photoUris.length === 0) {
-      missingPhotos.push(point.code);
-    }
   }
-  return { complete: missingPoints.length === 0 && missingPhotos.length === 0, missingPoints, missingPhotos };
+  // Older snapshots retain requiresPhotoOnAdverse. It no longer blocks capture
+  // or submission; a resumed inspection follows the same optional-photo rule.
+  return { complete: missingPoints.length === 0, missingPoints, missingPhotos };
 }
 
 /** Orchestrates one inspection draft: snapshot → capture → review → submit.
@@ -110,6 +109,7 @@ export function completeness(checklist: CachedChecklist, results: LocalResult[])
 export class InspectionDraft {
   readonly clientUuid: string;
   private submitted = false;
+  private submission: Promise<{ createUuid: string; submitUuid: string }> | null = null;
 
   private constructor(
     private deps: DraftDeps,
@@ -117,27 +117,39 @@ export class InspectionDraft {
     readonly checklist: CachedChecklist,
     readonly vehicleId: string,
     readonly odometerKm: number | null,
-    readonly appointmentId: string | null,
+    readonly appointmentId: string,
   ) {
     this.clientUuid = clientUuid;
   }
 
   static async start(
     deps: DraftDeps,
-    input: { vehicleId: string; appointmentId?: string | null; odometerKm?: number | null; checklist: CachedChecklist },
+    input: { vehicleId: string; appointmentId: string; odometerKm?: number | null; checklist: CachedChecklist },
   ): Promise<InspectionDraft> {
+    if (!input.appointmentId?.trim()) throw new Error("Open a booking before starting its inspection.");
+    const existing = await deps.inspections.findByBooking?.(input.appointmentId);
+    if (existing) return InspectionDraft.restore(deps, existing, input.vehicleId);
     const clientUuid = deps.uuid();
     await deps.inspections.createDraft({
       clientUuid,
       vehicleId: input.vehicleId,
-      appointmentId: input.appointmentId ?? null,
+      appointmentId: input.appointmentId,
       checklistVersionId: input.checklist.id,
       checklistJson: JSON.stringify(input.checklist),
       odometerKm: input.odometerKm ?? null,
       notes: null,
       startedAt: deps.now(),
     });
-    return new InspectionDraft(deps, clientUuid, input.checklist, input.vehicleId, input.odometerKm ?? null, input.appointmentId ?? null);
+    const persisted = await deps.inspections.findByBooking?.(input.appointmentId);
+    if (persisted) return InspectionDraft.restore(deps, persisted, input.vehicleId);
+    return new InspectionDraft(deps, clientUuid, input.checklist, input.vehicleId, input.odometerKm ?? null, input.appointmentId);
+  }
+
+  private static restore(deps: DraftDeps, row: LocalInspection, expectedVehicleId: string): InspectionDraft {
+    if (row.vehicleId !== expectedVehicleId) throw new Error("Saved work does not match the booked vehicle.");
+    const draft = new InspectionDraft(deps, row.clientUuid, JSON.parse(row.checklistJson), row.vehicleId, row.odometerKm, row.appointmentId!);
+    draft.submitted = row.status === "LOCKED";
+    return draft;
   }
 
   get isLocked(): boolean {
@@ -165,39 +177,31 @@ export class InspectionDraft {
   /** Refuses while incomplete; then enqueues create + submit outbox entries and locks. */
   async submit(): Promise<{ createUuid: string; submitUuid: string }> {
     if (this.submitted) throw new Error("draft is locked after submission");
+    if (this.submission) return this.submission;
+    this.submission = this.persistSubmission();
+    try { return await this.submission; }
+    finally { this.submission = null; }
+  }
+
+  private async persistSubmission(): Promise<{ createUuid: string; submitUuid: string }> {
     const check = await this.completeness();
-    if (!check.complete) {
-      throw new Error(`inspection incomplete: ${[...check.missingPoints, ...check.missingPhotos].join(", ")}`);
-    }
+    if (!check.complete) throw new Error(`inspection incomplete: ${[...check.missingPoints, ...check.missingPhotos].join(", ")}`);
     const results = await this.results();
-    const submittedAt = new Date(this.deps.now()).toISOString();
-    await this.deps.outbox.enqueue({
-      clientUuid: this.clientUuid,
-      entityType: "inspection",
-      op: "create",
-      payload: {
-        vehicleId: this.vehicleId,
-        // Links the inspection to the booking it was done for, which is what
-        // lets the server complete that appointment on submit.
-        appointmentId: this.appointmentId ?? undefined,
-        checklistVersionId: this.checklist.id,
-        odometerKm: this.odometerKm ?? undefined,
-        results: results.map((r) => ({
-          pointCode: r.pointCode,
-          status: r.status,
-          measuredValue: r.measuredValue,
-          notes: r.notes,
-        })),
-      },
-    });
+    const at = this.deps.now();
     const submitUuid = this.deps.uuid();
-    await this.deps.outbox.enqueue({
-      clientUuid: submitUuid,
-      entityType: "inspection",
-      op: "submit",
-      payload: { inspectionClientUuid: this.clientUuid, submittedAt },
-    });
-    await this.deps.inspections.lock(this.clientUuid, this.deps.now());
+    const create = {
+      vehicleId: this.vehicleId, appointmentId: this.appointmentId,
+      checklistVersionId: this.checklist.id, odometerKm: this.odometerKm ?? undefined,
+      results: results.map((r) => ({ pointCode: r.pointCode, status: r.status, measuredValue: r.measuredValue, notes: r.notes })),
+    };
+    const submit = { inspectionClientUuid: this.clientUuid, submittedAt: new Date(at).toISOString() };
+    if (this.deps.inspections.persistSubmission) {
+      await this.deps.inspections.persistSubmission(this.clientUuid, submitUuid, create, submit, at);
+    } else {
+      await this.deps.outbox.enqueue({ clientUuid: this.clientUuid, entityType: "inspection", op: "create", payload: create });
+      await this.deps.outbox.enqueue({ clientUuid: submitUuid, entityType: "inspection", op: "submit", payload: submit });
+      await this.deps.inspections.lock(this.clientUuid, at);
+    }
     this.submitted = true;
     return { createUuid: this.clientUuid, submitUuid };
   }

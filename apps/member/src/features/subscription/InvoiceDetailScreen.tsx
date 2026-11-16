@@ -9,8 +9,9 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function InvoiceDetailScreen({ invoice, onDownloadReceipt, onBack }: {
+export function InvoiceDetailScreen({ invoice, onDownloadReceipt, onBack, paymentContent }: {
   invoice: Invoice;
+  paymentContent?: React.ReactNode;
   /** Fetches GET /invoices/:id/pdf and opens/shares the returned signed URL — implemented by the container. */
   onDownloadReceipt: () => Promise<void>;
   onBack?: () => void;
@@ -58,6 +59,7 @@ export function InvoiceDetailScreen({ invoice, onDownloadReceipt, onBack }: {
         <Text testID="invoice-total" style={[theme.text("h2"), { color: theme.colors.ink }]}>{formatCentavos(invoice.totalCentavos)}</Text>
       </View>
 
+      {paymentContent}
       {error ? (
         <Text testID="download-error" style={[theme.text("label"), { color: theme.colors.danger, marginTop: theme.spacing.md }]}>{error}</Text>
       ) : null}

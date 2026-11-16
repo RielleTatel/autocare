@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, View, type ViewStyle } from "react-native";
 import { fieldTheme } from "../theme";
 
@@ -18,7 +18,7 @@ const SOFT_SHADOW: ViewStyle = {
  *  border (2026 re-skin). `flat` reverts to the shipped hairline with no
  *  shadow, for dense data surfaces. */
 export function Card({
-  children, pad = "md", accent, interactive, flat, major, onPress, style, testID, accessibilityLabel,
+  children, pad = "md", accent, interactive, flat = true, major, onPress, style, testID, accessibilityLabel,
 }: {
   children: ReactNode;
   pad?: "md" | "lg" | "none";
@@ -34,11 +34,12 @@ export function Card({
   testID?: string;
   accessibilityLabel?: string;
 }) {
+  const [focused, setFocused] = useState(false);
   const boxStyle: ViewStyle = {
     backgroundColor: fieldTheme.colors.surface,
-    borderRadius: major ? fieldTheme.radii.lg : fieldTheme.radii.md,
+    borderRadius: major ? fieldTheme.radii.md : fieldTheme.radii.sm,
     borderWidth: fieldTheme.borders.hairline,
-    borderColor: flat ? fieldTheme.colors.line : fieldTheme.colors.lineSoft,
+    borderColor: focused ? fieldTheme.colors.primary : flat ? fieldTheme.colors.line : fieldTheme.colors.lineSoft,
     padding: PAD[pad],
     ...(flat ? null : SOFT_SHADOW),
     ...(accent ? { borderLeftWidth: fieldTheme.borders.accentRow, borderLeftColor: accent } : null),
@@ -51,6 +52,8 @@ export function Card({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={({ pressed }) => [boxStyle, pressed ? { opacity: fieldTheme.motion.pressOpacity } : null]}
       >
         {children}

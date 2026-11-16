@@ -71,6 +71,8 @@ export class InspectionsService {
       // `id` above is the HealthScore's, which the detail route cannot take.
       // Without this a history row has no way to open the inspection behind it.
       inspectionId: s.inspectionId,
+      appointmentId: s.inspection.appointmentId,
+      vehicleId,
       score: s.score,
       band: s.band,
       isStale: s.isStale,
@@ -84,11 +86,16 @@ export class InspectionsService {
     await this.assertCanReadVehicle(u, vehicleId);
     const inspection = await this.prisma.inspection.findFirst({
       where: { id: inspectionId, vehicleId },
-      include: { results: { include: { point: { include: { category: true } } } } },
+      include: { healthScore: true, results: { include: { point: { include: { category: true } } } } },
     });
     if (!inspection) throw new DomainError("INSPECTION_INCOMPLETE", "inspection not found", 404);
     return {
       id: inspection.id,
+      vehicleId: inspection.vehicleId,
+      appointmentId: inspection.appointmentId,
+      score: inspection.healthScore?.score ?? null,
+      band: inspection.healthScore?.band ?? null,
+      scorePending: !!inspection.submittedAt && !inspection.healthScore,
       submittedAt: inspection.submittedAt,
       odometerKm: inspection.odometerKm,
       results: inspection.results.map((r) => ({

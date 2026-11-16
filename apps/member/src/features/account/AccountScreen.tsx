@@ -5,6 +5,9 @@ import { Card } from "../../components/Card";
 import { StatusPill } from "../../components/StatusPill";
 import { PlanCard } from "../../components/PlanCard";
 import { Icon } from "../../components/Icon";
+import { Button } from "../../components/Button";
+import type { Vehicle } from "@autocare/contracts";
+import { PendingPlan } from "../subscription/PendingPlan";
 import { formatCentavos } from "../subscription/formatCentavos";
 import {
   entitlementFraction, entitlementLabel, lockInDaysRemaining, statusMessage, type SubscriptionStatus,
@@ -91,9 +94,15 @@ function Row({
  * being the whole tab.
  */
 export function AccountScreen({
-  name, email, subscription, entitlements, plans, refreshing, onRefresh,
+  name, email, subscription, entitlements, plans, refreshing, onRefresh, subscriptionLoading, subscriptionError,
+  vehicles = [], selectedVehicleId, onSelectVehicle,
   onChangePlan, onPersonalDetails, onSubscriptionDetails, onInvoices, onPrivacy, onSignOut,
 }: {
+  subscriptionLoading?: boolean;
+  subscriptionError?: string | null;
+  vehicles?: Vehicle[];
+  selectedVehicleId?: string;
+  onSelectVehicle?: (id: string) => void;
   name: string;
   email?: string;
   subscription: SubscriptionWithPlan | null;
@@ -128,6 +137,15 @@ export function AccountScreen({
         </Text>
       </View>
 
+      {vehicles.length > 1 ? <View style={{ gap: t.spacing.xs }}>
+        <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Vehicle</Text>
+        {vehicles.map(vehicle => <Button key={vehicle.id} testID={`account-vehicle-${vehicle.id}`}
+          variant={vehicle.id === selectedVehicleId ? "primary" : "secondary"}
+          onPress={() => onSelectVehicle?.(vehicle.id)}>{vehicle.plateNo}</Button>)}
+      </View> : null}
+      {subscriptionLoading ? <Text testID="subscription-loading">Loading your subscription…</Text> : subscriptionError ?
+        <Card><Text testID="subscription-error">Couldn't load your subscription. {subscriptionError}</Text>
+          <Button testID="account-retry" onPress={onRefresh}>Try again</Button></Card> : null}
       {subscription && status ? (
         <Card testID="status-banner" style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -140,6 +158,7 @@ export function AccountScreen({
           <Text testID="next-billing" style={[t.text("body"), { color: t.colors.ink }]}>
             {formatDate(subscription.currentPeriodEnd)} · {formatCentavos(subscription.plan.priceCentavos)}
           </Text>
+          <PendingPlan subscription={subscription} plans={plans} />
           <Text testID="lockin-countdown" style={[t.text("label"), { color: t.colors.inkMuted }]}>
             {daysLeft > 0
               ? `${subscription.plan.lockInMonths}-month lock-in · ends ${formatDate(subscription.lockInEndsAt)}`
@@ -147,13 +166,13 @@ export function AccountScreen({
           </Text>
           <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{statusMessage(status)}</Text>
         </Card>
-      ) : (
+      ) : !subscriptionLoading && !subscriptionError ? (
         <Card testID="no-subscription">
           <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>
             No active subscription on this account.
           </Text>
         </Card>
-      )}
+      ) : null}
 
       {entitlements.length > 0 ? (
         <Card>
@@ -178,8 +197,8 @@ export function AccountScreen({
                 lockInMonths={plan.lockInMonths}
                 inclusions={inclusionsOf(plan)}
                 selected={isCurrent}
-                disabled={isCurrent}
-                actionLabel={isCurrent ? "Current plan" : cheaper ? "Downgrade" : "Upgrade"}
+                disabled={isCurrent || subscriptionLoading || !!subscriptionError}
+                actionLabel={isCurrent ? "Current plan" : !subscription ? "Choose plan" : cheaper ? "Downgrade" : "Upgrade"}
                 onSelect={() => onChangePlan(plan)}
               />
             );

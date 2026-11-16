@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { ReviewSubmitScreen } from "./ReviewSubmitScreen";
 import type { CachedChecklist } from "./draft";
 
@@ -50,7 +50,8 @@ describe("ReviewSubmitScreen (F-08)", () => {
         onSubmit={onSubmit}
       />,
     );
-    expect(screen.getByText(/Front pads — Needs attention/)).toBeTruthy();
+    expect(screen.getByLabelText("Edit Front pads")).toBeTruthy();
+    expect(screen.getByText("Attention")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Submit inspection"));
     expect(onSubmit).toHaveBeenCalled();
   });
@@ -99,6 +100,26 @@ describe("ReviewSubmitScreen (F-08)", () => {
         onSubmit={() => undefined}
       />,
     );
-    expect(screen.getByText(/Submits to the outbox/)).toBeTruthy();
+    expect(screen.getByText(/Saves on this device and syncs when connected/)).toBeTruthy();
+  });
+
+  it("keeps routine results collapsed and lets the mechanic edit them after expansion", () => {
+    const jump = jest.fn();
+    render(<ReviewSubmitScreen checklist={checklist} results={[{ pointCode: "PAD", status: "GOOD", measuredValue: 8, photoUris: [] }, { pointCode: "DISC", status: "GOOD", photoUris: [] }]} check={{ complete: true, missingPoints: [], missingPhotos: [] }} overall={{ answered: 2, total: 2 }} onJumpToPoint={jump} onSubmit={jest.fn()} />);
+    expect(screen.queryByLabelText("Edit Discs")).toBeNull();
+    fireEvent.press(screen.getByLabelText("All results (2)"));
+    fireEvent.press(screen.getByLabelText("Edit Discs"));
+    expect(jump).toHaveBeenCalledWith("DISC");
+    expect(screen.getByLabelText("Submit inspection").props.accessibilityState.disabled).toBe(false);
+  });
+
+  it("accepts one submission while saving even if the action is tapped repeatedly", async () => {
+    let finish!: () => void;
+    const submit = jest.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<ReviewSubmitScreen checklist={checklist} results={[]} check={{ complete: true, missingPoints: [], missingPhotos: [] }} overall={{ answered: 2, total: 2 }} onJumpToPoint={jest.fn()} onSubmit={submit} />);
+    fireEvent.press(screen.getByLabelText("Submit inspection"));
+    fireEvent.press(screen.getByLabelText("Submit inspection"));
+    expect(submit).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
   });
 });

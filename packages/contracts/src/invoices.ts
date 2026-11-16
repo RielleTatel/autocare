@@ -23,6 +23,7 @@ export const invoiceSchema = z.object({
   status: z.enum(invoiceStatuses),
   dueDate: z.string(),
   issuedAt: z.string(),
+  checkoutEligible: z.boolean().optional(),
   items: z.array(invoiceItemSchema),
 });
 export type Invoice = z.infer<typeof invoiceSchema>;

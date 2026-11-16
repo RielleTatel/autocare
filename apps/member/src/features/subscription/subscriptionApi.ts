@@ -5,8 +5,9 @@ import {
 } from "@autocare/contracts";
 import { newIdempotencyKey } from "./billingPreview";
 
-export type SubscriptionWithPlan = Subscription & { plan: { id: string; code: string; name: string; priceCentavos: number; billingInterval: string; lockInMonths: number } };
-export type UpgradeResult = Subscription & { proratedChargeCentavos: number };
+export type SubscriptionWithPlan = Subscription & { pendingPlan?: { id: string; name: string } | null; plan: { id: string; code: string; name: string; priceCentavos: number; billingInterval: string; lockInMonths: number } };
+export type SubscriptionCreation = Subscription & { invoiceId?: string };
+export type UpgradeResult = Subscription & { proratedChargeCentavos: number; invoiceId?: string };
 export type DowngradeResult = Subscription & { effectiveAt: string };
 
 /** Typed subscription/billing calls built on the shared `api` client, mirroring how the
@@ -17,19 +18,19 @@ export function makeSubscriptionApi(api: ApiClient) {
   return {
     listPlans: () => api.get<Plan[]>("/plans"),
 
-    createSubscription: (vehicleId: string, planId: string, paymentMethod: "E_PAYMENT" | "COD") =>
-      api.post<Subscription>("/subscriptions", { vehicleId, planId, paymentMethod }, { "Idempotency-Key": newIdempotencyKey() }),
+    createSubscription: (vehicleId: string, planId: string, paymentMethod: "E_PAYMENT" | "COD", operationKey = newIdempotencyKey()) =>
+      api.post<SubscriptionCreation>("/subscriptions", { vehicleId, planId, paymentMethod }, { "Idempotency-Key": operationKey }),
 
     listSubscriptions: () => api.get<SubscriptionWithPlan[]>("/subscriptions"),
     getSubscription: (id: string) => api.get<SubscriptionWithPlan>(`/subscriptions/${id}`),
     getEntitlements: (id: string) => api.get<EntitlementSummary[]>(`/subscriptions/${id}/entitlements`),
-    upgrade: (id: string, planId: string) => api.post<UpgradeResult>(`/subscriptions/${id}/upgrade`, { planId }),
+    upgrade: (id: string, planId: string, operationKey = newIdempotencyKey()) => api.post<UpgradeResult>(`/subscriptions/${id}/upgrade`, { planId }, { "Idempotency-Key": operationKey }),
     downgrade: (id: string, planId: string) => api.post<DowngradeResult>(`/subscriptions/${id}/downgrade`, { planId }),
     cancellationQuote: (id: string) => api.get<CancellationQuote>(`/subscriptions/${id}/cancellation-quote`),
     cancel: (id: string, acceptEtf?: boolean) => api.post<Subscription>(`/subscriptions/${id}/cancel`, { acceptEtf }),
 
-    createPaymentIntent: (invoiceId: string) =>
-      api.post<PaymentIntent>("/payments/intents", { invoiceId }, { "Idempotency-Key": newIdempotencyKey() }),
+    createPaymentIntent: (invoiceId: string, operationKey = newIdempotencyKey()) =>
+      api.post<PaymentIntent>("/payments/intents", { invoiceId }, { "Idempotency-Key": operationKey }),
 
     listInvoices: () => api.get<Invoice[]>("/invoices"),
     getInvoice: (id: string) => api.get<Invoice>(`/invoices/${id}`),

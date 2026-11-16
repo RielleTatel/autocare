@@ -1,3 +1,4 @@
+import { hasStorageContext } from "../db/schema";
 import * as Network from "expo-network";
 import { api } from "../api";
 import { SqliteOutboxRepo } from "../db/outbox.repo";
@@ -7,6 +8,7 @@ import type { SyncBatchResult, SyncTransport } from "./types";
 
 const transport: SyncTransport = {
   async syncBatch(items) {
+    if (!hasStorageContext()) throw new Error("Sign in to sync this device.");
     const res = await api.post<{ results: SyncBatchResult[] }>("/sync/batch", { items });
     return res.results;
   },
@@ -22,7 +24,7 @@ export function startSyncListener(): void {
   started = true;
   void syncProcessor.drain().catch(() => undefined);
   Network.addNetworkStateListener((state) => {
-    if (state.isConnected && state.isInternetReachable !== false) {
+    if (hasStorageContext() && state.isConnected && state.isInternetReachable !== false) {
       void syncProcessor.drain().catch(() => undefined);
     }
   });

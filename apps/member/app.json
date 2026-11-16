@@ -12,7 +12,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#EEF1F3",
-          "image": "./assets/autocare-splash.png",
+          "image": "./assets/logo-mark.png",
           "imageWidth": 180,
           "resizeMode": "contain"
         }

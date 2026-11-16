@@ -42,12 +42,14 @@ export function SyncBanner({
 
   const body = (
     <>
-      <Icon name={failing ? "alert-triangle" : "refresh-cw"} size={20} color="#FFFFFF" />
-      <Text style={{ ...t.text("body", 600), color: "#FFFFFF", textAlign: "center" }}>{label}</Text>
+      <Icon name={failing ? "alert-triangle" : "refresh-cw"} size={20} color={failing ? t.colors.danger : t.colors.inkMuted} />
+      <Text style={{ ...t.text("label", 600), color: failing ? t.colors.danger : t.colors.inkMuted, flexShrink: 1 }}>{label}</Text>
+      {onPress ? <Icon name="chevron-right" size={16} color={t.colors.inkMuted} /> : null}
     </>
   );
   const style = {
-    backgroundColor: failing ? t.colors.danger : t.colors.primaryDeep,
+    minHeight: t.minTarget,
+    backgroundColor: failing ? t.vhsBands.CRITICAL.soft : t.colors.surfaceSoft,
     padding: t.spacing.sm,
     flexDirection: "row" as const,
     alignItems: "center" as const,

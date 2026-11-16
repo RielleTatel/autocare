@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { PointEntryScreen } from "./PointEntryScreen";
 import type { ConfigPoint } from "@autocare/scoring";
 
@@ -32,20 +32,21 @@ describe("PointEntryScreen (F-06)", () => {
     expect(screen.getByTestId("derived-status-chip")).toHaveTextContent("Good");
   });
 
-  it("adverse selection with requiresPhotoOnAdverse shows a blocking add-photo affordance", () => {
+  it("keeps adverse findings editable without a photo and offers optional capture", async () => {
     const onAddPhoto = jest.fn();
-    render(<PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={onAddPhoto} onNext={noop} />);
+    const onNext = jest.fn();
+    render(<PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={onAddPhoto} onNext={onNext} />);
+    expect(screen.getByLabelText("Add photo (optional)")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Critical"));
+    expect(screen.getByLabelText("Save and next").props.accessibilityState.disabled).toBe(false);
+    fireEvent.press(screen.getByLabelText("Save and next"));
+    await waitFor(() => expect(onNext).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByLabelText("Add photo (optional)"));
+    await waitFor(() => expect(onAddPhoto).toHaveBeenCalledTimes(1));
     expect(screen.queryByLabelText("Add photo (required)")).toBeNull();
-    fireEvent.press(screen.getByLabelText("Attention"));
-    const photoBtn = screen.getByLabelText("Add photo (required)");
-    fireEvent.press(photoBtn);
-    expect(onAddPhoto).toHaveBeenCalled();
-    // Save is blocked while the photo is missing
-    const save = screen.getByLabelText("Save and next");
-    expect(save.props.accessibilityState.disabled).toBe(true);
   });
 
-  it("fires the adverse haptic hook and saves the chosen result", () => {
+  it("fires the adverse haptic hook and saves the chosen result", async () => {
     const onSave = jest.fn();
     const onNext = jest.fn();
     const haptic = jest.fn();
@@ -54,7 +55,7 @@ describe("PointEntryScreen (F-06)", () => {
     expect(haptic).toHaveBeenCalled();
     fireEvent.press(screen.getByLabelText("Save and next"));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pointCode: "DISC", status: "CRITICAL", photoUris: ["file://p.jpg"] }));
-    expect(onNext).toHaveBeenCalled();
+    await waitFor(() => expect(onNext).toHaveBeenCalled());
   });
 
   it("has a notes field", () => {
@@ -75,11 +76,11 @@ describe("PointEntryScreen (F-06)", () => {
     expect(screen.getByText("1 photo attached")).toBeTruthy();
   });
 
-  it("offers a way back to the category list", () => {
+  it("offers a way back to the category list", async () => {
     const onBack = jest.fn();
     render(<PointEntryScreen point={statusPoint} onSave={noop} onAddPhoto={noop} onNext={noop} onBack={onBack} />);
     fireEvent.press(screen.getByLabelText("Back"));
-    expect(onBack).toHaveBeenCalled();
+    await waitFor(() => expect(onBack).toHaveBeenCalled());
   });
 
   it("shows how far through the inspection the mechanic is", () => {

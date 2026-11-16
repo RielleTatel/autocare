@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ShiftInput, ShiftQuery, ShiftUpdate } from "@autocare/contracts";
+import type { BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ServiceTypeUpdate, ShiftInput, ShiftQuery, ShiftUpdate, FieldBookingQuery, FieldBooking, FieldBookingPage } from "@autocare/contracts";
+import { Prisma } from "@prisma/client";
 import { DomainError } from "../../common/errors/domain-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { AbilityUser } from "../../common/policies/ability.factory";
-import { toIso } from "./time";
+import { toIso, dateOf } from "./time";
 
 // MECHANIC is here for the board only — the field app's task list is its single
 // scheduling call. It also grants capacity writes, which is wrong; splitting the
@@ -43,14 +44,28 @@ export class SchedulingConfigService {
   }
 
   async createServiceType(u: AbilityUser, dto: ServiceTypeInput) {
-    this.assertStaff(u);
+    this.assertServiceManager(u);
     return this.prisma.serviceType.create({
       data: {
         code: dto.code, name: dto.name, standardDurationMin: dto.standardDurationMin,
         requiredSkills: dto.requiredSkills, priceCentavos: BigInt(dto.priceCentavos),
         entitlementType: dto.entitlementType ?? null, intervalDays: dto.intervalDays ?? null, intervalKm: dto.intervalKm ?? null,
+        inspectionRequired: dto.inspectionRequired,
       },
     });
+  }
+
+  private assertServiceManager(u: AbilityUser) {
+    if (u.role !== "ADMIN" && u.role !== "ADVISOR") throw new DomainError("FORBIDDEN_ROLE", "only advisors and administrators manage services", 403);
+  }
+
+  async updateServiceType(u: AbilityUser, id: string, dto: ServiceTypeUpdate) {
+    this.assertServiceManager(u);
+    const service = await this.prisma.serviceType.findUnique({ where: { id } });
+    if (!service) throw new DomainError("SLOT_UNAVAILABLE", "service not found", 404);
+    return this.prisma.serviceType.update({ where: { id }, data: {
+      ...dto, ...(dto.priceCentavos !== undefined ? { priceCentavos: BigInt(dto.priceCentavos) } : {}),
+    } });
   }
 
   // ---- Bays ----
@@ -165,7 +180,7 @@ export class SchedulingConfigService {
     this.assertStaff(u);
     const rows = await this.prisma.appointment.findMany({
       where: {
-        scheduledStart: { gte: new Date(toIso(from, "00:00")), lte: new Date(toIso(to, "23:59")) },
+        scheduledStart: { gte: new Date(toIso(from, "00:00")), lt: new Date(new Date(toIso(to, "00:00")).getTime() + 86_400_000) },
       },
       include: { serviceType: { select: { name: true } }, vehicle: { select: { plateNo: true, owner: { select: { name: true } } } } },
       orderBy: { scheduledStart: "asc" },
@@ -178,5 +193,80 @@ export class SchedulingConfigService {
       status: r.status, requiresPickup: r.requiresPickup,
       vehiclePlateNo: r.vehicle.plateNo, memberName: r.vehicle.owner?.name ?? null,
     }));
+  }
+
+  private async canInspect(u: AbilityUser) {
+    if (!STAFF_ROLES.has(u.role)) return false;
+    const user = await this.prisma.user.findUnique({ where: { id: u.id }, select: { isCertifiedTechnician: true } });
+    return user?.isCertifiedTechnician === true;
+  }
+
+  private async decorateBookings(rows: Prisma.AppointmentGetPayload<{ include: { serviceType: true; vehicle: { include: { owner: true } } } }>[], certified: boolean): Promise<FieldBooking[]> {
+    const [reports, bays] = await Promise.all([
+      this.prisma.inspection.findMany({
+        where: { appointmentId: { in: rows.map(r => r.id) }, submittedAt: { not: null } },
+        select: { id: true, appointmentId: true, healthScore: { select: { id: true } } },
+        orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+      }),
+      this.prisma.serviceBay.findMany({ where: { id: { in: rows.flatMap(r => r.bayId ? [r.bayId] : []) } }, select: { id: true, name: true } }),
+    ]);
+    return rows.map(r => {
+      const report = reports.find(i => i.appointmentId === r.id);
+      return {
+        id: r.id, vehicleId: r.vehicleId, vehiclePlateNo: r.vehicle.plateNo,
+        vehicleMake: r.vehicle.make, vehicleModel: r.vehicle.model, vehicleYear: r.vehicle.year,
+        serviceTypeId: r.serviceTypeId, serviceTypeName: r.serviceType.name,
+        inspectionRequired: r.serviceType.inspectionRequired,
+        canInspect: certified,
+        scheduledStart: r.scheduledStart.toISOString(), scheduledEnd: r.scheduledEnd.toISOString(),
+        status: r.status, requiresPickup: r.requiresPickup, bayId: r.bayId,
+        bayName: bays.find(b => b.id === r.bayId)?.name ?? null, memberName: r.vehicle.owner?.name ?? null,
+        inspectionId: report?.id ?? null, scorePending: !!report && !report.healthScore,
+      };
+    });
+  }
+
+  async fieldBookings(u: AbilityUser, q: FieldBookingQuery): Promise<FieldBookingPage> {
+    this.assertStaff(u);
+    let day = q.day ?? dateOf(new Date().toISOString());
+    let after: { start: string; id: string } | null = null;
+    if (q.cursor) {
+      try {
+        const c = JSON.parse(Buffer.from(q.cursor, "base64url").toString());
+        if (c.bucket !== q.bucket || !/^\d{4}-\d{2}-\d{2}$/.test(c.day) || !/^[0-9a-f-]{36}$/i.test(c.id) || !Number.isFinite(Date.parse(c.start)) || (q.day && q.day !== c.day)) throw new Error();
+        day = c.day;
+        after = { start: c.start, id: c.id };
+      } catch { throw new DomainError("SLOT_UNAVAILABLE", "invalid booking cursor", 400); }
+    }
+    const midnight = new Date(toIso(day, "00:00"));
+    if (!Number.isFinite(midnight.getTime()) || dateOf(midnight.toISOString()) !== day) throw new DomainError("SLOT_UNAVAILABLE", "invalid calendar date", 400);
+    const tomorrow = new Date(midnight.getTime() + 86_400_000);
+    const dateWhere: Prisma.AppointmentWhereInput = q.bucket === "today" ? { scheduledStart: { gte: midnight, lt: tomorrow } }
+      : q.bucket === "upcoming" ? { scheduledStart: { gte: tomorrow } }
+      : q.bucket === "past" ? { scheduledStart: { lt: midnight } } : {};
+    const descending = q.bucket === "past";
+    const afterWhere: Prisma.AppointmentWhereInput = after ? { OR: [
+      { scheduledStart: descending ? { lt: new Date(after.start) } : { gt: new Date(after.start) } },
+      { scheduledStart: new Date(after.start), id: descending ? { lt: after.id } : { gt: after.id } },
+    ] } : {};
+    const rows = await this.prisma.appointment.findMany({
+      where: { AND: [dateWhere, afterWhere] }, take: q.limit + 1,
+      orderBy: [{ scheduledStart: descending ? "desc" : "asc" }, { id: descending ? "desc" : "asc" }],
+      include: { serviceType: true, vehicle: { include: { owner: true } } },
+    });
+    const selected = rows.slice(0, q.limit);
+    const last = selected.at(-1);
+    const certified = await this.canInspect(u);
+    return {
+      items: await this.decorateBookings(selected, certified), day, canInspect: certified,
+      nextCursor: rows.length > q.limit && last ? Buffer.from(JSON.stringify({ bucket: q.bucket, day, start: last.scheduledStart.toISOString(), id: last.id })).toString("base64url") : null,
+    };
+  }
+
+  async fieldBooking(u: AbilityUser, id: string): Promise<FieldBooking> {
+    this.assertStaff(u);
+    const row = await this.prisma.appointment.findUnique({ where: { id }, include: { serviceType: true, vehicle: { include: { owner: true } } } });
+    if (!row) throw new DomainError("SLOT_UNAVAILABLE", "booking not found", 404);
+    return (await this.decorateBookings([row], await this.canInspect(u)))[0];
   }
 }

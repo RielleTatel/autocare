@@ -32,7 +32,7 @@ function makeDeps() {
 describe("InspectionDraft", () => {
   it("starting a draft snapshots the cached checklist version", async () => {
     const { deps, inspections } = makeDeps();
-    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", checklist });
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", checklist });
     const stored = inspections.drafts.get(draft.clientUuid)!;
     expect(stored.checklistVersionId).toBe("version-1");
     expect(JSON.parse(stored.checklistJson).versionLabel).toBe("v1.0");
@@ -40,7 +40,7 @@ describe("InspectionDraft", () => {
 
   it("tracks progress per category and overall, deriving measured statuses", async () => {
     const { deps } = makeDeps();
-    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", checklist });
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", checklist });
     await draft.saveResult({ pointCode: "PAD", measuredValue: 3.0, photoUris: [] }); // → ATTENTION
     const { perCategory, overall } = await draft.progress();
     expect(overall).toEqual({ answered: 1, total: 3 });
@@ -48,27 +48,42 @@ describe("InspectionDraft", () => {
     expect(brakes).toMatchObject({ answered: 1, total: 2, worst: "ATTENTION" });
   });
 
-  it("completeness lists missing points and adverse points missing required photos", async () => {
+  it("completeness blocks missing answers while every photo remains optional", async () => {
     const { deps } = makeDeps();
-    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", checklist });
-    await draft.saveResult({ pointCode: "PAD", measuredValue: 3.0, photoUris: [] }); // adverse, photo required
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", checklist });
+    await draft.saveResult({ pointCode: "PAD", measuredValue: 3.0, photoUris: [] }); // adverse, legacy snapshot requests a photo
     await draft.saveResult({ pointCode: "DISC", status: "GOOD", photoUris: [] });
     const check = await draft.completeness();
     expect(check.complete).toBe(false);
     expect(check.missingPoints).toEqual(["HEAD"]);
-    expect(check.missingPhotos).toEqual(["PAD"]);
+    expect(check.missingPhotos).toEqual([]);
+  });
+
+  it("submits a resumed legacy draft with adverse findings and no photos", async () => {
+    const { deps, outbox } = makeDeps();
+    const first = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", checklist });
+    await first.saveResult({ pointCode: "PAD", measuredValue: 1, photoUris: [] });
+    await first.saveResult({ pointCode: "DISC", status: "CRITICAL", photoUris: [] });
+    await first.saveResult({ pointCode: "HEAD", status: "GOOD", photoUris: [] });
+    const resumed = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", checklist });
+    expect(resumed.clientUuid).toBe(first.clientUuid);
+    expect(await resumed.completeness()).toEqual({ complete: true, missingPoints: [], missingPhotos: [] });
+    await resumed.submit();
+    const pending = await outbox.pendingInOrder();
+    expect(pending.map((entry) => entry.op)).toEqual(["create", "submit"]);
+    expect(pending[0].payload.results).toEqual(expect.arrayContaining([expect.objectContaining({ pointCode: "DISC", status: "CRITICAL" })]));
   });
 
   it("submit refuses while incomplete", async () => {
     const { deps, outbox } = makeDeps();
-    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", checklist });
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", checklist });
     await expect(draft.submit()).rejects.toThrow(/incomplete/);
     expect(await outbox.counts()).toEqual({ pending: 0, rejected: 0 });
   });
 
   it("submit writes create + submit outbox entries in order and locks the draft", async () => {
     const { deps, outbox, inspections } = makeDeps();
-    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", odometerKm: 42_000, checklist });
+    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "appt-1", odometerKm: 42_000, checklist });
     await draft.saveResult({ pointCode: "PAD", measuredValue: 8.0, photoUris: [] }); // GOOD, no photo needed
     await draft.saveResult({ pointCode: "DISC", status: "GOOD", photoUris: [] });
     await draft.saveResult({ pointCode: "HEAD", status: "MONITOR", photoUris: [] });
@@ -98,16 +113,11 @@ describe("InspectionDraft", () => {
     expect(create.payload).toMatchObject({ appointmentId: "appt-1" });
   });
 
-  it("omits appointmentId for a walk-in with no booking", async () => {
-    const { deps, outbox } = makeDeps();
-    const draft = await InspectionDraft.start(deps, { vehicleId: "veh-1", odometerKm: 1, checklist });
-    await draft.saveResult({ pointCode: "PAD", measuredValue: 8.0, photoUris: [] });
-    await draft.saveResult({ pointCode: "DISC", status: "GOOD", photoUris: [] });
-    await draft.saveResult({ pointCode: "HEAD", status: "GOOD", photoUris: [] });
-    await draft.submit();
-
-    const [create] = await outbox.pendingInOrder();
-    // undefined, not null — the zod payload schema has appointmentId as optional.
-    expect(create.payload.appointmentId).toBeUndefined();
+  it("refuses to create unlinked work when booking context is missing", async () => {
+    const { deps, outbox, inspections } = makeDeps();
+    await expect(InspectionDraft.start(deps, { vehicleId: "veh-1", appointmentId: "", checklist }))
+      .rejects.toThrow(/booking/i);
+    expect(inspections.drafts.size).toBe(0);
+    expect(await outbox.counts()).toEqual({ pending: 0, rejected: 0 });
   });
 });

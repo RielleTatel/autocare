@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getBays, getServiceTypes, getOperatingHours, createBay, createServiceType, upsertOperatingHours, type Bay, type ServiceType, type OperatingHours } from "../../../lib/scheduling/api";
+import { getBays, getServiceTypes, getOperatingHours, createBay, createServiceType, updateServiceType, upsertOperatingHours, type Bay, type ServiceType, type OperatingHours } from "../../../lib/scheduling/api";
 import { Button } from "../../../components/Button";
 import { Shifts } from "./Shifts";
 
@@ -55,6 +55,7 @@ export default function CapacityConfigPage() {
   const [stDur, setStDur] = useState(60);
   const [stSkills, setStSkills] = useState("");
   const [stPrice, setStPrice] = useState(50000);
+  const [inspectionRequired, setInspectionRequired] = useState(false);
   const [weekday, setWeekday] = useState<(typeof WEEKDAYS)[number]>("MON");
   const [open, setOpen] = useState("09:00");
   const [close, setClose] = useState("17:00");
@@ -97,6 +98,10 @@ export default function CapacityConfigPage() {
             {serviceTypes.map((s) => (
               <li key={s.id} className="rounded-sm border border-line px-2 py-1">
                 {s.name} <span className="text-ink-muted font-mono text-xs">{s.standardDurationMin}m</span>
+                <label className="flex items-center gap-2 min-h-14">
+                  <input type="checkbox" checked={s.inspectionRequired ?? false} onChange={(e) => guard(() => updateServiceType(s.id, { inspectionRequired: e.target.checked }), "Inspection requirement saved")} />
+                  Requires inspection
+                </label>
               </li>
             ))}
             {serviceTypes.length === 0 && <li className="text-ink-muted">None yet</li>}
@@ -107,7 +112,8 @@ export default function CapacityConfigPage() {
             <input type="number" value={stDur} onChange={(e) => setStDur(Number(e.target.value))} placeholder="Duration (min)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
             <input value={stSkills} onChange={(e) => setStSkills(e.target.value)} placeholder="required skills (comma-sep)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
             <input type="number" value={stPrice} onChange={(e) => setStPrice(Number(e.target.value))} placeholder="Price (centavos)" className="h-9 px-2 rounded-sm border border-line bg-chassis text-ink text-sm" />
-            <Button onClick={() => guard(() => createServiceType({ code: stCode, name: stName, standardDurationMin: stDur, requiredSkills: csv(stSkills), priceCentavos: stPrice }), "Service type created")}>Add service type</Button>
+            <label className="flex items-center gap-2 min-h-14 text-sm text-ink"><input type="checkbox" checked={inspectionRequired} onChange={(e) => setInspectionRequired(e.target.checked)} />Requires inspection</label>
+            <Button onClick={() => guard(() => createServiceType({ code: stCode, name: stName, standardDurationMin: stDur, requiredSkills: csv(stSkills), priceCentavos: stPrice, inspectionRequired }), "Service type created")}>Add service type</Button>
           </div>
         </section>
 

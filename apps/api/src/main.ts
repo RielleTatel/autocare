@@ -23,6 +23,10 @@ async function bootstrap() {
   // signature; every other route is unaffected (they only ever read req.body, never rawBody).
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   app.setGlobalPrefix("api/v1");
+  // Expo browser previews use bearer authentication from another origin.
+  // Production browser origins can be supplied without opening cookie access.
+  const browserOrigins = new Set((process.env.CORS_ORIGINS ?? "http://localhost:8081,http://localhost:8082,http://127.0.0.1:8081,http://127.0.0.1:8082").split(",").map(s => s.trim()).filter(Boolean));
+  app.enableCors({ origin: (origin, done) => done(null, !origin || browserOrigins.has(origin)) });
   const port = env.PORT ?? env.API_PORT;
   await app.listen(port, "0.0.0.0");
   Logger.log(`API listening on 0.0.0.0:${port}`, "Bootstrap");

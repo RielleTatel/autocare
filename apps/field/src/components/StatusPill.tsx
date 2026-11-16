@@ -8,10 +8,10 @@ type Look = { bg: string; fg: string };
 /** warn uses the FAIR band token (product data); the others are brand/semantic. */
 const TONE: Record<Tone, Look> = {
   neutral: { bg: fieldTheme.colors.chassis, fg: fieldTheme.colors.ink },
-  info: { bg: fieldTheme.colors.primary, fg: "#FFFFFF" },
-  success: { bg: fieldTheme.colors.success, fg: "#FFFFFF" },
-  warn: { bg: fieldTheme.vhsBands.FAIR.fill, fg: "#FFFFFF" },
-  danger: { bg: fieldTheme.colors.danger, fg: "#FFFFFF" },
+  info: { bg: fieldTheme.colors.primarySoft, fg: fieldTheme.colors.primaryDeep },
+  success: { bg: fieldTheme.vhsBands.EXCELLENT.soft, fg: fieldTheme.vhsBands.EXCELLENT.text },
+  warn: { bg: fieldTheme.vhsBands.FAIR.soft, fg: fieldTheme.vhsBands.FAIR.text },
+  danger: { bg: fieldTheme.vhsBands.CRITICAL.soft, fg: fieldTheme.vhsBands.CRITICAL.text },
   solid: { bg: fieldTheme.colors.primary, fg: "#FFFFFF" },
   solidDeep: { bg: fieldTheme.colors.primaryDeep, fg: "#FFFFFF" },
 };
@@ -30,7 +30,7 @@ export function StatusPill({
       style={{
         alignSelf: "flex-start",
         backgroundColor: t.bg,
-        borderRadius: fieldTheme.radii.pill,
+        borderRadius: fieldTheme.radii.xs,
         paddingHorizontal: fieldTheme.spacing.sm,
         paddingVertical: 2,
         ...style,

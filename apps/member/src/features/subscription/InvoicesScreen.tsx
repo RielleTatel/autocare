@@ -42,7 +42,8 @@ function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => voi
   );
 }
 
-export function InvoicesScreen({ fetchInvoices, onSelectInvoice }: {
+export function InvoicesScreen({ fetchInvoices, onSelectInvoice, navigation }: {
+  navigation?: any;
   fetchInvoices: () => Promise<Invoice[]>;
   onSelectInvoice: (invoice: Invoice) => void;
 }) {
@@ -59,7 +60,10 @@ export function InvoicesScreen({ fetchInvoices, onSelectInvoice }: {
   // The rejection has to be handled here: an async call fired from useEffect
   // with nothing attached becomes an unhandled rejection, which RN surfaces as
   // a red uncaught-error box — and the list never settles.
-  useEffect(() => { load().catch(() => setFailed(true)); }, [load]);
+  useEffect(() => {
+    void load().catch(() => setFailed(true));
+    return navigation?.addListener?.("focus", () => { void load().catch(() => setFailed(true)); });
+  }, [load, navigation]);
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -32,11 +32,51 @@ export const serviceTypeSchema = z.object({
   standardDurationMin: z.number().int().positive(),
   requiredSkills: z.array(z.string()).default([]),
   priceCentavos: z.number().int().nonnegative(),
+  inspectionRequired: z.boolean().default(false),
   entitlementType: z.enum(["INSPECTION", "PICKUP", "ROADSIDE", "OIL_CHANGE", "TIRE_ROTATION"]).nullable().optional(),
   intervalDays: z.number().int().positive().nullable().optional(),
   intervalKm: z.number().int().positive().nullable().optional(),
 });
 export type ServiceTypeInput = z.infer<typeof serviceTypeSchema>;
+
+export const serviceTypeUpdateSchema = serviceTypeSchema.partial();
+export type ServiceTypeUpdate = z.infer<typeof serviceTypeUpdateSchema>;
+
+export const fieldBookingQuerySchema = z.object({
+  bucket: z.enum(["today", "upcoming", "past", "all"]).default("today"),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+  cursor: z.string().max(1000).optional(),
+  day: yyyymmdd.optional(),
+});
+export type FieldBookingQuery = z.infer<typeof fieldBookingQuerySchema>;
+
+export interface FieldBooking {
+  id: string;
+  vehicleId: string;
+  vehiclePlateNo: string;
+  vehicleMake: string;
+  vehicleModel: string;
+  vehicleYear: number;
+  serviceTypeId: string;
+  serviceTypeName: string;
+  inspectionRequired: boolean;
+  canInspect: boolean;
+  scheduledStart: string;
+  scheduledEnd: string;
+  status: string;
+  requiresPickup: boolean;
+  bayId: string | null;
+  bayName: string | null;
+  memberName: string | null;
+  inspectionId: string | null;
+  scorePending: boolean;
+}
+export interface FieldBookingPage {
+  items: FieldBooking[];
+  nextCursor: string | null;
+  day: string;
+  canInspect: boolean;
+}
 
 export const baySchema = z.object({
   name: z.string().min(1),

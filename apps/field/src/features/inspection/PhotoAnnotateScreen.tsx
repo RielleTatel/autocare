@@ -1,111 +1,57 @@
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Svg, { Circle, Line, Polygon } from "react-native-svg";
-import { fieldTheme } from "../../theme";
+import { fieldTheme as t } from "../../theme";
 import { Icon } from "../../components/Icon";
+import { FieldNav } from "../../components/FieldNav";
+import { Button } from "../../components/Button";
+import { ActionBar, workContent } from "../../components/FieldLayout";
 import { compressForUpload } from "../../shared/sync/photos";
 
 type Mark = { kind: "arrow" | "circle"; x: number; y: number };
-
-/** F-07 — capture → simple arrow/circle annotation overlay → compressed URI.
- *  Marks are burned in metadata-free (positions overlaid at render on review);
- *  the compressed JPEG itself is what uploads (≤500 KB, NFR-006). */
-export function PhotoAnnotateScreen({ onDone, onCancel }: { onDone(uri: string, marks: Mark[]): void; onCancel(): void }) {
-  const t = fieldTheme;
+export function PhotoAnnotateScreen({ onDone, onCancel }: { onDone(uri: string, marks: Mark[]): void | Promise<void>; onCancel(): void }) {
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [tool, setTool] = useState<Mark["kind"]>("arrow");
   const [marks, setMarks] = useState<Mark[]>([]);
-
-  if (!permission?.granted) {
-    return (
-      <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center", padding: t.spacing.lg, gap: t.spacing.md }}>
-        <Text style={[t.text("body"), { color: t.colors.ink, textAlign: "center" }]}>Camera access is needed to photograph findings.</Text>
-        <Pressable accessibilityRole="button" onPress={requestPermission} style={{ minHeight: t.minTarget, paddingHorizontal: t.spacing.lg, borderRadius: t.radii.md, backgroundColor: t.colors.primary, alignItems: "center", justifyContent: "center" }}>
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Allow camera</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={onCancel}><Text style={[t.text("body"), { color: t.colors.primary }]}>Cancel</Text></Pressable>
-      </View>
-    );
-  }
-
-  if (!photoUri) {
-    return (
-      <View style={{ flex: 1, backgroundColor: "#000" }}>
-        <CameraView ref={camera} style={{ flex: 1 }} />
-        <View style={{ flexDirection: "row", justifyContent: "space-around", padding: t.spacing.md, backgroundColor: t.colors.primaryDeep }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={onCancel} style={{ minHeight: t.minTarget, justifyContent: "center" }}>
-            <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Take photo"
-            onPress={async () => {
-              const shot = await camera.current?.takePictureAsync();
-              if (shot?.uri) setPhotoUri(shot.uri);
-            }}
-            style={{ minHeight: t.minTarget, minWidth: t.minTarget, borderRadius: t.radii.pill, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", paddingHorizontal: t.spacing.lg }}
-          >
-            <Text style={[t.text("h2"), { color: t.colors.primaryDeep }]}>Capture</Text>
-          </Pressable>
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const prepare = async () => {
+    if (busy || !photoUri) return;
+    setBusy(true); setError(null);
+    try { await onDone(await compressForUpload(photoUri), marks); }
+    catch { setError("Could not save this photo. Try again, or return to the finding without it."); }
+    finally { setBusy(false); }
+  };
+  if (!permission?.granted) return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+    <FieldNav title="Finding photo" onBack={onCancel} />
+    <View style={{ flex: 1, justifyContent: "center" }}><View style={workContent}>
+      <Icon name="camera" size={32} color={t.colors.inkMuted} />
+      <Text style={[t.text("h1"), { color: t.colors.ink }]}>Add a photo</Text>
+      <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Allow camera access to document this finding. Photos are optional.</Text>
+      {permission?.canAskAgain === false ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Enable camera access in your device or browser settings, or return to the finding to continue.</Text> : <Button onPress={() => { void requestPermission().catch(() => setError("Camera access is unavailable. Return to the finding to continue.")); }}>Allow camera</Button>}
+      {error ? <Text accessibilityRole="alert" style={[t.text("body"), { color: t.colors.danger }]}>{error}</Text> : null}
+    </View></View>
+  </View>;
+  return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+    <FieldNav title="Finding photo" onBack={onCancel} />
+    {!photoUri ? <View style={{ flex: 1, backgroundColor: "#000000", width: "100%", maxWidth: 760, alignSelf: "center" }}><CameraView ref={camera} style={{ flex: 1 }} /></View> : <View style={{ flex: 1, backgroundColor: "#000000", width: "100%", maxWidth: 760, alignSelf: "center" }} onStartShouldSetResponder={() => true} onResponderRelease={(event) => {
+      const { locationX, locationY } = event.nativeEvent; setMarks((old) => [...old, { kind: tool, x: locationX, y: locationY }]);
+    }}>
+      <Image source={{ uri: photoUri }} style={{ flex: 1 }} resizeMode="contain" />
+      <Svg pointerEvents="none" style={{ position: "absolute", inset: 0 }}>{marks.map((mark, index) => mark.kind === "circle" ? <Circle key={index} cx={mark.x} cy={mark.y} r={36} stroke={t.colors.danger} strokeWidth={4} fill="none" /> : <Fragment key={index}><Line x1={mark.x - 48} y1={mark.y + 48} x2={mark.x} y2={mark.y} stroke={t.colors.danger} strokeWidth={4} /><Polygon points={`${mark.x},${mark.y} ${mark.x - 16},${mark.y + 6} ${mark.x - 6},${mark.y + 16}`} fill={t.colors.danger} /></Fragment>)}</Svg>
+    </View>}
+    <ActionBar>
+      {error ? <Text accessibilityRole="alert" style={[t.text("label"), { color: t.colors.danger }]}>{error}</Text> : null}
+      {photoUri ? <>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {(["arrow", "circle"] as const).map((kind) => <Pressable key={kind} accessibilityRole="button" accessibilityLabel={`${kind === "arrow" ? "Arrow" : "Circle"} tool`} accessibilityState={{ selected: tool === kind }} onPress={() => setTool(kind)} style={{ flex: 1, minHeight: t.minTarget, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: t.radii.sm, backgroundColor: tool === kind ? t.colors.chassis : t.colors.surface }}><Icon name={kind === "arrow" ? "arrow-up-right" : "circle-dot"} size={20} color={t.colors.ink} /><Text style={[t.text("label"), { color: t.colors.ink }]}>{kind === "arrow" ? "Arrow" : "Circle"}</Text></Pressable>)}
+          <Button block={false} variant="ghost" onPress={() => { setPhotoUri(null); setMarks([]); setError(null); }}>Retake</Button>
         </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
-      <View
-        style={{ flex: 1 }}
-        onStartShouldSetResponder={() => true}
-        onResponderRelease={(e) => {
-          const { locationX, locationY } = e.nativeEvent;
-          setMarks((m) => [...m, { kind: tool, x: locationX, y: locationY }]);
-        }}
-      >
-        <Svg style={{ position: "absolute", inset: 0, zIndex: 2 }}>
-          {marks.map((m, i) =>
-            m.kind === "circle" ? (
-              <Circle key={i} cx={m.x} cy={m.y} r={36} stroke={t.colors.danger} strokeWidth={4} fill="none" />
-            ) : (
-              <>
-                <Line key={`l${i}`} x1={m.x - 48} y1={m.y + 48} x2={m.x} y2={m.y} stroke={t.colors.danger} strokeWidth={4} />
-                <Polygon key={`p${i}`} points={`${m.x},${m.y} ${m.x - 16},${m.y + 6} ${m.x - 6},${m.y + 16}`} fill={t.colors.danger} />
-              </>
-            ),
-          )}
-        </Svg>
-        <View style={{ flex: 1, backgroundColor: "#222" }}>
-          <Image source={{ uri: photoUri }} style={{ flex: 1 }} resizeMode="contain" />
-        </View>
-      </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-around", padding: t.spacing.md, backgroundColor: t.colors.primaryDeep }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Arrow tool" onPress={() => setTool("arrow")} style={{ minHeight: t.minTarget, flexDirection: "row", alignItems: "center", gap: t.spacing.xs, justifyContent: "center", opacity: tool === "arrow" ? 1 : 0.6 }}>
-          <Icon name="arrow-up-right" size={20} color="#FFFFFF" />
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Arrow</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Circle tool" onPress={() => setTool("circle")} style={{ minHeight: t.minTarget, flexDirection: "row", alignItems: "center", gap: t.spacing.xs, justifyContent: "center", opacity: tool === "circle" ? 1 : 0.6 }}>
-          <Icon name="circle-dot" size={20} color="#FFFFFF" />
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Circle</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Retake" onPress={() => { setPhotoUri(null); setMarks([]); }} style={{ minHeight: t.minTarget, justifyContent: "center" }}>
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Retake</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Use photo"
-          onPress={async () => {
-            const compressed = await compressForUpload(photoUri);
-            onDone(compressed, marks);
-          }}
-          style={{ minHeight: t.minTarget, flexDirection: "row", alignItems: "center", gap: t.spacing.xs, justifyContent: "center" }}
-        >
-          <Icon name="check" size={20} color="#FFFFFF" />
-          <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Use photo</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
+        <Button icon="check" disabled={busy} onPress={() => { void prepare(); }}>{busy ? "Saving photo…" : "Use photo"}</Button>
+      </> : <Button icon="camera" disabled={busy} accessibilityLabel="Take photo" onPress={() => { if (busy) return; setBusy(true); setError(null); void camera.current?.takePictureAsync().then((shot) => { if (shot?.uri) setPhotoUri(shot.uri); }).catch(() => setError("Could not take a photo. Try again, or return to the finding.")).finally(() => setBusy(false)); }}>Take photo</Button>}
+    </ActionBar>
+  </View>;
 }

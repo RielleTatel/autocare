@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import * as SecureStore from "../../shared/secureStorage";
 import { api } from "../../shared/api";
 import type { Role } from "@autocare/contracts";
 

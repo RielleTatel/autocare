@@ -35,10 +35,7 @@ export interface OutboxRepo {
   /** Record a failed delivery attempt (network) for backoff. */
   recordAttempt(clientUuid: string, at: number, error: string): Promise<void>;
   rejectedInOrder(): Promise<OutboxEntry[]>;
-  /** Permanently drop an entry and anything that depends on it. A server
-   *  rejection is terminal on the client (nothing moves REJECTED back to
-   *  PENDING), so without this a rejected item is unclearable short of wiping
-   *  app data.
+  /** Permanently drop an entry and anything that depends on it. A rejected record may be retried unchanged or explicitly discarded.
    *
    *  Cascades because an inspection `submit` references its `create` only by
    *  `payload.inspectionClientUuid`: once the create is gone the submit can
@@ -46,6 +43,8 @@ export interface OutboxRepo {
    *  has to reason about. Returns every clientUuid removed so the caller can
    *  clean up the matching local rows. */
   discard(clientUuid: string): Promise<string[]>;
+  /** Explicitly retry this record and dependent unsynced operations with their original UUIDs/payloads. */
+  retry(clientUuid: string): Promise<void>;
   counts(): Promise<{ pending: number; rejected: number }>;
 }
 

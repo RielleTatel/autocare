@@ -91,3 +91,19 @@ describe("outbox repo semantics", () => {
     expect(pending[0].lastAttemptAt).toBe(1000);
   });
 });
+
+it("explicit retry preserves record UUIDs/payloads, retries dependent submit, and leaves synced create alone", async () => {
+  const repo = new MemoryOutboxRepo();
+  await repo.enqueue({ clientUuid: "create-a", entityType: "inspection", op: "create", payload: { vehicleId: "original" } });
+  await repo.enqueue({ clientUuid: "submit-a", entityType: "inspection", op: "submit", payload: { inspectionClientUuid: "create-a" } });
+  await repo.markRejected("create-a", "denied"); await repo.markRejected("submit-a", "missing");
+  await repo.recordAttempt("create-a", 100, "offline");
+  await repo.retry("create-a");
+  expect((await repo.pendingInOrder()).map((e) => ({ id: e.clientUuid, payload: e.payload, attempts: e.attempts }))).toEqual([
+    { id: "create-a", payload: { vehicleId: "original" }, attempts: 0 },
+    { id: "submit-a", payload: { inspectionClientUuid: "create-a" }, attempts: 0 },
+  ]);
+  await repo.markSynced("create-a"); await repo.markRejected("submit-a", "temporary denial");
+  await repo.retry("create-a");
+  expect((await repo.pendingInOrder()).map((e) => e.clientUuid)).toEqual(["submit-a"]);
+});

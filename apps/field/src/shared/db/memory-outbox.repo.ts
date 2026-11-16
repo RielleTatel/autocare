@@ -37,6 +37,15 @@ export class MemoryOutboxRepo implements OutboxRepo {
     return doomed.map((e) => e.clientUuid);
   }
 
+  async retry(clientUuid: string): Promise<void> {
+    for (const entry of this.entries) {
+      if (entry.state !== "SYNCED" && dependsOn(entry, clientUuid)) {
+        entry.state = "PENDING"; entry.attempts = 0;
+        entry.lastError = undefined; entry.lastAttemptAt = undefined;
+      }
+    }
+  }
+
   async counts(): Promise<{ pending: number; rejected: number }> {
     return {
       pending: this.entries.filter((e) => e.state === "PENDING").length,

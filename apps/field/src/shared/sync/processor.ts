@@ -29,6 +29,10 @@ export class SyncProcessor {
 
   constructor(private deps: Deps) {}
 
+  async waitUntilIdle(): Promise<void> {
+    while (this.draining) await new Promise<void>((resolve) => setTimeout(resolve, 25));
+  }
+
   subscribe(cb: (s: SyncStatusSnapshot) => void): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
@@ -50,17 +54,17 @@ export class SyncProcessor {
     for (const cb of this.listeners) cb(snap);
   }
 
-  async drain(): Promise<DrainReport> {
+  async drain(options: { force?: boolean } = {}): Promise<DrainReport> {
     const report: DrainReport = { alreadyDraining: false, sent: 0, applied: 0, duplicates: 0, rejected: 0, deferred: 0, failed: 0, photosUploaded: 0 };
     if (this.draining) {
       return { ...report, alreadyDraining: true };
     }
     this.draining = true;
-    await this.notify();
     try {
+      await this.notify();
       const now = (this.deps.now ?? Date.now)();
       const pending = await this.deps.outbox.pendingInOrder();
-      const eligible = pending.filter((e) => e.attempts === 0 || (e.lastAttemptAt ?? 0) + backoffMs(e.attempts) <= now);
+      const eligible = pending.filter((e) => options.force || e.attempts === 0 || (e.lastAttemptAt ?? 0) + backoffMs(e.attempts) <= now);
       report.deferred = pending.length - eligible.length;
       if (eligible.length === 0) return report;
 
@@ -101,9 +105,13 @@ export class SyncProcessor {
       }
       this.lastSyncAt = now;
       return report;
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      report.failed += 1;
+      return report;
     } finally {
       this.draining = false;
-      await this.notify();
+      await this.notify().catch(() => undefined);
     }
   }
 }

@@ -5,6 +5,7 @@ import { AppModule } from "../src/app.module";
 import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
 import { purgeFixtures } from "./fixtures";
+import { MEMBER_CHECKOUT_ORIGIN } from "../src/modules/payments/checkout-policy";
 import { FAKE_WEBHOOK_SECRET, FakePspPayload } from "../src/modules/payments/fake-provider.adapter";
 
 function sign(body: string): string {
@@ -20,6 +21,7 @@ describe("webhooks/payments (e2e)", () => {
   // DB-level unique constraint (subscriptions_one_active_per_vehicle), so reusing a vehicle
   // across fixtures collides.
   const vehicleIds: string[] = [];
+  const invoiceIds: string[] = [];
   let plateCounter = 0;
 
   beforeAll(async () => {
@@ -42,6 +44,7 @@ describe("webhooks/payments (e2e)", () => {
   });
 
   afterAll(async () => {
+    await prisma.auditLog.deleteMany({ where: { action: MEMBER_CHECKOUT_ORIGIN, entityType: "Invoice", entityId: { in: invoiceIds } } });
     await prisma.payment.deleteMany({ where: { invoice: { subscription: { vehicleId: { in: vehicleIds } } } } });
     await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: { vehicleId: { in: vehicleIds } } } } });
     await prisma.invoice.deleteMany({ where: { subscription: { vehicleId: { in: vehicleIds } } } });
@@ -77,6 +80,11 @@ describe("webhooks/payments (e2e)", () => {
         totalCentavos: 100000n, status, dueDate: new Date(), chargeAttempts,
       },
     });
+    invoiceIds.push(invoice.id);
+    await prisma.auditLog.create({ data: {
+      actorUserId: owner.id, action: MEMBER_CHECKOUT_ORIGIN, entityType: "Invoice", entityId: invoice.id,
+      after: { kind: "INITIAL_SUBSCRIPTION", subscriptionId: sub.id, planId },
+    } });
     return { sub, invoice, vehicle };
   }
 

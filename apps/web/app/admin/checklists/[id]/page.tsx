@@ -98,6 +98,7 @@ export default function ChecklistEditorPage() {
           </p>
         )}
         {msg && <p className="text-success text-sm">{msg}</p>}
+        <p className="text-ink-muted text-sm">Inspection photos are optional for every finding.</p>
         {err && <p className="text-danger text-sm">{err}</p>}
         <p className={`text-sm font-medium ${Math.abs(weightSum - 100) < 1e-9 ? "text-success" : "text-danger"}`}>
           Category weights sum: {weightSum} / 100
@@ -126,7 +127,6 @@ export default function ChecklistEditorPage() {
                     <th className="py-1 pr-2">Safety</th>
                     <th className="py-1 pr-2">Type</th>
                     <th className="py-1 pr-2">Thresholds</th>
-                    <th className="py-1 pr-2">Photo on adverse</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -154,9 +154,6 @@ export default function ChecklistEditorPage() {
                       <td className="py-1 pr-2">{p.inputType === "MEASURED" ? `Measured (${p.unit ?? "?"})` : "Status"}</td>
                       <td className="py-1 pr-2 font-mono text-xs">
                         {p.thresholds ? `${p.thresholds.direction === "HIGHER_BETTER" ? "≥" : "<"} ${p.thresholds.good} / ${p.thresholds.monitor} / ${p.thresholds.attention}` : "—"}
-                      </td>
-                      <td className="py-1 pr-2">
-                        <input aria-label={`${p.code} photo on adverse`} type="checkbox" disabled={!editable} checked={p.requiresPhotoOnAdverse ?? false} onChange={(e) => setPoint(ci, pi, { requiresPhotoOnAdverse: e.target.checked })} />
                       </td>
                     </tr>
                   ))}

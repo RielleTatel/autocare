@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import * as SecureStore from "./secureStorage";
 import { createApiClient } from "@autocare/api-client";
 
 /** Exported so on-device caches can be namespaced by backend. Pointing the app

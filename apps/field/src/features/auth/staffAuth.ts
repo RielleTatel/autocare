@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import * as SecureStore from "expo-secure-store";
+import * as SecureStore from "../../shared/secureStorage";
 import { api } from "../../shared/api";
 
 if (!getApps().length) {

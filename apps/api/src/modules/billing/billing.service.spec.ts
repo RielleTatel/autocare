@@ -146,6 +146,26 @@ describe("BillingService (unit, mocked prisma)", () => {
       expect(prisma.subscription.update).not.toHaveBeenCalled();
     });
 
+    it("applies the pending plan at its Manila cycle boundary once without issuing a charge", async () => {
+      const boundary = new Date("2026-12-01T00:00:00+08:00");
+      let now = new Date(boundary.getTime() - 1);
+      const sub = { id: "downgrade-fixture", planId: "plus", pendingPlanId: "basic" as string | null, currentPeriodEnd: boundary };
+      const prisma = makePrisma({
+        subscription: {
+          findMany: jest.fn(async ({ where }: any) => where.pendingPlanId && sub.pendingPlanId ? [{ ...sub }] : []),
+          update: jest.fn(async ({ data }: any) => Object.assign(sub, data)),
+        },
+      });
+      const svc = new BillingService(prisma, {} as any, {} as any, { now: () => now });
+      expect((await svc.evaluateStates()).downgradesApplied).toBe(0);
+      expect(sub.planId).toBe("plus");
+      now = boundary;
+      expect((await svc.evaluateStates()).downgradesApplied).toBe(1);
+      expect(sub).toMatchObject({ planId: "basic", pendingPlanId: null });
+      expect((await svc.evaluateStates()).downgradesApplied).toBe(0);
+      expect(prisma.invoice.create).not.toHaveBeenCalled();
+    });
+
     it("does not finalize a cancellation before currentPeriodEnd is reached", async () => {
       const prisma = makePrisma({
         invoice: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn(), findFirst: jest.fn(), findUniqueOrThrow: jest.fn(), create: jest.fn(), count: jest.fn() },

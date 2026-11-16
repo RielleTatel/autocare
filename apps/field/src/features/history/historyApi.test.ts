@@ -50,13 +50,13 @@ describe("getVehicleHistory", () => {
     expect(stale).toBe(true);
   });
 
-  it("treats no history as an empty list, never an error", async () => {
+  it("keeps a failed uncached request distinct from an empty history", async () => {
     // A vehicle that has never been inspected is a normal state, and this is
     // reference data beside a primary action — it must not throw into the flow.
     mockApi.get.mockRejectedValue(new Error("404"));
     mockKvGet.mockResolvedValue(null);
 
-    await expect(getVehicleHistory("veh-1")).resolves.toEqual({ history: [], stale: false });
+    await expect(getVehicleHistory("veh-1")).rejects.toThrow("404");
   });
 });
 

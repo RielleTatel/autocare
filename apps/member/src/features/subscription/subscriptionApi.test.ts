@@ -47,3 +47,13 @@ describe("makeSubscriptionApi", () => {
     expect(post).toHaveBeenCalledWith("/subscriptions/s1/cancel", { acceptEtf: true });
   });
 });
+
+it("reuses explicit operation keys for uncertain create, upgrade and checkout retries", async () => {
+  const post = jest.fn().mockResolvedValue({ id: "s1", invoiceId: "i1" });
+  const subApi = makeSubscriptionApi({ get: jest.fn(), post } as any);
+  await subApi.createSubscription("v1", "p1", "E_PAYMENT", "operation-create");
+  await subApi.createSubscription("v1", "p1", "E_PAYMENT", "operation-create");
+  await subApi.upgrade("s1", "p2", "operation-upgrade");
+  await subApi.createPaymentIntent("i1", "operation-checkout");
+  expect(post.mock.calls.map(call => call[2]["Idempotency-Key"])).toEqual(["operation-create", "operation-create", "operation-upgrade", "operation-checkout"]);
+});

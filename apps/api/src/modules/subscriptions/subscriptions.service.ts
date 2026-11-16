@@ -8,6 +8,7 @@ import { VehiclesService } from "../vehicles/vehicles.service";
 import { subscriptionStatusFor, nextState } from "../payments/invoice-lifecycle";
 import { addMonthsManila, proratedUpgradeCentavos, etfCentavos, remainingLockInMonths, INTERVAL_MONTHS } from "./billing-math";
 import { nextInvoiceNumber, withInvoiceNumberRetry } from "./invoice-numbering";
+import { MEMBER_CHECKOUT_ORIGIN } from "../payments/checkout-policy";
 
 const SUBSCRIPTION_SELECT = {
   id: true, vehicleId: true, planId: true, userId: true, status: true, startedAt: true,
@@ -61,6 +62,7 @@ export class SubscriptionsService {
   async create(user: AbilityUser, dto: SubscriptionCreate) {
     await this.vehicles.findForUser(user, dto.vehicleId, "update"); // owner-only
     const plan = await this.loadPlanOrThrow(dto.planId);
+    if (!plan.isActive) throw new DomainError("FORBIDDEN_ROLE", "This plan is no longer available", 422);
 
     // Friendly, fast-path check — not race-safe on its own (two concurrent requests can both
     // pass this and both attempt to insert an ACTIVE row for the same vehicle). The DB-level
@@ -111,7 +113,7 @@ export class SubscriptionsService {
         // never be settled (neither the cash nor auto-charge paths query for it). Mirrors
         // the renewal path in billing.service.ts.
         const invoiceStatus = nextState("INVOICE_ISSUED", { type: "ISSUED", method: dto.paymentMethod });
-        await tx.invoice.create({
+        const invoice = await tx.invoice.create({
           data: {
             subscriptionId: created.id,
             number,
@@ -123,11 +125,15 @@ export class SubscriptionsService {
             },
           },
         });
-        return created;
+        await tx.auditLog.create({ data: {
+          actorUserId: user.id, action: MEMBER_CHECKOUT_ORIGIN, entityType: "Invoice", entityId: invoice.id,
+          after: { kind: "INITIAL_SUBSCRIPTION", subscriptionId: created.id, planId: plan.id },
+        } });
+        return { subscription: created, invoiceId: invoice.id };
       }),
     );
 
-    return toSubscriptionResponse(row);
+    return { ...toSubscriptionResponse(row.subscription), invoiceId: row.invoiceId };
   }
 
   async list(user: AbilityUser) {
@@ -138,12 +144,16 @@ export class SubscriptionsService {
       select: SUBSCRIPTION_WITH_PLAN_SELECT,
       orderBy: { startedAt: "desc" },
     });
-    return rows.map((r) => ({ ...toSubscriptionResponse(r), plan: toPlanSummary(r.plan) }));
+    const pendingIds = [...new Set(rows.map((row) => row.pendingPlanId).filter((id): id is string => !!id))];
+    const pendingPlans = pendingIds.length ? await this.prisma.plan.findMany({ where: { id: { in: pendingIds } }, select: PLAN_SUMMARY_SELECT }) : [];
+    const pendingById = new Map(pendingPlans.map((plan) => [plan.id, toPlanSummary(plan)]));
+    return rows.map((r) => ({ ...toSubscriptionResponse(r), plan: toPlanSummary(r.plan), pendingPlan: r.pendingPlanId ? pendingById.get(r.pendingPlanId) ?? null : null }));
   }
 
   async get(user: AbilityUser, id: string) {
     const sub = await this.findForUser(user, id, "read");
-    return { ...toSubscriptionResponse(sub), plan: toPlanSummary(sub.plan) };
+    const pendingPlan = sub.pendingPlanId ? await this.prisma.plan.findUnique({ where: { id: sub.pendingPlanId }, select: PLAN_SUMMARY_SELECT }) : null;
+    return { ...toSubscriptionResponse(sub), plan: toPlanSummary(sub.plan), pendingPlan: pendingPlan ? toPlanSummary(pendingPlan) : null };
   }
 
   async entitlements(user: AbilityUser, id: string) {
@@ -172,6 +182,7 @@ export class SubscriptionsService {
       this.loadPlanOrThrow(sub.planId),
       this.loadPlanOrThrow(dto.planId),
     ]);
+    if (!newPlan.isActive) throw new DomainError("FORBIDDEN_ROLE", "This plan is no longer available", 422);
     if (newPlan.priceCentavos <= currentPlan.priceCentavos)
       throw new DomainError("SUBSCRIPTION_NOT_UPGRADE", "Target plan must be higher-priced than the current plan", 422);
     if (sub.status !== "ACTIVE")
@@ -184,10 +195,16 @@ export class SubscriptionsService {
 
     const row = await withInvoiceNumberRetry(() =>
       this.prisma.$transaction(async (tx) => {
-        const updated = await tx.subscription.update({ where: { id: sub.id }, data: { planId: newPlan.id }, select: SUBSCRIPTION_SELECT });
+        // Compare-and-swap prevents distinct concurrent requests from invoicing the same upgrade twice.
+        const changed = await tx.subscription.updateMany({
+          where: { id: sub.id, planId: sub.planId, status: "ACTIVE" },
+          data: { planId: newPlan.id, pendingPlanId: null },
+        });
+        if (changed.count !== 1) throw new DomainError("SUBSCRIPTION_NOT_UPGRADE", "The subscription changed; refresh before upgrading", 409);
+        const updated = await tx.subscription.findUniqueOrThrow({ where: { id: sub.id }, select: SUBSCRIPTION_SELECT });
         const number = await nextInvoiceNumber(tx);
         const invoiceStatus = nextState("INVOICE_ISSUED", { type: "ISSUED", method: sub.paymentMethod });
-        await tx.invoice.create({
+        const invoice = await tx.invoice.create({
           data: {
             subscriptionId: sub.id,
             number,
@@ -197,11 +214,15 @@ export class SubscriptionsService {
             items: { create: [{ description: `Upgrade to ${newPlan.name} (pro-rated)`, qty: 1, unitPriceCentavos: deltaCentavos }] },
           },
         });
-        return updated;
+        await tx.auditLog.create({ data: {
+          actorUserId: user.id, action: MEMBER_CHECKOUT_ORIGIN, entityType: "Invoice", entityId: invoice.id,
+          after: { kind: "UPGRADE", subscriptionId: sub.id, planId: newPlan.id },
+        } });
+        return { subscription: updated, invoiceId: invoice.id };
       }),
     );
 
-    return { ...toSubscriptionResponse(row), proratedChargeCentavos: deltaCentavos };
+    return { ...toSubscriptionResponse(row.subscription), invoiceId: row.invoiceId, proratedChargeCentavos: deltaCentavos };
   }
 
   async downgrade(user: AbilityUser, id: string, dto: SubscriptionDowngrade) {
@@ -210,6 +231,8 @@ export class SubscriptionsService {
       this.loadPlanOrThrow(sub.planId),
       this.loadPlanOrThrow(dto.planId),
     ]);
+    if (!newPlan.isActive) throw new DomainError("FORBIDDEN_ROLE", "This plan is no longer available", 422);
+    if (sub.status !== "ACTIVE") throw new DomainError("SUBSCRIPTION_NOT_ACTIVE", "Only an ACTIVE subscription can schedule a downgrade", 409);
     if (newPlan.priceCentavos >= currentPlan.priceCentavos)
       throw new DomainError("SUBSCRIPTION_NOT_DOWNGRADE", "Target plan must be lower-priced than the current plan", 422);
 

@@ -38,3 +38,30 @@ describe("UpgradeDowngradeScreen", () => {
     expect(getByTestId("change-result").props.children).toMatch(/No charge today/i);
   });
 });
+
+it("starts with the Account-selected upgrade and opens its exact prorated invoice once", async () => {
+  const onUpgrade = jest.fn().mockResolvedValue({ id: "s1", invoiceId: "upgrade-i1", proratedChargeCentavos: 45000 });
+  const onCheckoutInvoice = jest.fn();
+  const { getByTestId } = render(<UpgradeDowngradeScreen currentPlan={currentPlan} targetPlan={premiumPlan}
+    fetchPlans={jest.fn().mockResolvedValue([currentPlan, premiumPlan])} onUpgrade={onUpgrade}
+    onDowngrade={jest.fn()} onDone={jest.fn()} onCheckoutInvoice={onCheckoutInvoice} />);
+  fireEvent.press(getByTestId("confirm-change"));
+  fireEvent.press(getByTestId("confirm-change"));
+  await waitFor(() => expect(onCheckoutInvoice).toHaveBeenCalledWith("upgrade-i1"));
+  expect(onUpgrade).toHaveBeenCalledTimes(1);
+  expect(onUpgrade).toHaveBeenCalledWith("p2");
+  expect(getByTestId("change-result")).toHaveTextContent(/Payment is not confirmed/);
+});
+
+it("starts with the selected downgrade, schedules it, and opens no checkout", async () => {
+  const onDowngrade = jest.fn().mockResolvedValue({ id: "s1", effectiveAt: "2026-12-01T00:00:00Z" });
+  const onCheckoutInvoice = jest.fn(); const onUpgrade = jest.fn();
+  const { getByTestId } = render(<UpgradeDowngradeScreen currentPlan={currentPlan} targetPlan={liteplan}
+    fetchPlans={jest.fn().mockResolvedValue([currentPlan, liteplan])} onUpgrade={onUpgrade}
+    onDowngrade={onDowngrade} onDone={jest.fn()} onCheckoutInvoice={onCheckoutInvoice} />);
+  fireEvent.press(getByTestId("confirm-change"));
+  await waitFor(() => getByTestId("change-result"));
+  expect(onDowngrade).toHaveBeenCalledWith("p3");
+  expect(onCheckoutInvoice).not.toHaveBeenCalled(); expect(onUpgrade).not.toHaveBeenCalled();
+  expect(getByTestId("change-result")).toHaveTextContent(/No charge today/);
+});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import type { LocalResult } from "../../shared/db/inspections.repo";
 import {
   CachedChecklist, CategoryProgress, Completeness, DraftDeps, InspectionDraft,
@@ -17,18 +17,20 @@ export interface UseInspectionDraft {
    * callers decide whether to navigate away without racing the next render's state. */
   submit(): Promise<boolean>;
   submitError: string | null;
+  flush(): Promise<void>;
 }
 
 /** React binding over InspectionDraft — state refresh after every save/submit. */
 export function useInspectionDraft(
   deps: DraftDeps,
-  input: { vehicleId: string; appointmentId?: string | null; odometerKm?: number | null; checklist: CachedChecklist },
+  input: { vehicleId: string; appointmentId: string; odometerKm?: number | null; checklist: CachedChecklist },
 ): UseInspectionDraft {
   const [draft, setDraft] = useState<InspectionDraft | null>(null);
   const [results, setResults] = useState<LocalResult[]>([]);
   const [check, setCheck] = useState<Completeness | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const pendingSaves = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let mounted = true;
@@ -36,6 +38,7 @@ export function useInspectionDraft(
       .then(async (d) => {
         if (!mounted) return;
         setDraft(d);
+        setIsLocked(d.isLocked);
         setResults(await d.results());
         setCheck(await d.completeness());
       })
@@ -51,14 +54,19 @@ export function useInspectionDraft(
 
   const saveResult = useCallback(async (r: LocalResult) => {
     if (!draft) return;
-    await draft.saveResult(r);
+    const write = pendingSaves.current.then(() => draft.saveResult(r));
+    pendingSaves.current = write.catch(() => undefined);
+    await write;
     await refresh(draft);
   }, [draft, refresh]);
+
+  const flush = useCallback(async () => { await pendingSaves.current; }, []);
 
   const submit = useCallback(async () => {
     if (!draft) return false;
     setSubmitError(null);
     try {
+      await pendingSaves.current;
       await draft.submit();
       setIsLocked(true);
       return true;
@@ -73,5 +81,5 @@ export function useInspectionDraft(
     return { perCategory: categoryProgress(draft.checklist, results), overall: overallProgress(draft.checklist, results) };
   }, [draft, results]);
 
-  return { draft, results, perCategory, overall, check, isLocked, saveResult, submit, submitError };
+  return { draft, results, perCategory, overall, check, isLocked, saveResult, submit, submitError, flush };
 }

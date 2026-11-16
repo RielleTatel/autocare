@@ -431,6 +431,7 @@ model ServiceType {
   intervalDays        Int?             @map("interval_days")
   intervalKm          Int?             @map("interval_km")
   isActive            Boolean          @default(true) @map("is_active")
+  inspectionRequired  Boolean          @default(false) @map("inspection_required")
   createdAt           DateTime         @default(now()) @map("created_at")
   appointments        Appointment[]
 

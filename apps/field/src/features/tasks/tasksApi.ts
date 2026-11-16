@@ -1,43 +1,39 @@
 import { api, API_BASE_URL } from "../../shared/api";
 import { kvGet, kvSet } from "../../shared/db/kv";
 
-/** Namespaced by backend — see checklistCache.ts. Appointment/vehicle ids differ
- *  per database, so a list cached against one API must not be served for another. */
-const KEY = `tasks:today:${API_BASE_URL}`;
-
+export type BookingBucket = "today" | "upcoming" | "past" | "all";
 export type FieldTask = {
-  id: string;
-  scheduledStart: string;
-  vehicleId: string;
-  vehiclePlateNo: string;
-  serviceTypeName: string;
-  memberName: string | null;
-  status: string;
+  id: string; scheduledStart: string; scheduledEnd?: string;
+  vehicleId: string; vehiclePlateNo: string; vehicleMake?: string; vehicleModel?: string; vehicleYear?: number;
+  serviceTypeName: string; memberName: string | null; status: string;
+  inspectionRequired?: boolean; canInspect?: boolean; inspectionId?: string | null; scorePending?: boolean;
+  bayName?: string | null; requiresPickup?: boolean;
 };
-
-/** Manila civil date, which is what the board endpoint expects. */
-export function todayManila(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+export type BookingPage = { items: FieldTask[]; nextCursor: string | null; day: string; canInspect: boolean };
+export function todayManila(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
-
-/**
- * Today's work from the Phase 3 advisor board. MECHANIC is inside STAFF_ROLES,
- * so this needs no API change.
- *
- * Online: refresh and overwrite the cache. Offline: serve the last download and
- * say so — a mechanic in a basement bay still needs this morning's list. Throws
- * only when there is nothing cached at all.
- */
-export async function getTodaysTasks(): Promise<{ tasks: FieldTask[]; stale: boolean }> {
-  const day = todayManila();
+export const manilaSchedule = (iso: string) => new Date(iso).toLocaleString("en-PH", {
+  timeZone: "Asia/Manila", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+});
+export async function getBookings(bucket: BookingBucket, cursor?: string): Promise<BookingPage & { stale: boolean; downloadedAt: number; cacheError?: string }> {
+  const key = `bookings:${API_BASE_URL}:${bucket}:${todayManila()}:${cursor ?? "first"}`;
   try {
-    const fresh = await api.get<FieldTask[]>(`/scheduling/board?from=${day}&to=${day}`);
-    await kvSet(KEY, JSON.stringify({ day, tasks: fresh }));
-    return { tasks: fresh, stale: false };
-  } catch (err) {
-    const cached = await kvGet(KEY);
-    if (!cached) throw err;
-    const parsed = JSON.parse(cached) as { day: string; tasks: FieldTask[] };
-    return { tasks: parsed.tasks, stale: true };
+    const page = await api.get<BookingPage>(`/scheduling/field-bookings?bucket=${bucket}&limit=30${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
+    const saved = { ...page, downloadedAt: Date.now() };
+    let cacheError: string | undefined;
+    await kvSet(key, JSON.stringify(saved)).catch(() => { cacheError = "Offline copy could not be saved on this device. Online bookings are shown."; });
+    return { ...saved, stale: false, cacheError };
+  } catch (error) {
+    const cached = await kvGet(key);
+    if (!cached) throw error;
+    return { ...JSON.parse(cached), stale: true };
   }
+}
+export async function getBooking(id: string): Promise<FieldTask> {
+  return api.get<FieldTask>(`/scheduling/field-bookings/${encodeURIComponent(id)}`);
+}
+export async function getTodaysTasks(): Promise<{ tasks: FieldTask[]; stale: boolean }> {
+  const page = await getBookings("today");
+  return { tasks: page.items, stale: page.stale };
 }

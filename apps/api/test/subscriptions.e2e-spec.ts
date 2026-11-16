@@ -164,14 +164,14 @@ describe("subscriptions (e2e)", () => {
   });
 
   it("upgrade: rejects a lower/equal-priced target — 422 SUBSCRIPTION_NOT_UPGRADE", async () => {
-    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/upgrade`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/upgrade`).set("Idempotency-Key", randomUUID())
       .send({ planId: basicPlanId }).expect(422);
     expect(res.body.error.code).toBe("SUBSCRIPTION_NOT_UPGRADE");
   });
 
   it("upgrade: pro-rates the delta, switches planId, issues a new invoice", async () => {
     const before = await prisma.invoice.count({ where: { subscriptionId } });
-    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/upgrade`)
+    const res = await as(ownerA).post(`/api/v1/subscriptions/${subscriptionId}/upgrade`).set("Idempotency-Key", randomUUID())
       .send({ planId: premiumPlanId }).expect(201);
     expect(res.body.data.planId).toBe(premiumPlanId);
     expect(res.body.data.proratedChargeCentavos).toBeGreaterThan(0);
@@ -324,7 +324,7 @@ describe("subscriptions (e2e)", () => {
       await as(ownerA).post(`/api/v1/subscriptions/${subId}/cancel`).send({ acceptEtf: true }).expect(201);
       const invoiceCountAfterCancel = await prisma.invoice.count({ where: { subscriptionId: subId } });
 
-      const res = await as(ownerA).post(`/api/v1/subscriptions/${subId}/upgrade`).send({ planId: premiumPlanId }).expect(409);
+      const res = await as(ownerA).post(`/api/v1/subscriptions/${subId}/upgrade`).set("Idempotency-Key", randomUUID()).send({ planId: premiumPlanId }).expect(409);
       expect(res.body.error.code).toBe("SUBSCRIPTION_NOT_ACTIVE");
 
       const invoiceCountAfterUpgradeAttempt = await prisma.invoice.count({ where: { subscriptionId: subId } });

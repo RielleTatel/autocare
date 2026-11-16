@@ -34,8 +34,8 @@ export function StatusChip({ status, testID }: { status: PointStatus; testID?: s
       style={{
         alignSelf: "flex-start",
         backgroundColor: statusColor(status),
-        borderRadius: t.radii.pill,
-        paddingHorizontal: t.spacing.md,
+        borderRadius: t.radii.xs,
+        paddingHorizontal: t.spacing.sm,
         paddingVertical: t.spacing.xs,
       }}
     >

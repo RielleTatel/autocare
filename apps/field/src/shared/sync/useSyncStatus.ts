@@ -9,7 +9,9 @@ export function useSyncStatus(processor: SyncProcessor): SyncStatusSnapshot {
   const [status, setStatus] = useState<SyncStatusSnapshot>(EMPTY);
   useEffect(() => {
     let mounted = true;
-    processor.snapshot().then((s) => { if (mounted) setStatus(s); });
+    processor.snapshot().then((s) => { if (mounted) setStatus(s); }).catch((error) => {
+      if (mounted) setStatus({ ...EMPTY, lastError: `Could not read local sync storage: ${error instanceof Error ? error.message : String(error)}` });
+    });
     const unsubscribe = processor.subscribe((s) => { if (mounted) setStatus(s); });
     return () => { mounted = false; unsubscribe(); };
   }, [processor]);

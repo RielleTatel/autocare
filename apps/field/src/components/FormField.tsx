@@ -1,7 +1,7 @@
 import { Text, TextInput, View, type KeyboardTypeOptions } from "react-native";
 import { fieldTheme } from "../theme";
 
-/** Uppercase label + sunken input + sentence-form error (never a code). */
+/** Sentence-case label, readable field, and an actionable error. */
 export function FormField({
   label, value, placeholder, error, errorTestID, hint, mono, multiline, secureTextEntry, keyboardType, onChangeText, testID, accessibilityLabel,
 }: {
@@ -25,7 +25,7 @@ export function FormField({
   return (
     <View style={{ gap: t.spacing.xs }}>
       {label ? (
-        <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        <Text style={{ ...t.text("label", 600), color: t.colors.ink }}>
           {label}
         </Text>
       ) : null}
@@ -45,7 +45,7 @@ export function FormField({
           backgroundColor: t.colors.surface,
           borderWidth: t.borders.hairline,
           borderColor: error ? t.colors.danger : t.colors.line,
-          borderRadius: t.radii.md,
+          borderRadius: t.radii.sm,
           paddingHorizontal: t.spacing.md,
           paddingVertical: multiline ? t.spacing.md : undefined,
           color: t.colors.ink,

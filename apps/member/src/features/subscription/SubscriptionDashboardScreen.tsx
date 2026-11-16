@@ -4,6 +4,7 @@ import { theme } from "../../theme";
 import { EntitlementSummary } from "@autocare/contracts";
 import { formatCentavos } from "./formatCentavos";
 import { entitlementFraction, entitlementLabel, lockInDaysRemaining, statusMessage, SubscriptionStatus } from "./entitlements";
+import { PendingPlan } from "./PendingPlan";
 import { SubscriptionWithPlan } from "./subscriptionApi";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -30,7 +31,8 @@ function EntitlementGauge({ e }: { e: EntitlementSummary }) {
   );
 }
 
-export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCancel, onViewInvoices }: {
+export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCancel, onViewInvoices, navigation }: {
+  navigation?: any;
   fetchDashboard: () => Promise<{ subscription: SubscriptionWithPlan; entitlements: EntitlementSummary[] }>;
   onManagePlan: () => void;
   onCancel: () => void;
@@ -50,7 +52,10 @@ export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCa
   // with nothing attached becomes an unhandled rejection, which RN surfaces as
   // a red uncaught-error box — and the screen sits on "Loading…" for ever
   // because `data` never arrives.
-  useEffect(() => { load().catch(() => setFailed(true)); }, [load]);
+  useEffect(() => {
+    void load().catch(() => setFailed(true));
+    return navigation?.addListener?.("focus", () => { void load().catch(() => setFailed(true)); });
+  }, [load, navigation]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -99,6 +104,7 @@ export function SubscriptionDashboardScreen({ fetchDashboard, onManagePlan, onCa
         <Text testID="next-billing" style={[t.text("body"), { color: t.colors.ink }]}>
           {formatDate(subscription.currentPeriodEnd)} · {formatCentavos(subscription.plan.priceCentavos)}
         </Text>
+        <PendingPlan subscription={subscription} />
         <Text testID="lockin-countdown" style={[t.text("label"), { color: t.colors.inkMuted }]}>
           {daysLeft > 0
             ? `Locked in for ${daysLeft} more day${daysLeft === 1 ? "" : "s"} · ends ${formatDate(subscription.lockInEndsAt)}`

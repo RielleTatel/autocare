@@ -71,6 +71,17 @@ export class SqliteOutboxRepo implements OutboxRepo {
     return doomed.map((e) => e.clientUuid);
   }
 
+  async retry(clientUuid: string): Promise<void> {
+    const db = await getDb();
+    const rows = await db.getAllAsync<Row>("SELECT * FROM outbox WHERE state != 'SYNCED'");
+    const group = rows.map(toEntry).filter((entry) => dependsOn(entry, clientUuid));
+    await db.withTransactionAsync(async () => {
+      for (const entry of group) {
+        await db.runAsync("UPDATE outbox SET state = 'PENDING', attempts = 0, last_error = NULL, last_attempt_at = NULL WHERE client_uuid = ? AND state != 'SYNCED'", entry.clientUuid);
+      }
+    });
+  }
+
   async counts(): Promise<{ pending: number; rejected: number }> {
     const db = await getDb();
     const rows = await db.getAllAsync<{ state: string; n: number }>(

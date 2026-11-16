@@ -25,7 +25,7 @@ export function StatusChoice({
       onPress={onPress}
       style={{
         minHeight: t.minTarget,
-        borderRadius: t.radii.md,
+        borderRadius: t.radii.sm,
         borderWidth: selected ? 0 : t.borders.hairline,
         borderColor: t.colors.line,
         backgroundColor: selected ? statusColor(status) : t.colors.surface,
@@ -34,7 +34,7 @@ export function StatusChoice({
         opacity: disabled ? 0.4 : 1,
       }}
     >
-      <Text style={{ ...t.text("h2"), color: selected ? "#FFFFFF" : t.colors.ink }}>
+      <Text style={{ ...t.text("body", 600), color: selected ? "#FFFFFF" : t.colors.ink }}>
         {STATUS_LABELS[status]}
       </Text>
     </Pressable>

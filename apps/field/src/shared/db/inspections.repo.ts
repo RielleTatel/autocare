@@ -28,9 +28,34 @@ export class InspectionsRepo {
     const db = await getDb();
     await db.runAsync(
       `INSERT INTO local_inspections (client_uuid, vehicle_id, appointment_id, checklist_version_id, checklist_json, odometer_km, notes, status, started_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?)`,
-      d.clientUuid, d.vehicleId, d.appointmentId, d.checklistVersionId, d.checklistJson, d.odometerKm, d.notes, d.startedAt,
+       SELECT ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?
+       WHERE NOT EXISTS (SELECT 1 FROM local_inspections WHERE appointment_id = ?)`,
+      d.clientUuid, d.vehicleId, d.appointmentId, d.checklistVersionId, d.checklistJson, d.odometerKm, d.notes, d.startedAt, d.appointmentId,
     );
+  }
+
+  async findByBooking(appointmentId: string): Promise<LocalInspection | null> {
+    const db = await getDb();
+    const row = await db.getFirstAsync<{ client_uuid: string }>(
+      "SELECT client_uuid FROM local_inspections WHERE appointment_id = ? ORDER BY started_at DESC LIMIT 1", appointmentId,
+    );
+    return row ? this.get(row.client_uuid) : null;
+  }
+
+  /** Queue both operations and lock together: a crash cannot strand half a submission. */
+  async persistSubmission(clientUuid: string, submitUuid: string, create: Record<string, unknown>, submit: Record<string, unknown>, at: number): Promise<void> {
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      const row = await db.getFirstAsync<{ status: string }>("SELECT status FROM local_inspections WHERE client_uuid = ?", clientUuid);
+      if (row?.status !== "DRAFT") throw new Error("draft is locked after submission");
+      for (const [uuid, op, payload] of [[clientUuid, "create", create], [submitUuid, "submit", submit]] as const) {
+        await db.runAsync(
+          "INSERT INTO outbox (client_uuid, entity_type, op, payload, created_at) VALUES (?, 'inspection', ?, ?, MAX(COALESCE((SELECT MAX(created_at) FROM outbox), 0) + 1, ?))",
+          uuid, op, JSON.stringify(payload), at,
+        );
+      }
+      await db.runAsync("UPDATE local_inspections SET status = 'LOCKED', submitted_at = ? WHERE client_uuid = ?", at, clientUuid);
+    });
   }
 
   async get(clientUuid: string): Promise<LocalInspection | null> {

@@ -25,6 +25,8 @@ describe("contracts", () => {
     expect(errorCodes).toContain("ILLEGAL_TRANSITION");
     expect(errorCodes).toContain("WASTE_REQUIRED");
     expect(errorCodes).toContain("STOCK_INSUFFICIENT");
-    expect(errorCodes.length).toBe(45);
+    expect(errorCodes).toContain("INSPECTION_BOOKING_NOT_FOUND");
+    expect(errorCodes).toContain("INSPECTION_BOOKING_MISMATCH");
+    expect(new Set(errorCodes).size).toBe(errorCodes.length);
   });
 });

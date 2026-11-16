@@ -23,4 +23,14 @@ describe("CategoryNavScreen", () => {
     fireEvent.press(screen.getByLabelText("Brakes: 3 of 4 done"));
     expect(onOpenCategory).toHaveBeenCalledWith("BRK");
   });
+
+  it("shows saved findings in an expanded category and opens any point directly", () => {
+    const open = jest.fn();
+    const checklist = { id: "v1", versionLabel: "v1", weightVersion: "w1", categories: [{ code: "BRK", label: "Brakes", weight: 100, points: [{ code: "DISC", label: "Brake discs", inputType: "STATUS" as const, weightInCategory: 100, isSafetyCritical: true, recommendation: "Inspect" }] }] };
+    render(<CategoryNavScreen perCategory={perCategory} overall={{ answered: 9, total: 10 }} checklist={checklist} results={[{ pointCode: "DISC", status: "CRITICAL", notes: "Cracked", photoUris: [] }]} onOpenCategory={jest.fn()} onOpenPoint={open} onReview={jest.fn()} />);
+    expect(screen.getByText("Cracked")).toBeTruthy();
+    expect(screen.getByText("Critical")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Edit Brake discs"));
+    expect(open).toHaveBeenCalledWith("DISC");
+  });
 });

@@ -1,22 +1,31 @@
 import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
-import { Image, Text } from "react-native";
+import { Image, Text, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { fieldTheme } from "../theme";
 import { fontAssets } from "../theme/fonts";
 import { StaffLoginScreen } from "../features/auth/StaffLoginScreen";
-import { TaskListScreen } from "../features/tasks/TaskListScreen";
+import { FieldHome } from "./FieldHome";
+import { BookingDetailScreen } from "../features/tasks/BookingDetailScreen";
+import type { InspectionSetup } from "../features/tasks/BookingDetailScreen";
+import type { FieldTask } from "../features/tasks/tasksApi";
+import { VehicleOverviewScreen } from "../features/vehicles/VehiclesScreen";
+import type { Vehicle } from "@autocare/contracts";
+import { API_BASE_URL } from "../shared/api";
+import { setStorageContext, clearStorageContext } from "../shared/db/schema";
+import { SyncBanner } from "../shared/SyncBanner";
+import { useSyncStatus } from "../shared/sync/useSyncStatus";
 import { signInStaff, signOutStaff } from "../features/auth/staffAuth";
 import { bootstrapStaff, type StaffBootState } from "../features/auth/staffSession";
 import { InspectionFlow } from "../features/inspection/InspectionFlow";
 import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
 import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { InspectionDetailScreen } from "../features/history/InspectionDetailScreen";
-import { startSyncListener } from "../shared/sync";
+import { startSyncListener, syncProcessor } from "../shared/sync";
 
 const splashMark = require("../../assets/splash-icon.png");
 
@@ -26,6 +35,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 SplashScreen.setOptions({ duration: 180, fade: true });
 
 const Stack = createNativeStackNavigator();
+const navigationRef = { current: createNavigationContainerRef<any>() };
 
 /**
  * Every stack screen clears the status bar / notch here rather than each screen
@@ -79,8 +89,13 @@ function AppShell() {
   const screenOptions = useScreenOptions();
 
   useEffect(() => {
-    bootstrapStaff().then(setBoot);
-    startSyncListener();
+    bootstrapStaff().then((next) => {
+      if (next.state === "READY") {
+        setStorageContext(API_BASE_URL, next.id);
+        startSyncListener();
+      }
+      setBoot(next);
+    });
   }, []);
 
   useEffect(() => {
@@ -92,43 +107,57 @@ function AppShell() {
   if (!fontsLoaded && !fontError) return <Splash />;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef.current}>
       <StatusBar style="dark" />
       {boot === "PENDING" ? (
         <Splash />
       ) : boot.state === "READY" ? (
-        <Stack.Navigator screenOptions={screenOptions}>
+        <SignedInShell>
+        <Stack.Navigator screenOptions={screenOptions} key={boot.id}>
           <Stack.Screen name="Home">
-            {({ navigation }) => (
-              <TaskListScreen
-                name={boot.name}
-                role={boot.role}
-                onStartInspection={(from) => navigation.navigate("Inspection", from ?? {})}
-                onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
-                onOpenRoadside={() => navigation.navigate("Roadside")}
-                onLogout={() => {
-                  void signOutStaff().then(() => setBoot({ state: "ANONYMOUS" }));
-                }}
-              />
-            )}
+            {({ navigation }) => <FieldHome staffId={boot.id} name={boot.name} role={boot.role}
+              onOpenBooking={(task) => navigation.navigate("BookingDetail", { task })}
+              onOpenVehicle={(vehicle) => navigation.navigate("VehicleOverview", { vehicle })}
+              onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
+              onLogout={() => { void (async () => {
+                await syncProcessor.waitUntilIdle();
+                clearStorageContext();
+                await signOutStaff();
+                setBoot({ state: "ANONYMOUS" });
+              })(); }} />}
+          </Stack.Screen>
+          <Stack.Screen name="BookingDetail">
+            {({ navigation, route }) => <BookingDetailScreen task={(route.params as { task: FieldTask }).task}
+              onBack={() => navigation.goBack()}
+              onStart={(task, setup) => navigation.navigate("Inspection", { vehicleId: task.vehicleId, appointmentId: task.id, scheduledStart: task.scheduledStart, serviceTypeName: task.serviceTypeName, setup })}
+              onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
+              onOpenReport={(vehicleId, inspectionId) => navigation.navigate("InspectionDetail", { vehicleId, inspectionId, vehiclePlateNo: (route.params as { task: FieldTask }).task.vehiclePlateNo })} />}
+          </Stack.Screen>
+          <Stack.Screen name="VehicleOverview">
+            {({ navigation, route }) => <VehicleOverviewScreen vehicle={(route.params as { vehicle: Vehicle }).vehicle}
+              onBack={() => navigation.goBack()} onOpenReport={(vehicleId, inspectionId) => navigation.navigate("InspectionDetail", { vehicleId, inspectionId, vehiclePlateNo: (route.params as { vehicle: Vehicle }).vehicle.plateNo })} />}
           </Stack.Screen>
           <Stack.Screen name="Inspection">
             {({ navigation, route }) => (
               <InspectionFlow
                 initialVehicleId={(route.params as { vehicleId?: string } | undefined)?.vehicleId}
                 initialAppointmentId={(route.params as { appointmentId?: string } | undefined)?.appointmentId}
+                scheduledStart={(route.params as { scheduledStart?: string } | undefined)?.scheduledStart}
+                serviceTypeName={(route.params as { serviceTypeName?: string } | undefined)?.serviceTypeName}
+                initialSetup={(route.params as { setup?: InspectionSetup } | undefined)?.setup}
                 onOpenInspection={(vehicleId, inspectionId) => navigation.navigate("InspectionDetail", { vehicleId, inspectionId })}
-                onDone={() => navigation.popToTop()}
+                onDone={() => navigation.goBack()}
               />
             )}
           </Stack.Screen>
           <Stack.Screen name="InspectionDetail">
             {({ navigation, route }) => {
-              const p = route.params as { vehicleId: string; inspectionId: string };
+              const p = route.params as { vehicleId: string; inspectionId: string; vehiclePlateNo?: string };
               return (
                 <InspectionDetailScreen
                   vehicleId={p.vehicleId}
                   inspectionId={p.inspectionId}
+                  vehiclePlateNo={p.vehiclePlateNo}
                   onBack={() => navigation.goBack()}
                 />
               );
@@ -144,15 +173,30 @@ function AppShell() {
             {({ navigation }) => <SyncQueueScreen onBack={() => navigation.goBack()} />}
           </Stack.Screen>
         </Stack.Navigator>
+        </SignedInShell>
       ) : (
         <Stack.Navigator screenOptions={screenOptions}>
           <Stack.Screen name="StaffLogin">
-            {() => <StaffLoginContainer setBoot={setBoot} />}
+            {() => <StaffLoginContainer setBoot={(next) => {
+              if (next.state === "READY") { setStorageContext(API_BASE_URL, next.id); startSyncListener(); void syncProcessor.drain(); }
+              setBoot(next);
+            }} />}
           </Stack.Screen>
         </Stack.Navigator>
       )}
     </NavigationContainer>
   );
+}
+
+function SignedInShell({ children }: { children: React.ReactNode }) {
+  const sync = useSyncStatus(syncProcessor);
+  return <View style={{ flex: 1 }}>
+    <SyncBanner pendingCount={sync.pendingCount} rejectedCount={sync.rejectedCount} lastError={sync.lastError}
+      onPress={() => { /* Global banner opens via the active navigation container below. */
+        navigationRef.current?.navigate("SyncQueue");
+      }} />
+    {children}
+  </View>;
 }
 
 export default function App() {

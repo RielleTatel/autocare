@@ -9,6 +9,7 @@ import { Icon } from "../../components/Icon";
 import { FormField } from "../../components/FormField";
 import { FieldNav } from "../../components/FieldNav";
 import { ProgressBar } from "../../components/ProgressBar";
+import { ActionBar, workContent } from "../../components/FieldLayout";
 import { StatusChip } from "../../components/StatusChip";
 import { StatusChoice } from "../../components/StatusChoice";
 import type { LocalResult } from "../../shared/db/inspections.repo";
@@ -19,7 +20,7 @@ const ADVERSE: PointStatus[] = ["ATTENTION", "CRITICAL"];
 export interface PointEntryProps {
   point: ConfigPoint;
   initial?: LocalResult;
-  onSave(result: LocalResult): void;
+  onSave(result: LocalResult): void | Promise<void>;
   onAddPhoto(): void;
   onNext(): void;
   /** Injected so tests can observe haptics without native modules. */
@@ -30,12 +31,13 @@ export interface PointEntryProps {
   progress?: { answered: number; total: number };
 }
 
-/** F-06 — one point per screen: giant chips (≥56dp), numeric pad + live derived
- *  chip for measured points, blocking photo affordance on adverse findings. */
+/** Focused finding editor with optional notes/photos and a persistent next action. */
 export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, onAdverseHaptic, onBack, title, progress }: PointEntryProps) {
   const t = fieldTheme;
   const [status, setStatus] = useState<PointStatus | undefined>(initial?.status as PointStatus | undefined);
   const [value, setValue] = useState<string>(initial?.measuredValue?.toString() ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const photoUris = initial?.photoUris ?? [];
 
@@ -47,27 +49,37 @@ export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, o
   }, [point, value]);
 
   const effective = point.inputType === "MEASURED" ? (derived ?? status) : status;
-  const needsPhoto = Boolean(point.requiresPhotoOnAdverse && effective && ADVERSE.includes(effective) && photoUris.length === 0);
+  const invalidValue = point.inputType === "MEASURED" && value.trim() !== "" && !Number.isFinite(Number(value));
 
-  const save = () => {
-    onSave({
+  const save = async (override: Partial<LocalResult> = {}) => {
+    await onSave({
       pointCode: point.code,
       status: effective,
       measuredValue: point.inputType === "MEASURED" && value.trim() !== "" ? Number(value) : undefined,
       notes: notes.trim() === "" ? undefined : notes,
       photoUris,
+      ...override,
     });
+  };
+
+  const leave = async (next: () => void) => {
+    if (saving) return;
+    setSaving(true); setSaveError(null);
+    try { await save(); next(); }
+    catch (e) { setSaveError(e instanceof Error ? e.message : "Could not save this finding. Try again."); }
+    finally { setSaving(false); }
   };
 
   const pick = (s: PointStatus) => {
     setStatus(s);
+    void save({ status: s }).catch((e) => setSaveError(e instanceof Error ? e.message : "Could not save this finding."));
     if (ADVERSE.includes(s)) onAdverseHaptic?.();
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
-      <FieldNav title={title ?? point.label} onBack={onBack} />
-      <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md }}>
+      <FieldNav title={title ?? point.label} onBack={onBack ? () => { void leave(onBack); } : undefined} />
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={workContent}>
         {/* One point per screen means no sense of how much is left without
             this — the category list is several taps away mid-inspection. */}
         {progress ? (
@@ -94,7 +106,12 @@ export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, o
                   accessibilityLabel={`${point.label} measured value`}
                   keyboardType="decimal-pad"
                   value={value}
-                  onChangeText={setValue}
+                  onChangeText={(v) => {
+                    setValue(v);
+                    const measuredValue = v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined;
+                    const status = measuredValue !== undefined && point.thresholds ? deriveStatus(measuredValue, point.thresholds) : undefined;
+                    void save({ measuredValue, status }).catch((e) => setSaveError(String(e)));
+                  }}
                   placeholder="0.0"
                 />
               </View>
@@ -104,23 +121,18 @@ export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, o
           </View>
         )}
 
-        <View style={{ gap: t.spacing.sm }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: t.spacing.sm }}>
           {STATUSES.map((s) => (
+            <View key={s} style={{ width: s === "NOT_APPLICABLE" ? "100%" : "48%", flexGrow: 1 }}>
             <StatusChoice
-              key={s}
               status={s}
               selected={effective === s}
               disabled={point.inputType === "MEASURED" && derived !== undefined && derived !== s}
               onPress={() => pick(s)}
             />
+            </View>
           ))}
         </View>
-
-        {needsPhoto && (
-          <Button variant="danger" icon="camera" accessibilityLabel="Add photo (required)" onPress={onAddPhoto}>
-            Add photo — required for this finding
-          </Button>
-        )}
 
         {photoUris.length > 0 && (
           <Card style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}>
@@ -132,21 +144,27 @@ export function PointEntryScreen({ point, initial, onSave, onAddPhoto, onNext, o
         )}
 
         <FormField
+          label="Notes (optional)"
           accessibilityLabel="Notes"
           value={notes}
-          onChangeText={setNotes}
+          onChangeText={(next) => { setNotes(next); void save({ notes: next.trim() || undefined }).catch((e) => setSaveError(String(e))); }}
           placeholder="Notes (optional)"
           multiline
         />
 
+        <Button block={false} variant="ghost" icon="camera" accessibilityLabel="Add photo (optional)" onPress={() => { void leave(onAddPhoto); }}>Add photo (optional)</Button>
+
+        {saveError ? <Text accessibilityRole="alert" style={[t.text("body"), { color: t.colors.danger }]}>{saveError}</Text> : null}
+      </ScrollView>
+      <ActionBar hint={invalidValue ? "Enter a valid measurement." : effective === undefined ? "Record a status or measurement to continue." : undefined}>
         <Button
           accessibilityLabel="Save and next"
-          disabled={effective === undefined || needsPhoto}
-          onPress={() => { save(); onNext(); }}
+          disabled={effective === undefined || invalidValue || saving}
+          onPress={() => { void leave(onNext); }}
         >
           Save &amp; next
         </Button>
-      </ScrollView>
+      </ActionBar>
     </View>
   );
 }

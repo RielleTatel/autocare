@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useNavigation, usePreventRemove } from "@react-navigation/native";
 import { Text, View } from "react-native";
 import { randomUUID } from "expo-crypto";
 import { fieldTheme } from "../../theme";
+import { Button } from "../../components/Button";
+import { EmptyState } from "../../components/EmptyState";
+import { kvGet, kvSet } from "../../shared/db/kv";
+import { api } from "../../shared/api";
+import type { InspectionSetup } from "../tasks/BookingDetailScreen";
 import { InspectionsRepo } from "../../shared/db/inspections.repo";
 import { outbox, syncProcessor } from "../../shared/sync";
 import { queuePhoto } from "../../shared/sync/photos";
@@ -31,37 +37,72 @@ type Route =
 
 /** F-04 → F-08 in one stateful flow. Navigation between capture steps is local
  *  state (the flow is one logical task), the outer stack hosts the flow. */
-export function InspectionFlow({ onDone, initialVehicleId, initialAppointmentId, onOpenInspection }: {
+export function InspectionFlow({ onDone, initialVehicleId, initialAppointmentId, onOpenInspection, scheduledStart, serviceTypeName, initialSetup }: {
   onDone(): void;
   initialVehicleId?: string;
   /** Set when the flow was opened from a booked task. Carried into the draft so
    *  the synced inspection links to its appointment (and completes it). */
   initialAppointmentId?: string;
+  scheduledStart?: string;
+  serviceTypeName?: string;
+  initialSetup?: InspectionSetup;
   onOpenInspection?: (vehicleId: string, inspectionId: string) => void;
 }) {
   const t = fieldTheme;
-  const [route, setRoute] = useState<Route>({ name: "task" });
+  const [route, setRoute] = useState<Route>(initialSetup ? { name: "categories" } : { name: "task" });
   const [checklist, setChecklist] = useState<CachedChecklist | null>(null);
-  const [vehicle, setVehicle] = useState<FieldVehicle | null>(null);
-  const [odometerKm, setOdometerKm] = useState<number | null>(null);
+  const [vehicle, setVehicle] = useState<FieldVehicle | null>(initialSetup?.vehicle ?? null);
+  const [odometerKm, setOdometerKm] = useState<number | null>(initialSetup?.odometerKm ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(true);
+  const navigation = useNavigation();
+  const flushRef = useRef<() => Promise<void>>(async () => {});
+  usePreventRemove(Boolean(vehicle), ({ data }) => {
+    void flushRef.current().then(() => navigation.dispatch(data.action)).catch((e) => setError(e instanceof Error ? e.message : "Could not save inspection. Try again."));
+  });
+  const registerFlush = useCallback((flush: () => Promise<void>) => { flushRef.current = flush; }, []);
 
   useEffect(() => {
-    getActiveChecklist().then(setChecklist).catch((e) => setError(e instanceof Error ? e.message : "checklist unavailable"));
-  }, []);
+    if (!initialVehicleId || !initialAppointmentId) return;
+    let mounted = true;
+    setRestoring(true);
+    void (async () => {
+      if (initialSetup && initialSetup.vehicle.id !== initialVehicleId) throw new Error("The vehicle does not match this booking. Reopen the booking.");
+      const saved = await inspectionsRepo.findByBooking(initialAppointmentId);
+      if (saved) {
+        if (saved.status === "LOCKED") throw new Error("This inspection was submitted. Open the booking to check sync or view its report.");
+        const cachedVehicle = await kvGet(`draft-vehicle:${saved.clientUuid}`);
+        const bookedVehicle = cachedVehicle ? JSON.parse(cachedVehicle) as FieldVehicle : await api.get<FieldVehicle>(`/vehicles/${initialVehicleId}`);
+        if (mounted) { setChecklist(JSON.parse(saved.checklistJson)); setVehicle(bookedVehicle); setOdometerKm(saved.odometerKm); setRoute({ name: "categories" }); }
+      } else if (mounted) setChecklist(await getActiveChecklist());
+    })().catch((e) => { if (mounted) setError(e instanceof Error ? e.message : "checklist unavailable"); }).finally(() => { if (mounted) setRestoring(false); });
+    return () => { mounted = false; };
+  }, [initialVehicleId, initialAppointmentId]);
+
+  if (!initialVehicleId || !initialAppointmentId) {
+    return (
+      <EmptyState title="Choose a booking first" body="Open the vehicle's booking to start its inspection."
+        action={<Button onPress={onDone}>Return to bookings</Button>} />
+    );
+  }
 
   if (error) {
     return (
       <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center", padding: t.spacing.lg }}>
         <Text style={[t.text("body"), { color: t.colors.danger, textAlign: "center" }]}>{error}</Text>
+        <Button variant="secondary" onPress={onDone}>Return to booking</Button>
       </View>
     );
   }
+
+  if (restoring) return <EmptyState tone="loading" title="Restoring inspection…" />;
 
   if (route.name === "task" || !vehicle || !checklist) {
     return (
       <TaskDetailScreen
         initialVehicleId={initialVehicleId}
+        appointmentId={initialAppointmentId}
+        onBack={onDone}
         onOpenInspection={onOpenInspection}
         onStart={(v, odo) => {
           setVehicle(v);
@@ -73,31 +114,47 @@ export function InspectionFlow({ onDone, initialVehicleId, initialAppointmentId,
   }
 
   return (
-    <CaptureFlow
-      checklist={checklist}
-      vehicle={vehicle}
-      odometerKm={odometerKm}
-      appointmentId={initialAppointmentId ?? null}
-      route={route}
-      setRoute={setRoute}
-      onDone={onDone}
-    />
+    <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+      <View style={{ backgroundColor: t.colors.surface, borderBottomWidth: 1, borderColor: t.colors.lineSoft }}><View style={{ width: "100%", maxWidth: 760, alignSelf: "center", paddingHorizontal: 16, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Text style={[t.text("code"), { color: t.colors.ink }]}>{vehicle.plateNo}</Text>
+        <Text numberOfLines={1} style={[t.text("label"), { color: t.colors.inkMuted, flex: 1 }]}>{serviceTypeName ?? "Vehicle inspection"}</Text>
+      </View>
+      </View>
+      <CaptureFlow
+        checklist={checklist}
+        vehicle={vehicle}
+        odometerKm={odometerKm}
+        appointmentId={initialAppointmentId}
+        registerFlush={registerFlush}
+        route={route}
+        setRoute={setRoute}
+        onDone={onDone}
+        scheduledStart={scheduledStart}
+      />
+    </View>
   );
 }
 
 function CaptureFlow({
-  checklist, vehicle, odometerKm, appointmentId, route, setRoute, onDone,
+  checklist, vehicle, odometerKm, appointmentId, route, setRoute, onDone, registerFlush, scheduledStart,
 }: {
   checklist: CachedChecklist;
   vehicle: FieldVehicle;
   odometerKm: number | null;
-  appointmentId: string | null;
+  appointmentId: string;
   route: Route;
   setRoute(r: Route): void;
   onDone(): void;
+  registerFlush(flush: () => Promise<void>): void;
+  scheduledStart?: string;
 }) {
   const t = fieldTheme;
   const draft = useInspectionDraft(draftDeps, { vehicleId: vehicle.id, appointmentId, odometerKm, checklist });
+
+  useEffect(() => { registerFlush(draft.flush); }, [registerFlush, draft.flush]);
+  useEffect(() => {
+    if (draft.draft) void kvSet(`draft-vehicle:${draft.draft.clientUuid}`, JSON.stringify(vehicle));
+  }, [draft.draft, vehicle]);
 
   const orderedCodes = useMemo(() => checklist.categories.flatMap((c) => c.points.map((p) => p.code)), [checklist]);
   const pointByCode = useMemo(() => {
@@ -123,7 +180,7 @@ function CaptureFlow({
   }, [orderedCodes]);
 
   if (!draft.draft) {
-    return <View style={{ flex: 1, backgroundColor: t.colors.chassis }} />;
+    return <EmptyState tone={draft.submitError ? "error" : "loading"} title={draft.submitError ?? "Restoring inspection…"} action={draft.submitError ? <Button onPress={onDone}>Return to booking</Button> : undefined} />;
   }
 
   if (route.name === "photo") {
@@ -157,7 +214,7 @@ function CaptureFlow({
         key={route.code}
         point={point}
         initial={draft.results.find((r) => r.pointCode === route.code)}
-        onSave={(r) => { void draft.saveResult(r); }}
+        onSave={(r) => draft.saveResult(r)}
         onAddPhoto={() => setRoute({ name: "photo", forPoint: route.code })}
         onNext={() => setRoute(nextAfter(route.code))}
         onBack={() => setRoute({ name: "categories" })}
@@ -200,6 +257,11 @@ function CaptureFlow({
     <CategoryNavScreen
       perCategory={draft.perCategory}
       overall={draft.overall}
+      checklist={checklist}
+      results={draft.results}
+      appointmentId={appointmentId}
+      scheduledStart={scheduledStart}
+      onOpenPoint={(code) => setRoute({ name: "point", code })}
       onOpenCategory={(code) => setRoute({ name: "point", code: firstUnansweredIn(code) })}
       onReview={() => setRoute({ name: "review" })}
       onBack={onDone}

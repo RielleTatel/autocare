@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import * as SQLite from "expo-sqlite";
 
 /** Durable local store (NFR-014): WAL mode, created on first open.
@@ -52,15 +53,31 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 `;
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const databases = new Map<string, Promise<SQLite.SQLiteDatabase>>();
+let context: string | null = null;
+
+/** Separate files prevent drafts, cache, photos and outbox crossing staff or backend boundaries.
+ * Existing unscoped work is deliberately not adopted by the next login. */
+export function setStorageContext(api: string, staffId: string): void {
+  context = `${api}::${staffId}`;
+}
+export function clearStorageContext(): void { context = null; }
+export function hasStorageContext(): boolean { return context !== null; }
+export async function storageFileName(value: string): Promise<string> {
+  const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value);
+  // Expo web VFS mxPathname is 64, including directory and journal suffixes.
+  // 160 bits retains ample collision resistance while leaving room for -journal.
+  return `field-${digest.slice(0, 40)}.db`;
+}
 
 export function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = (async () => {
-      const db = await SQLite.openDatabaseAsync("autocare-field.db");
+  const key = context ?? "signed-out";
+  if (!databases.has(key)) {
+    databases.set(key, (async () => {
+      const db = await SQLite.openDatabaseAsync(await storageFileName(key));
       await db.execAsync(DDL);
       return db;
-    })();
+    })().catch((error) => { databases.delete(key); throw error; }));
   }
-  return dbPromise;
+  return databases.get(key)!;
 }

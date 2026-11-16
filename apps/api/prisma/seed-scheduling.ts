@@ -13,11 +13,11 @@ const prisma = new PrismaClient();
 const WEEKDAYS: Weekday[] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 export const SERVICE_TYPES = [
-  { code: "OIL_CHANGE", name: "Oil Change", standardDurationMin: 45, requiredSkills: ["GENERAL"], priceCentavos: 85000n, intervalDays: 180, intervalKm: 5000 },
-  { code: "TIRE_ROTATION", name: "Tire Rotation", standardDurationMin: 30, requiredSkills: ["GENERAL"], priceCentavos: 45000n, intervalDays: 180, intervalKm: 10000 },
-  { code: "BRAKE_SERVICE", name: "Brake Service", standardDurationMin: 90, requiredSkills: ["BRAKES"], priceCentavos: 180000n, intervalDays: null, intervalKm: 20000 },
-  { code: "AC_SERVICE", name: "A/C Service", standardDurationMin: 60, requiredSkills: ["AC"], priceCentavos: 150000n, intervalDays: 365, intervalKm: null },
-  { code: "FULL_INSPECTION", name: "Full Inspection", standardDurationMin: 60, requiredSkills: ["GENERAL"], priceCentavos: 60000n, intervalDays: 365, intervalKm: 15000 },
+  { inspectionRequired: false, code: "OIL_CHANGE", name: "Oil Change", standardDurationMin: 45, requiredSkills: ["GENERAL"], priceCentavos: 85000n, intervalDays: 180, intervalKm: 5000 },
+  { inspectionRequired: false, code: "TIRE_ROTATION", name: "Tire Rotation", standardDurationMin: 30, requiredSkills: ["GENERAL"], priceCentavos: 45000n, intervalDays: 180, intervalKm: 10000 },
+  { inspectionRequired: false, code: "BRAKE_SERVICE", name: "Brake Service", standardDurationMin: 90, requiredSkills: ["BRAKES"], priceCentavos: 180000n, intervalDays: null, intervalKm: 20000 },
+  { inspectionRequired: false, code: "AC_SERVICE", name: "A/C Service", standardDurationMin: 60, requiredSkills: ["AC"], priceCentavos: 150000n, intervalDays: 365, intervalKm: null },
+  { inspectionRequired: true, code: "FULL_INSPECTION", name: "Full Inspection", standardDurationMin: 60, requiredSkills: ["GENERAL"], priceCentavos: 60000n, intervalDays: 365, intervalKm: 15000 },
 ];
 
 const BAYS = [

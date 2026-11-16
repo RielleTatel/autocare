@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@
 import {
   baySchema, blockSchema, operatingHoursSchema, serviceTypeSchema, shiftSchema, shiftQuerySchema, shiftUpdateSchema,
   BayInput, BlockInput, OperatingHoursInput, ServiceTypeInput, ShiftInput, ShiftQuery, ShiftUpdate,
+  serviceTypeUpdateSchema, ServiceTypeUpdate, fieldBookingQuerySchema, FieldBookingQuery,
 } from "@autocare/contracts";
 import { z } from "zod";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -23,6 +24,21 @@ export class SchedulingConfigController {
   @Post("service-types")
   createServiceType(@CurrentUser() u: AbilityUser, @Body(new ZodValidationPipe(serviceTypeSchema)) dto: ServiceTypeInput) {
     return this.config.createServiceType(u, dto);
+  }
+
+  @Patch("service-types/:id")
+  updateServiceType(@CurrentUser() u: AbilityUser, @Param("id") id: string, @Body(new ZodValidationPipe(serviceTypeUpdateSchema)) dto: ServiceTypeUpdate) {
+    return this.config.updateServiceType(u, id, dto);
+  }
+
+  @Get("field-bookings")
+  fieldBookings(@CurrentUser() u: AbilityUser, @Query(new ZodValidationPipe(fieldBookingQuerySchema)) q: FieldBookingQuery) {
+    return this.config.fieldBookings(u, q);
+  }
+
+  @Get("field-bookings/:id")
+  fieldBooking(@CurrentUser() u: AbilityUser, @Param("id") id: string) {
+    return this.config.fieldBooking(u, id);
   }
 
   @Get("bays")

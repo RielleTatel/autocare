@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { fieldTheme } from "../../theme";
 import { api } from "../../shared/api";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
+import { EmptyState } from "../../components/EmptyState";
+import { FieldNav } from "../../components/FieldNav";
 import { VehicleHistory } from "../history/VehicleHistory";
 
 export type FieldVehicle = {
@@ -13,101 +17,72 @@ export type FieldVehicle = {
   currentOdometerKm: number;
 };
 
-/** F-04 — task detail: pick the vehicle (browse the staff-visible fleet, or
- *  filter by plate), confirm odometer, start the 50-point inspection. */
-export function TaskDetailScreen({
-  onStart,
-  initialVehicleId,
-  onOpenInspection,
-}: {
+/** Confirm the booked vehicle and odometer. Vehicle browsing belongs to its
+ * own screen: changing cars here would leave the original booking attached. */
+export function TaskDetailScreen({ onStart, initialVehicleId, appointmentId, onBack, onOpenInspection }: {
   onStart(vehicle: FieldVehicle, odometerKm: number | null): void;
-  initialVehicleId?: string;
-  /** Opens a past inspection for the selected vehicle. Passed down rather than
-   *  taken from useNavigation: this screen is rendered inside InspectionFlow,
-   *  which owns the stack entry, and the prop keeps it unit-testable. */
+  initialVehicleId: string;
+  appointmentId: string;
+  onBack?: () => void;
   onOpenInspection?: (vehicleId: string, inspectionId: string) => void;
 }) {
   const t = fieldTheme;
-  const [vehicles, setVehicles] = useState<FieldVehicle[]>([]);
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<FieldVehicle | null>(null);
+  const [vehicle, setVehicle] = useState<FieldVehicle | null>(null);
   const [odometer, setOdometer] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    api.get<FieldVehicle[]>("/vehicles")
-      .then(setVehicles)
-      .catch((e) => setErr(e instanceof Error ? e.message : "Could not load vehicles"));
-  }, []);
-
-  // Coming from a tapped appointment: skip the plate search and land straight
-  // on the odometer confirm step for that vehicle.
-  useEffect(() => {
-    if (!initialVehicleId || selected) return;
-    const v = vehicles.find((x) => x.id === initialVehicleId);
-    if (v) {
-      setSelected(v);
-      setQuery(v.plateNo);
-      setOdometer(String(v.currentOdometerKm));
+    let cancelled = false;
+    setVehicle(null);
+    setErr(null);
+    if (!initialVehicleId || !appointmentId) {
+      setErr("Open a booking before starting its inspection.");
+      return;
     }
-  }, [initialVehicleId, vehicles, selected]);
-
-  const matches = query.trim() === ""
-    ? vehicles
-    : vehicles.filter((v) => v.plateNo.toLowerCase().includes(query.trim().toLowerCase()));
+    api.get<FieldVehicle>(`/vehicles/${encodeURIComponent(initialVehicleId)}`)
+      .then((v) => {
+        if (cancelled) return;
+        if (v.id !== initialVehicleId) throw new Error("The vehicle does not match the booking. Reopen the booking and try again.");
+        setVehicle(v);
+        setOdometer(String(v.currentOdometerKm));
+      })
+      .catch((e) => { if (!cancelled) setErr(e instanceof Error ? e.message : "Could not load booked vehicle"); });
+    return () => { cancelled = true; };
+  }, [initialVehicleId, appointmentId, attempt]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md }}>
-      <Text style={[t.text("h1"), { color: t.colors.ink }]}>Start inspection</Text>
-      {err && <Text style={[t.text("body"), { color: t.colors.danger }]}>{err}</Text>}
-
-      <TextInput
-        accessibilityLabel="Search plate number"
-        value={query}
-        onChangeText={(q) => { setQuery(q); setSelected(null); }}
-        placeholder="Plate number…"
-        autoCapitalize="characters"
-        style={{ minHeight: t.minTarget, borderWidth: 1, borderColor: t.colors.line, borderRadius: t.radii.md, backgroundColor: t.colors.surface, paddingHorizontal: t.spacing.md, fontSize: 20, color: t.colors.ink }}
-      />
-      {matches.map((v) => (
-        <Pressable
-          key={v.id}
-          accessibilityRole="button"
-          accessibilityLabel={`Select ${v.plateNo}`}
-          onPress={() => { setSelected(v); setQuery(v.plateNo); setOdometer(String(v.currentOdometerKm)); }}
-          style={{ minHeight: t.minTarget, justifyContent: "center", backgroundColor: selected?.id === v.id ? t.colors.primary : t.colors.surface, borderRadius: t.radii.md, borderWidth: 1, borderColor: t.colors.line, paddingHorizontal: t.spacing.md }}
-        >
-          <Text style={[t.text("h2"), { color: selected?.id === v.id ? "#FFFFFF" : t.colors.ink }]}>
-            {v.plateNo} — {v.make} {v.model} {v.year}
-          </Text>
-        </Pressable>
-      ))}
-
-      {selected && (
-        <View style={{ gap: t.spacing.sm }}>
-          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Odometer (km)</Text>
-          <TextInput
-            accessibilityLabel="Odometer reading"
-            keyboardType="number-pad"
-            value={odometer}
-            onChangeText={setOdometer}
-            style={{ minHeight: t.minTarget, borderWidth: 1, borderColor: t.colors.line, borderRadius: t.radii.md, backgroundColor: t.colors.surface, paddingHorizontal: t.spacing.md, fontSize: 24, color: t.colors.ink }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Begin 50-point inspection"
-            onPress={() => onStart(selected, odometer.trim() === "" ? null : Number(odometer))}
-            style={{ minHeight: t.minTarget, borderRadius: t.radii.md, backgroundColor: t.colors.primary, alignItems: "center", justifyContent: "center" }}
-          >
-            <Text style={[t.text("h2"), { color: "#FFFFFF" }]}>Begin inspection</Text>
-          </Pressable>
-
-          <VehicleHistory
-            vehicleId={selected.id}
-            onOpenInspection={onOpenInspection ? (id) => onOpenInspection(selected.id, id) : undefined}
-          />
+    <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
+      <FieldNav title="Booking inspection" onBack={onBack} />
+      <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md, width: "100%", maxWidth: 640, alignSelf: "center" }}>
+        <View style={{ gap: t.spacing.xs }}>
+          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Booking ID</Text>
+          <Text selectable style={[t.text("code"), { color: t.colors.ink }]}>{appointmentId}</Text>
         </View>
-      )}
-    </ScrollView>
+        {err ? (
+          <EmptyState tone="error" title="Could not load booked vehicle" body={err}
+            action={<Button variant="secondary" onPress={() => setAttempt((n) => n + 1)}>Try again</Button>} />
+        ) : !vehicle ? (
+          <EmptyState tone="loading" title="Loading booked vehicle…" />
+        ) : (
+          <>
+            <Card style={{ gap: t.spacing.xs }}>
+              <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Booked vehicle</Text>
+              <Text style={[t.text("h1"), { color: t.colors.ink }]}>{vehicle.plateNo}</Text>
+              <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>{vehicle.make} {vehicle.model} · {vehicle.year}</Text>
+            </Card>
+            <View style={{ gap: t.spacing.sm }}>
+              <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Odometer (km)</Text>
+              <TextInput accessibilityLabel="Odometer reading" keyboardType="number-pad" value={odometer} onChangeText={setOdometer}
+                style={{ minHeight: t.minTarget, borderWidth: 1, borderColor: t.colors.line, borderRadius: t.radii.md, backgroundColor: t.colors.surface, paddingHorizontal: t.spacing.md, fontSize: 24, color: t.colors.ink }} />
+              <Button accessibilityLabel="Begin 50-point inspection" onPress={() => onStart(vehicle, odometer.trim() === "" ? null : Number(odometer))}>
+                Begin inspection
+              </Button>
+            </View>
+            <VehicleHistory vehicleId={vehicle.id} onOpenInspection={onOpenInspection ? (id) => onOpenInspection(vehicle.id, id) : undefined} />
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }

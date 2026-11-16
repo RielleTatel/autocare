@@ -1,180 +1,127 @@
 import { CallHandler, ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Prisma } from "@prisma/client";
-import { of, firstValueFrom } from "rxjs";
-import { DomainError } from "../errors/domain-error";
+import { firstValueFrom, of, Subject, throwError } from "rxjs";
 import { IdempotencyInterceptor } from "./idempotency.interceptor";
 
-const p2002 = () =>
-  new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "5.22.0" });
-
-function makeContext(headers: Record<string, string | undefined>, res: { statusCode: number; setHeader: jest.Mock; status: jest.Mock }) {
-  const req = { method: "POST", url: "/api/v1/subscriptions", headers, route: { path: "/subscriptions" } };
-  return {
-    switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
-    getHandler: () => function handler() {},
-    getClass: () => class Controller {},
-  } as unknown as ExecutionContext;
-}
-
-function makeRes() {
-  return { statusCode: 201, setHeader: jest.fn(), status: jest.fn().mockReturnThis() };
-}
-
-describe("IdempotencyInterceptor", () => {
-  let prisma: { idempotencyKey: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock } };
-  let reflector: Reflector;
-  let interceptor: IdempotencyInterceptor;
-  let handlerCallCount: number;
-  const handler: CallHandler = {
-    handle: () => {
-      handlerCallCount += 1;
-      return of({ id: "sub-1", status: "ACTIVE" });
-    },
+function setup() {
+  const rows = new Map<string, any>();
+  const prisma = { idempotencyKey: {
+    create: jest.fn(async ({ data }) => {
+      if (rows.has(data.key)) throw new Prisma.PrismaClientKnownRequestError("Duplicate", { code: "P2002", clientVersion: "5" });
+      rows.set(data.key, { ...data });
+      return data;
+    }),
+    findUnique: jest.fn(async ({ where }) => rows.has(where.key) ? { ...rows.get(where.key) } : null),
+    update: jest.fn(async ({ where, data }) => { rows.set(where.key, { ...rows.get(where.key), ...data }); return rows.get(where.key); }),
+    updateMany: jest.fn(async ({ where, data }) => {
+      const row = rows.get(where.key);
+      if (!row || row.endpoint !== where.endpoint || row.responseHash !== where.responseHash || row.createdAt !== where.createdAt) return { count: 0 };
+      rows.set(where.key, { ...row, ...data });
+      return { count: 1 };
+    }),
+    deleteMany: jest.fn(async ({ where }) => {
+      const row = rows.get(where.key);
+      if (!row || row.endpoint !== where.endpoint || row.responseHash !== where.responseHash) return { count: 0 };
+      rows.delete(where.key);
+      return { count: 1 };
+    }),
+  } };
+  const reflector = { getAllAndOverride: jest.fn().mockReturnValue(true) };
+  const interceptor = new IdempotencyInterceptor(reflector as unknown as Reflector, prisma as never);
+  const res = { status: jest.fn().mockReturnThis(), setHeader: jest.fn() };
+  const context = (overrides: Record<string, unknown> = {}) => {
+    const req = { method: "POST", url: "/subscriptions/one/upgrade", user: { id: "member-one" }, body: { planId: "premium" }, headers: { "idempotency-key": "same-operation" }, ...overrides };
+    return { switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }), getHandler: () => function handler() {}, getClass: () => class Controller {} } as unknown as ExecutionContext;
   };
+  const handler = { handle: jest.fn(() => of({ id: "subscription-one", invoiceId: "invoice-one" })) };
+  const run = async (ctx = context(), next: CallHandler = handler) => firstValueFrom(await interceptor.intercept(ctx, next));
+  return { rows, prisma, reflector, res, context, handler, interceptor, run };
+}
 
-  beforeEach(() => {
-    handlerCallCount = 0;
-    prisma = { idempotencyKey: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() } };
-    reflector = new Reflector();
-  });
-
-  it("passes through untouched when the route isn't marked @Idempotent (no header check, no prisma calls)", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(false);
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const res = makeRes();
-    const ctx = makeContext({}, res);
-
-    const result$ = await interceptor.intercept(ctx, handler);
-    const data = await firstValueFrom(result$);
-
-    expect(data).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(handlerCallCount).toBe(1);
-    expect(prisma.idempotencyKey.create).not.toHaveBeenCalled();
-  });
-
-  it("throws IDEMPOTENCY_KEY_REQUIRED (400) when the header is missing on a required route", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const ctx = makeContext({}, makeRes());
-
-    try {
-      await interceptor.intercept(ctx, handler);
-      fail("expected throw");
-    } catch (e) {
-      expect(e).toBeInstanceOf(DomainError);
-      expect((e as DomainError).code).toBe("IDEMPOTENCY_KEY_REQUIRED");
-      expect((e as DomainError).httpStatus).toBe(400);
+describe("IdempotencyInterceptor durable operations", () => {
+  it("passes through non-idempotent routes and rejects missing or invalid required keys", async () => {
+    const s = setup();
+    s.reflector.getAllAndOverride.mockReturnValue(false);
+    await s.run(s.context({ headers: {} }));
+    expect(s.prisma.idempotencyKey.create).not.toHaveBeenCalled();
+    s.reflector.getAllAndOverride.mockReturnValue(true);
+    for (const key of [undefined, "", "   ", "x".repeat(201)]) {
+      await expect(s.run(s.context({ headers: { "idempotency-key": key } }))).rejects.toMatchObject({ code: "IDEMPOTENCY_KEY_REQUIRED", httpStatus: 400 });
     }
-    expect(handlerCallCount).toBe(0);
   });
 
-  it("first use: reserves the key (create) before running the handler, then persists the real response via update", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    prisma.idempotencyKey.create.mockResolvedValue({});
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const res = makeRes();
-    const ctx = makeContext({ "idempotency-key": "key-abc" }, res);
-
-    const result$ = await interceptor.intercept(ctx, handler);
-    const data = await firstValueFrom(result$);
-    await new Promise((r) => setImmediate(r));
-
-    expect(data).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(handlerCallCount).toBe(1);
-    // Reservation happens before the handler is invoked (race guard).
-    expect(prisma.idempotencyKey.create).toHaveBeenCalledTimes(1);
-    expect(prisma.idempotencyKey.create.mock.calls[0][0].data.responseHash).toBe(""); // in-flight sentinel
-    expect(prisma.idempotencyKey.update).toHaveBeenCalledTimes(1);
-    const call = prisma.idempotencyKey.update.mock.calls[0][0];
-    expect(call.where).toEqual({ key: "key-abc" });
-    expect(call.data.endpoint).toBe("POST /subscriptions");
-    expect(call.data.responseBody).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(typeof call.data.responseHash).toBe("string");
-    expect(call.data.responseHash.length).toBeGreaterThan(0);
+  it("persists the completed result before responding and replays without another upgrade", async () => {
+    const s = setup();
+    await expect(s.run()).resolves.toEqual({ id: "subscription-one", invoiceId: "invoice-one" });
+    expect([...s.rows.values()][0].responseBody).toEqual({ id: "subscription-one", invoiceId: "invoice-one" });
+    await expect(s.run()).resolves.toEqual({ id: "subscription-one", invoiceId: "invoice-one" });
+    expect(s.handler.handle).toHaveBeenCalledTimes(1);
+    expect(s.res.status).toHaveBeenCalledWith(200);
+    expect(s.res.setHeader).toHaveBeenCalledWith("X-Idempotent-Replay", "true");
   });
 
-  it("replay: a completed row for the same key+endpoint within 24h short-circuits with 200 + X-Idempotent-Replay — handler not called", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    prisma.idempotencyKey.create.mockRejectedValue(p2002());
-    prisma.idempotencyKey.findUnique.mockResolvedValue({
-      key: "key-abc", endpoint: "POST /subscriptions", responseHash: "abc",
-      responseBody: { id: "sub-1", status: "ACTIVE" }, createdAt: new Date(),
-    });
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const res = makeRes();
-    const ctx = makeContext({ "idempotency-key": "key-abc" }, res);
-
-    const result$ = await interceptor.intercept(ctx, handler);
-    const data = await firstValueFrom(result$);
-
-    expect(data).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(handlerCallCount).toBe(0);
-    expect(res.setHeader).toHaveBeenCalledWith("X-Idempotent-Replay", "true");
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(prisma.idempotencyKey.update).not.toHaveBeenCalled();
+  it("isolates different authenticated users using the same raw key", async () => {
+    const s = setup();
+    await s.run();
+    await s.run(s.context({ user: { id: "member-two" } }));
+    expect(s.handler.handle).toHaveBeenCalledTimes(2);
+    expect(s.rows.size).toBe(2);
+    expect([...s.rows.keys()].join()).not.toContain("same-operation");
   });
 
-  it("concurrency: loses the reservation race, polls an in-flight row, and replays once the winner completes (handler runs exactly once)", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    prisma.idempotencyKey.create.mockRejectedValue(p2002());
-    const inFlightRow = { key: "key-abc", endpoint: "POST /subscriptions", responseHash: "", responseBody: null, createdAt: new Date() };
-    const completedRow = { ...inFlightRow, responseHash: "def", responseBody: { id: "sub-1", status: "ACTIVE" } };
-    prisma.idempotencyKey.findUnique
-      .mockResolvedValueOnce(inFlightRow)
-      .mockResolvedValueOnce(inFlightRow)
-      .mockResolvedValueOnce(completedRow);
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const res = makeRes();
-    const ctx = makeContext({ "idempotency-key": "key-abc" }, res);
-
-    const result$ = await interceptor.intercept(ctx, handler);
-    const data = await firstValueFrom(result$);
-
-    expect(data).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(handlerCallCount).toBe(0); // the loser never runs the handler
-    expect(res.setHeader).toHaveBeenCalledWith("X-Idempotent-Replay", "true");
-    expect(prisma.idempotencyKey.findUnique).toHaveBeenCalledTimes(3);
-  }, 10_000);
-
-  it("expired row (older than 24h) is reclaimed — handler runs again and the row is refreshed", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    prisma.idempotencyKey.create.mockRejectedValue(p2002());
-    const stale = new Date(Date.now() - 25 * 60 * 60 * 1000);
-    prisma.idempotencyKey.findUnique.mockResolvedValue({
-      key: "key-abc", endpoint: "POST /subscriptions", responseHash: "abc", responseBody: { id: "old" }, createdAt: stale,
-    });
-    prisma.idempotencyKey.update.mockResolvedValue({});
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const res = makeRes();
-    const ctx = makeContext({ "idempotency-key": "key-abc" }, res);
-
-    const result$ = await interceptor.intercept(ctx, handler);
-    const data = await firstValueFrom(result$);
-    await new Promise((r) => setImmediate(r));
-
-    expect(data).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(handlerCallCount).toBe(1);
-    // First update call reclaims the stale row; second (from the tap) persists the real response.
-    expect(prisma.idempotencyKey.update).toHaveBeenCalledTimes(2);
+  it("rejects a key reused for another payload or concrete subscription", async () => {
+    const s = setup();
+    await s.run();
+    await expect(s.run(s.context({ body: { planId: "different-plan" } }))).rejects.toMatchObject({ code: "DUPLICATE_REQUEST", httpStatus: 409 });
+    await expect(s.run(s.context({ url: "/subscriptions/two/upgrade" }))).rejects.toMatchObject({ code: "DUPLICATE_REQUEST", httpStatus: 409 });
+    expect(s.handler.handle).toHaveBeenCalledTimes(1);
   });
 
-  it("a different endpoint reusing the same key is reclaimed as a fresh key (no false-positive replay)", async () => {
-    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
-    prisma.idempotencyKey.create.mockRejectedValue(p2002());
-    prisma.idempotencyKey.findUnique.mockResolvedValue({
-      key: "key-abc", endpoint: "POST /other-resource", responseHash: "abc", responseBody: { id: "old" }, createdAt: new Date(),
-    });
-    prisma.idempotencyKey.update.mockResolvedValue({});
-    interceptor = new IdempotencyInterceptor(reflector, prisma as never);
-    const res = makeRes();
-    const ctx = makeContext({ "idempotency-key": "key-abc" }, res);
+  it("treats reordered JSON properties as the same operation", async () => {
+    const s = setup();
+    await s.run(s.context({ body: { planId: "premium", settings: { a: 1, b: 2 } } }));
+    await s.run(s.context({ body: { settings: { b: 2, a: 1 }, planId: "premium" } }));
+    expect(s.handler.handle).toHaveBeenCalledTimes(1);
+  });
 
-    const result$ = await interceptor.intercept(ctx, handler);
-    const data = await firstValueFrom(result$);
-    await new Promise((r) => setImmediate(r));
+  it("never reruns an in-flight operation after the bounded wait and allows replay once complete", async () => {
+    const s = setup();
+    const pending = new Subject<unknown>();
+    const handler = { handle: jest.fn(() => pending) };
+    const first = s.run(s.context(), handler);
+    await new Promise((resolve) => setImmediate(resolve));
+    await expect(s.run(s.context(), handler)).rejects.toMatchObject({ code: "DUPLICATE_REQUEST", httpStatus: 409 });
+    expect(handler.handle).toHaveBeenCalledTimes(1);
+    pending.next({ invoiceId: "one-only" });
+    pending.complete();
+    await expect(first).resolves.toEqual({ invoiceId: "one-only" });
+    await expect(s.run(s.context(), handler)).resolves.toEqual({ invoiceId: "one-only" });
+    expect(handler.handle).toHaveBeenCalledTimes(1);
+  });
 
-    expect(data).toEqual({ id: "sub-1", status: "ACTIVE" });
-    expect(handlerCallCount).toBe(1);
+  it("releases a rejected operation so recovery may retry the same key", async () => {
+    const s = setup();
+    await expect(s.run(s.context(), { handle: () => throwError(() => new Error("provider unavailable")) })).rejects.toThrow("provider unavailable");
+    expect(s.rows.size).toBe(0);
+    await expect(s.run()).resolves.toHaveProperty("invoiceId", "invoice-one");
+  });
+
+  it("retains an uncertain committed operation if response persistence fails", async () => {
+    const s = setup();
+    s.prisma.idempotencyKey.update.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(s.run()).rejects.toThrow("database unavailable");
+    expect(s.rows.size).toBe(1);
+    await expect(s.run()).rejects.toMatchObject({ code: "DUPLICATE_REQUEST" });
+    expect(s.handler.handle).toHaveBeenCalledTimes(1);
+  });
+
+  it("atomically reclaims completed responses after the documented 24-hour window", async () => {
+    const s = setup();
+    await s.run();
+    for (const row of s.rows.values()) row.createdAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    await s.run();
+    expect(s.handler.handle).toHaveBeenCalledTimes(2);
+    expect(s.prisma.idempotencyKey.updateMany).toHaveBeenCalledTimes(1);
   });
 });
