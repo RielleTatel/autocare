@@ -39,6 +39,7 @@ describe("announcements journey (e2e)", () => {
   let adminToken: string;
   let vehicleId: string;
   let serviceTypeId: string;
+  let otherServiceTypeId: string;
   let bayId: string;
   const mechId = randomUUID();
 
@@ -65,8 +66,8 @@ describe("announcements journey (e2e)", () => {
 
   /**
    * Attention items for THIS suite's service only. The journey vehicle is 300 days old, so the
-   * globally-seeded catalogue (Tire Rotation, Full Inspection, ...) is legitimately due on it
-   * as well — asserting on "any SERVICE_DUE for this vehicle" would both pass for the wrong
+   * separate Tire Rotation fixture is legitimately due on it as well — asserting on
+   * "any SERVICE_DUE for this vehicle" would both pass for the wrong
    * reason and fail for a correct one.
    */
   const attentionForOurService = async () =>
@@ -103,6 +104,13 @@ describe("announcements journey (e2e)", () => {
       },
     });
     serviceTypeId = st.id;
+    const otherService = await prisma.serviceType.create({
+      data: {
+        code: `${TAG}-TIRE`, name: `${TAG} Tire Rotation`, standardDurationMin: 60,
+        requiredSkills: ["OIL"], priceCentavos: 40000n, intervalDays: 180,
+      },
+    });
+    otherServiceTypeId = otherService.id;
     bayId = (await prisma.serviceBay.create({ data: { name: `${TAG}-bay`, capabilities: ["OIL"] } })).id;
     await prisma.operatingHours.create({ data: { dateOverride: DATE, openTime: "09:00", closeTime: "17:00", walkInBufferPct: 0 } });
     await prisma.staffShift.create({ data: { userId: mechId, date: DATE, startTime: "09:00", endTime: "17:00", skills: ["OIL"] } });
@@ -142,6 +150,7 @@ describe("announcements journey (e2e)", () => {
       await prisma.operatingHours.deleteMany({ where: { dateOverride: DATE } });
       await prisma.serviceBay.deleteMany({ where: { id: bayId } });
       await prisma.serviceType.deleteMany({ where: { id: serviceTypeId } });
+      await prisma.serviceType.deleteMany({ where: { id: otherServiceTypeId } });
       await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { startsWith: TAG } } } });
       await prisma.user.deleteMany({ where: { firebaseUid: { startsWith: TAG } } });
     } finally {

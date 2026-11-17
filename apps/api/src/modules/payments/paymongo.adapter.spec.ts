@@ -6,7 +6,7 @@ const webhookSecret = "whsec_unit_fixture";
 const timestamp = 1_797_840_000;
 const invoice = { id: "invoice-fixture", totalCentavos: 89900, description: "Invoice INV-2026-000001" };
 const checkoutUrl = "https://checkout.paymongo.com/cs_fixture#fixture";
-const envNames = ["PAYMONGO_SECRET_KEY", "PAYMONGO_WEBHOOK_SECRET", "PAYMONGO_SUCCESS_URL", "PAYMONGO_CANCEL_URL"] as const;
+const envNames = ["PAYMONGO_SECRET_KEY", "PAYMONGO_WEBHOOK_SECRET", "PAYMONGO_SUCCESS_URL", "PAYMONGO_CANCEL_URL", "RENDER_EXTERNAL_URL"] as const;
 
 function payment(attributes: Record<string, unknown> = {}) {
   return {
@@ -126,6 +126,17 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
       delete process.env.PAYMONGO_CANCEL_URL;
       await expect(adapter.createCheckout(invoice)).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus: 503 });
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("uses the Render HTTPS return endpoint when explicit URLs are absent", async () => {
+      delete process.env.PAYMONGO_SUCCESS_URL;
+      delete process.env.PAYMONGO_CANCEL_URL;
+      process.env.RENDER_EXTERNAL_URL = "https://autocare-flol.onrender.com";
+
+      await expect(adapter.createCheckout(invoice)).resolves.toEqual({ checkoutUrl, pspRef: "cs_fixture" });
+      const attributes = JSON.parse(fetchMock.mock.calls[0][1].body).data.attributes;
+      expect(attributes.success_url).toBe("https://autocare-flol.onrender.com/api/v1/payments/return?invoiceId=invoice-fixture&outcome=returned");
+      expect(attributes.cancel_url).toBe("https://autocare-flol.onrender.com/api/v1/payments/return?invoiceId=invoice-fixture&outcome=cancelled");
     });
 
     it.each([

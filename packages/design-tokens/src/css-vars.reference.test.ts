@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { toCssVars } from "./css-vars";
 
@@ -9,14 +9,13 @@ import { toCssVars } from "./css-vars";
  *  var names: every literal colour declared in the reference's light :root block
  *  must appear somewhere in the generated stylesheet. This catches value drift —
  *  the real risk — without coupling to the derivative's alternate spelling. */
-const ref = readFileSync(
-  resolve(__dirname, "../../../.claude/skills/autocare-plus-design/tokens/colors.css"),
-  "utf8",
-);
+const refPath = resolve(__dirname, "../../../.claude/skills/autocare-plus-design/tokens/colors.css");
+const hasLocalReference = existsSync(refPath);
+const ref = hasLocalReference ? readFileSync(refPath, "utf8") : "";
 const lightRef = ref.slice(0, ref.indexOf('[data-theme="dark"]'));
 const hexValues = [...new Set([...lightRef.matchAll(/#[0-9A-Fa-f]{6}/g)].map((m) => m[0].toUpperCase()))];
 
-describe("generated CSS carries every reference colour value", () => {
+(hasLocalReference ? describe : describe.skip)("generated CSS carries every reference colour value", () => {
   const css = toCssVars().toUpperCase();
   it("has at least the full neutral/brand/band palette", () => {
     expect(hexValues.length).toBeGreaterThanOrEqual(20);

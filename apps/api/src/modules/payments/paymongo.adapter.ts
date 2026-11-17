@@ -60,7 +60,9 @@ function invalidEvent(): DomainError {
 }
 
 function checkoutReturnUrl(name: "PAYMONGO_SUCCESS_URL" | "PAYMONGO_CANCEL_URL"): string | undefined {
-  const value = process.env[name];
+  const value = process.env[name] ?? (process.env.RENDER_EXTERNAL_URL
+    ? new URL("/api/v1/payments/return", process.env.RENDER_EXTERNAL_URL).toString()
+    : undefined);
   if (value === undefined) return undefined;
   const parsed = z.string().url().startsWith("https://").safeParse(value);
   if (!parsed.success) throw new DomainError("PAYMENT_FAILED", `${name} must be an HTTPS URL`, 503);
