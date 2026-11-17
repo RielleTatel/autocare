@@ -3,7 +3,7 @@
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
     "test": { "dependsOn": ["^build"], "passThroughEnv": ["DATABASE_URL", "REDIS_URL"] },
-    "typecheck": {},
+    "typecheck": { "dependsOn": ["^build"] },
     "lint": {}
   }
 }
