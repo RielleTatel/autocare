@@ -8,5 +8,7 @@ export type PaymentIntentCreate = z.infer<typeof paymentIntentCreateSchema>;
 
 export const paymentIntentSchema = z.object({
   checkoutUrl: z.string().url(),
+  invoiceId: z.string().uuid().optional(),
+  sandbox: z.literal(true).optional(),
 });
 export type PaymentIntent = z.infer<typeof paymentIntentSchema>;
