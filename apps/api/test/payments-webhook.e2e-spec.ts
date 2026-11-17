@@ -6,6 +6,7 @@ import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
 import { purgeFixtures } from "./fixtures";
 import { FAKE_WEBHOOK_SECRET, FakePspPayload } from "../src/modules/payments/fake-provider.adapter";
+import { MEMBER_CHECKOUT_ORIGIN } from "../src/modules/payments/checkout-policy";
 
 function sign(body: string): string {
   return createHmac("sha256", FAKE_WEBHOOK_SECRET).update(Buffer.from(body, "utf8")).digest("hex");
@@ -42,6 +43,10 @@ describe("webhooks/payments (e2e)", () => {
   });
 
   afterAll(async () => {
+    const invoiceIds = (await prisma.invoice.findMany({
+      where: { subscription: { vehicleId: { in: vehicleIds } } }, select: { id: true },
+    })).map((invoice) => invoice.id);
+    await prisma.auditLog.deleteMany({ where: { entityType: "Invoice", entityId: { in: invoiceIds }, action: MEMBER_CHECKOUT_ORIGIN } });
     await prisma.payment.deleteMany({ where: { invoice: { subscription: { vehicleId: { in: vehicleIds } } } } });
     await prisma.invoiceItem.deleteMany({ where: { invoice: { subscription: { vehicleId: { in: vehicleIds } } } } });
     await prisma.invoice.deleteMany({ where: { subscription: { vehicleId: { in: vehicleIds } } } });
@@ -223,7 +228,11 @@ describe("webhooks/payments (e2e)", () => {
     });
 
     it("returns a checkoutUrl from the fake provider adapter for the invoice's owner", async () => {
-      const { invoice } = await makeSubscriptionWithInvoice("AWAITING_AUTO_CHARGE");
+      const { sub, invoice } = await makeSubscriptionWithInvoice("AWAITING_AUTO_CHARGE");
+      await prisma.auditLog.create({ data: {
+        actorUserId: sub.userId, action: MEMBER_CHECKOUT_ORIGIN, entityType: "Invoice", entityId: invoice.id,
+        after: { kind: "INITIAL_SUBSCRIPTION", subscriptionId: sub.id, planId: sub.planId },
+      } });
       const res = await request(app.getHttpServer())
         .post("/api/v1/payments/intents")
         .set("Authorization", `Bearer ${uid}`)
