@@ -25,6 +25,7 @@ describe("attention dashboard (e2e)", () => {
   let advisorId: string;
   let vehicleId: string;
   let scoreId: string;
+  let serviceTypeId: string;
 
   beforeAll(async () => {
     process.env.POLICY_VERSION = POLICY;
@@ -57,14 +58,17 @@ describe("attention dashboard (e2e)", () => {
     await prisma.recommendation.create({ data: { healthScoreId: score.id, vehicleId, pointCode: "BRAKE_PAD_FRONT", label: "Front brake pads", severity: "CRITICAL", recommendation: "Replace immediately", status: "OPEN" } });
     await prisma.recommendation.create({ data: { healthScoreId: score.id, vehicleId, pointCode: "WIPERS", label: "Wipers", severity: "MONITOR", recommendation: "Replace blades", status: "OPEN" } });
     // A service reminder (Phase 3 feed).
-    const st = await prisma.serviceType.findFirst();
-    if (st)
-      await prisma.announcement.create({
-        data: {
-          userId: memberId, vehicleId, serviceTypeId: st.id, kind: "SERVICE_DUE", status: "ACTIVE",
-          reason: "TIME", title: `${st.name} due`, body: "It has been long enough to book the next one.",
-        },
-      });
+    const st = await prisma.serviceType.create({ data: {
+      code: `${TAG}-SERVICE`, name: `${TAG} Service`, standardDurationMin: 60,
+      requiredSkills: [], priceCentavos: 1000n, intervalDays: 180,
+    } });
+    serviceTypeId = st.id;
+    await prisma.announcement.create({
+      data: {
+        userId: memberId, vehicleId, serviceTypeId, kind: "SERVICE_DUE", status: "ACTIVE",
+        reason: "TIME", title: `${st.name} due`, body: "It has been long enough to book the next one.",
+      },
+    });
   });
 
   afterAll(async () => {
@@ -76,6 +80,7 @@ describe("attention dashboard (e2e)", () => {
       await prisma.inspectionResult.deleteMany({ where: { inspectionId: { in: ids } } });
       await prisma.inspection.deleteMany({ where: { id: { in: ids } } });
       await prisma.vehicle.deleteMany({ where: { plateNo: { startsWith: TAG } } });
+      await prisma.serviceType.deleteMany({ where: { id: serviceTypeId } });
       await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { startsWith: TAG } } } });
       await prisma.user.deleteMany({ where: { firebaseUid: { startsWith: TAG } } });
     } finally {

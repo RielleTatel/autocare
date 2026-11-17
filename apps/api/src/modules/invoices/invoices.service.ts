@@ -6,18 +6,20 @@ import { AbilityUser } from "../../common/policies/ability.factory";
 import { VehiclesService } from "../vehicles/vehicles.service";
 import { STORAGE_PORT, StoragePort } from "../../common/storage/storage.port";
 import { renderInvoicePdf } from "./invoice-pdf";
+import { checkoutEligible, hasCheckoutOrigin, MEMBER_CHECKOUT_ORIGIN } from "../payments/checkout-policy";
 
 const INVOICE_SELECT = {
-  id: true, number: true, subscriptionId: true, totalCentavos: true, status: true,
+  id: true, number: true, subscriptionId: true, workOrderId: true, totalCentavos: true, status: true,
   dueDate: true, issuedAt: true, pdfObjectPath: true,
   items: { select: { id: true, description: true, qty: true, unitPriceCentavos: true, taxCentavos: true } },
-  subscription: { select: { id: true, vehicleId: true, paymentMethod: true, plan: { select: { name: true, billingInterval: true } } } },
+  subscription: { select: { id: true, vehicleId: true, status: true, paymentMethod: true, plan: { select: { name: true, billingInterval: true } } } },
   payments: { select: { method: true, status: true }, orderBy: { createdAt: "desc" }, take: 1 },
 } as const;
 
 type InvoiceRow = Prisma.InvoiceGetPayload<{ select: typeof INVOICE_SELECT }>;
 
-const toInvoiceResponse = (row: InvoiceRow) => ({
+const toInvoiceResponse = (row: InvoiceRow, hasOrigin = false) => ({
+  checkoutEligible: checkoutEligible(row, hasOrigin),
   id: row.id,
   number: row.number,
   subscriptionId: row.subscriptionId,
@@ -61,6 +63,16 @@ export class InvoicesService {
     return invoice;
   }
 
+  private async checkoutOrigins(rows: InvoiceRow[]): Promise<Set<string>> {
+    if (!rows.length) return new Set();
+    const markers = await this.prisma.auditLog.findMany({
+      where: { action: MEMBER_CHECKOUT_ORIGIN, entityType: "Invoice", entityId: { in: rows.map((row) => row.id) } },
+      select: { entityId: true, after: true },
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return new Set(markers.filter((marker) => hasCheckoutOrigin(marker.after, byId.get(marker.entityId)?.subscriptionId ?? null)).map((marker) => marker.entityId));
+  }
+
   async list(user: AbilityUser) {
     if (user.role === "FLEET_MANAGER" && !user.orgId) return [];
     const vehicleOwner = user.role === "FLEET_MANAGER" ? { orgOwnerId: user.orgId } : { ownerUserId: user.id };
@@ -69,12 +81,14 @@ export class InvoicesService {
       select: INVOICE_SELECT,
       orderBy: { issuedAt: "desc" },
     });
-    return rows.map(toInvoiceResponse);
+    const origins = await this.checkoutOrigins(rows);
+    return rows.map((row) => toInvoiceResponse(row, origins.has(row.id)));
   }
 
   async get(user: AbilityUser, id: string) {
     const row = await this.findForUser(user, id);
-    return toInvoiceResponse(row);
+    const origins = await this.checkoutOrigins([row]);
+    return toInvoiceResponse(row, origins.has(row.id));
   }
 
   /**

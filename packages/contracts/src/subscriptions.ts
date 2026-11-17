@@ -27,6 +27,7 @@ export type SubscriptionCancel = z.infer<typeof subscriptionCancelSchema>;
 
 export const subscriptionSchema = z.object({
   id: z.string().uuid(),
+  invoiceId: z.string().uuid().optional(),
   vehicleId: z.string().uuid(),
   planId: z.string().uuid(),
   userId: z.string().uuid(),

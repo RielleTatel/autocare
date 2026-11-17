@@ -2,8 +2,23 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
-    "test": { "dependsOn": ["^build"], "passThroughEnv": ["DATABASE_URL", "REDIS_URL"] },
-    "typecheck": {},
+    "test": {
+      "dependsOn": ["^build"],
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "DIRECT_DATABASE_URL",
+        "REDIS_URL",
+        "FIREBASE_*",
+        "SUPABASE_*",
+        "POLICY_VERSION",
+        "SESSION_SECRET",
+        "MAPBOX_TOKEN",
+        "WORKSHOP_LAT",
+        "WORKSHOP_LNG",
+        "PAYMONGO_*"
+      ]
+    },
+    "typecheck": { "dependsOn": ["^build"] },
     "lint": {}
   }
 }

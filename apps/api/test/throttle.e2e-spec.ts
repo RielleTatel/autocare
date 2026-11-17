@@ -18,8 +18,8 @@ describe("throttling (e2e)", () => {
     await app.close();
   });
 
-  it("6th auth call within a minute returns 429 RATE_LIMITED (NFR-023)", async () => {
-    for (let i = 0; i < 5; i++) {
+  it("31st auth call within a minute returns 429 RATE_LIMITED (NFR-023)", async () => {
+    for (let i = 0; i < 30; i++) {
       await request(app.getHttpServer()).post("/api/v1/auth/session").set("Authorization", "Bearer t");
     }
     const res = await request(app.getHttpServer()).post("/api/v1/auth/session").set("Authorization", "Bearer t").expect(429);

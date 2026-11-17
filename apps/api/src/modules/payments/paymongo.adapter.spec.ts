@@ -6,7 +6,7 @@ const webhookSecret = "whsec_unit_fixture";
 const timestamp = 1_797_840_000;
 const invoice = { id: "invoice-fixture", totalCentavos: 89900, description: "Invoice INV-2026-000001" };
 const checkoutUrl = "https://checkout.paymongo.com/cs_fixture#fixture";
-const envNames = ["PAYMONGO_SECRET_KEY", "PAYMONGO_WEBHOOK_SECRET", "PAYMONGO_SUCCESS_URL", "PAYMONGO_CANCEL_URL"] as const;
+const envNames = ["PAYMONGO_SECRET_KEY", "PAYMONGO_WEBHOOK_SECRET", "PAYMONGO_SUCCESS_URL", "PAYMONGO_CANCEL_URL", "RENDER_EXTERNAL_URL"] as const;
 
 function payment(attributes: Record<string, unknown> = {}) {
   return {
@@ -39,7 +39,7 @@ function checkoutEvent(attributes: Record<string, unknown> = {}) {
             status: "active",
             livemode: false,
             metadata: { invoiceId: invoice.id },
-            reference_number: "invoice-fallback",
+            reference_number: invoice.id,
             payments: [payment()],
             ...attributes,
           },
@@ -71,6 +71,8 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
     }
     process.env.PAYMONGO_SECRET_KEY = testKey;
     process.env.PAYMONGO_WEBHOOK_SECRET = webhookSecret;
+    process.env.PAYMONGO_SUCCESS_URL = "https://autocare.example/payment-result";
+    process.env.PAYMONGO_CANCEL_URL = "https://autocare.example/payment-result";
     adapter = new PaymongoAdapter();
     fetchMock = jest.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true, status: 200, json: jest.fn().mockResolvedValue(checkoutResponse()),
@@ -109,22 +111,32 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
         data: {
           attributes: {
             line_items: [{ amount: 89900, currency: "PHP", name: invoice.description, quantity: 1 }],
-            payment_method_types: ["card", "gcash", "paymaya"],
+            payment_method_types: ["card"],
             metadata: { invoiceId: invoice.id },
             reference_number: invoice.id,
-            success_url: process.env.PAYMONGO_SUCCESS_URL,
-            cancel_url: process.env.PAYMONGO_CANCEL_URL,
+            success_url: `${process.env.PAYMONGO_SUCCESS_URL}?invoiceId=invoice-fixture&outcome=returned`,
+            cancel_url: `${process.env.PAYMONGO_CANCEL_URL}?invoiceId=invoice-fixture&outcome=cancelled`,
           },
         },
       });
     });
 
-    it("allows both return URLs to be absent", async () => {
-      await adapter.createCheckout(invoice);
+    it("requires browser return context before creating a session", async () => {
+      delete process.env.PAYMONGO_SUCCESS_URL;
+      delete process.env.PAYMONGO_CANCEL_URL;
+      await expect(adapter.createCheckout(invoice)).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus: 503 });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
 
+    it("uses the Render HTTPS return endpoint when explicit URLs are absent", async () => {
+      delete process.env.PAYMONGO_SUCCESS_URL;
+      delete process.env.PAYMONGO_CANCEL_URL;
+      process.env.RENDER_EXTERNAL_URL = "https://autocare-flol.onrender.com";
+
+      await expect(adapter.createCheckout(invoice)).resolves.toEqual({ checkoutUrl, pspRef: "cs_fixture" });
       const attributes = JSON.parse(fetchMock.mock.calls[0][1].body).data.attributes;
-      expect(attributes).not.toHaveProperty("success_url");
-      expect(attributes).not.toHaveProperty("cancel_url");
+      expect(attributes.success_url).toBe("https://autocare-flol.onrender.com/api/v1/payments/return?invoiceId=invoice-fixture&outcome=returned");
+      expect(attributes.cancel_url).toBe("https://autocare-flol.onrender.com/api/v1/payments/return?invoiceId=invoice-fixture&outcome=cancelled");
     });
 
     it.each([
@@ -135,8 +147,8 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
       { success: "", cancel: "https://autocare.example/cancel" },
       { success: "https://autocare.example/success", cancel: "invalid" },
     ])("rejects an incomplete or invalid return URL pair: %j", async ({ success, cancel }) => {
-      if (success !== undefined) process.env.PAYMONGO_SUCCESS_URL = success;
-      if (cancel !== undefined) process.env.PAYMONGO_CANCEL_URL = cancel;
+      if (success !== undefined) process.env.PAYMONGO_SUCCESS_URL = success; else delete process.env.PAYMONGO_SUCCESS_URL;
+      if (cancel !== undefined) process.env.PAYMONGO_CANCEL_URL = cancel; else delete process.env.PAYMONGO_CANCEL_URL;
 
       await expect(adapter.createCheckout(invoice)).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus: 503 });
       expect(fetchMock).not.toHaveBeenCalled();
@@ -180,6 +192,15 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
       await expect(adapter.createCheckout(invoice)).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus: 502 });
     });
 
+    it("preserves the configured callback context while binding the actual invoice", async () => {
+      process.env.PAYMONGO_SUCCESS_URL = "https://autocare.example/payment-result?source=member&invoiceId=wrong&outcome=paid";
+      await adapter.createCheckout(invoice);
+      const url = new URL(JSON.parse(fetchMock.mock.calls[0][1].body).data.attributes.success_url);
+      expect(url.searchParams.get("source")).toBe("member");
+      expect(url.searchParams.get("invoiceId")).toBe(invoice.id);
+      expect(url.searchParams.get("outcome")).toBe("returned");
+    });
+
     it("returns a sanitized provider error without reading or exposing its response body", async () => {
       const text = jest.fn().mockResolvedValue("sensitive provider fixture details");
       fetchMock.mockResolvedValueOnce({ ok: false, status: 422, text });
@@ -207,8 +228,15 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
 
     it("uses session reference_number when session metadata is absent", () => {
       expect(adapter.mapEvent(checkoutEvent({ metadata: undefined }))).toMatchObject({
-        invoiceId: "invoice-fallback", pspReference: "pay_fixture", amountCentavos: 89900,
+        invoiceId: invoice.id, pspReference: "pay_fixture", amountCentavos: 89900,
       });
+    });
+
+    it.each([
+      { reference_number: "another-invoice" },
+      { payments: [payment({ metadata: { invoiceId: "another-invoice" } })] },
+    ])("rejects conflicting invoice associations %j", (attributes) => {
+      expect(() => adapter.mapEvent(checkoutEvent(attributes))).toThrow("Invalid PayMongo test payment event");
     });
 
     it("selects the paid attempt after a previous failure", () => {

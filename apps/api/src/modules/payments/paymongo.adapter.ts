@@ -60,11 +60,15 @@ function invalidEvent(): DomainError {
 }
 
 function checkoutReturnUrl(name: "PAYMONGO_SUCCESS_URL" | "PAYMONGO_CANCEL_URL"): string | undefined {
-  const value = process.env[name];
+  const value = process.env[name] ?? (process.env.RENDER_EXTERNAL_URL
+    ? new URL("/api/v1/payments/return", process.env.RENDER_EXTERNAL_URL).toString()
+    : undefined);
   if (value === undefined) return undefined;
   const parsed = z.string().url().startsWith("https://").safeParse(value);
   if (!parsed.success) throw new DomainError("PAYMENT_FAILED", `${name} must be an HTTPS URL`, 503);
-  return parsed.data;
+  const url = new URL(parsed.data);
+  if (url.username || url.password || url.hash) throw new DomainError("PAYMENT_FAILED", `${name} must be an HTTPS URL without credentials or fragment`, 503);
+  return url.toString();
 }
 
 /**
@@ -90,7 +94,10 @@ export function mapPaymongoEvent(raw: unknown): PspEvent {
   if (type === "checkout_session.payment.paid") {
     const session = checkoutSchema.safeParse(attrs.data);
     if (!session.success) throw invalidEvent();
-    invoiceId = session.data.attributes.metadata?.invoiceId ?? session.data.attributes.reference_number ?? undefined;
+    const sessionInvoiceId = session.data.attributes.metadata?.invoiceId;
+    const referenceInvoiceId = session.data.attributes.reference_number;
+    if (sessionInvoiceId && referenceInvoiceId && sessionInvoiceId !== referenceInvoiceId) throw invalidEvent();
+    invoiceId = sessionInvoiceId ?? referenceInvoiceId ?? undefined;
     const paidPayments = session.data.attributes.payments.filter((item) =>
       (item as { attributes?: { status?: string } } | null)?.attributes?.status === "paid",
     );
@@ -101,6 +108,8 @@ export function mapPaymongoEvent(raw: unknown): PspEvent {
   const parsedPayment = paymentSchema.safeParse(paymentResource);
   if (!parsedPayment.success) throw invalidEvent();
   const payment = parsedPayment.data;
+  const paymentInvoiceId = payment.attributes.metadata?.invoiceId;
+  if (invoiceId && paymentInvoiceId && invoiceId !== paymentInvoiceId) throw invalidEvent();
   const succeeded = type !== "payment.failed";
   if (payment.attributes.status !== (succeeded ? "paid" : "failed")) throw invalidEvent();
   const methods = { card: "CARD", gcash: "GCASH", paymaya: "MAYA" } as const;
@@ -142,9 +151,15 @@ export class PaymongoAdapter implements ProviderPort {
     }
     const successUrl = checkoutReturnUrl("PAYMONGO_SUCCESS_URL");
     const cancelUrl = checkoutReturnUrl("PAYMONGO_CANCEL_URL");
-    if (Boolean(successUrl) !== Boolean(cancelUrl)) {
+    if (!successUrl || !cancelUrl) {
       throw new DomainError("PAYMENT_FAILED", "Configure both PayMongo checkout return URLs", 503);
     }
+    const returned = (base: string, outcome: string) => {
+      const url = new URL(base);
+      url.searchParams.set("invoiceId", invoice.id);
+      url.searchParams.set("outcome", outcome);
+      return url.toString();
+    };
     const res = await fetch(`${PAYMONGO_API_BASE}/checkout_sessions`, {
       method: "POST",
       headers: { Authorization: this.authHeader(), "Content-Type": "application/json", Accept: "application/json" },
@@ -153,10 +168,11 @@ export class PaymongoAdapter implements ProviderPort {
         data: {
           attributes: {
             line_items: [{ amount: invoice.totalCentavos, currency: "PHP", name: invoice.description, quantity: 1 }],
-            payment_method_types: ["card", "gcash", "paymaya"],
+            payment_method_types: ["card"],
             metadata: { invoiceId: invoice.id },
             reference_number: invoice.id,
-            ...(successUrl ? { success_url: successUrl, cancel_url: cancelUrl } : {}),
+            success_url: returned(successUrl, "returned"),
+            cancel_url: returned(cancelUrl, "cancelled"),
           },
         },
       }),
