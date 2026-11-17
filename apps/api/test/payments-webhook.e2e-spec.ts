@@ -217,6 +217,11 @@ describe("webhooks/payments (e2e)", () => {
   });
 
   describe("POST /payments/intents", () => {
+    it("returns the hosted checkout browser to the member app", async () => {
+      const res = await request(app.getHttpServer()).get("/api/v1/payments/return").expect(302);
+      expect(res.headers.location).toBe("autocare://payment-result");
+    });
+
     it("400 IDEMPOTENCY_KEY_REQUIRED when Idempotency-Key header is missing", async () => {
       const { invoice } = await makeSubscriptionWithInvoice("AWAITING_AUTO_CHARGE");
       const res = await request(app.getHttpServer())
