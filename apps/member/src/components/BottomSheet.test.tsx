@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Text, ScrollView } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { BottomSheet, MeasuredRow } from "./BottomSheet";
 
@@ -52,4 +52,14 @@ describe("BottomSheet scrim", () => {
     fireEvent.press(screen.getByLabelText("Dismiss"));
     expect(onClose).toHaveBeenCalled();
   });
+});
+
+it("keeps the header and close action outside the scrolling findings", () => {
+  render(<BottomSheet title="Engine bay" closeLabel="Close" onClose={jest.fn()}>
+    {Array.from({ length: 30 }, (_, i) => <Text key={i}>Finding {i}</Text>)}
+  </BottomSheet>);
+  const body = screen.UNSAFE_getByType(ScrollView);
+  expect(body.findAllByType(Text)).toHaveLength(30);
+  expect(screen.getByText("Engine bay")).toBeTruthy();
+  expect(screen.getByLabelText("Close")).toBeTruthy();
 });

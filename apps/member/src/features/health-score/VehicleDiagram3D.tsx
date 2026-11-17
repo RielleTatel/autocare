@@ -3,6 +3,7 @@ import type { ShapeId } from "./diagramGeometry";
 import type { InspectionResultDetail } from "./healthScoreApi";
 
 export type VehicleDiagram3DProps = {
+  viewportHeight?: number;
   results: InspectionResultDetail[];
   onShapePress?: (id: ShapeId) => void;
   onError: (error: Error) => void;

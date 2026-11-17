@@ -1,4 +1,3 @@
-jest.mock("./VehicleDiagram3D", () => ({ VehicleDiagram3D: require("./VehicleDiagram").VehicleDiagram }));
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { HealthScoreScreen } from "./HealthScoreScreen";
 import type { HealthScore, InspectionResultDetail } from "./healthScoreApi";
@@ -52,49 +51,21 @@ describe("HealthScoreScreen (M-13)", () => {
     expect(screen.getByTestId("why-this-score")).toHaveTextContent(/Front brake pads/);
   });
 
-  it("offers a diagram toggle when inspection results are available", () => {
-    render(<HealthScoreScreen score={base} results={results} />);
-    expect(screen.getByTestId("view-toggle-diagram")).toBeTruthy();
-  });
-
-  it("hides the toggle when there are no results yet", () => {
-    render(<HealthScoreScreen score={base} results={[]} />);
-    expect(screen.queryByTestId("view-toggle-diagram")).toBeNull();
-  });
-
-  it("shows the diagram after switching to it", async () => {
-    render(<HealthScoreScreen score={base} results={results} />);
-    fireEvent.press(screen.getByTestId("view-toggle-diagram"));
-    expect(await screen.findByTestId("zone-ENGINE_BAY")).toBeTruthy();
-  });
-
-  it("keeps the score explanation to the list view", () => {
-    render(<HealthScoreScreen score={base} results={results} />);
+  it("opens the dedicated diagram while retaining the gauge and score explanation", () => {
+    const open = jest.fn();
+    render(<HealthScoreScreen score={base} results={results} onOpenDiagram={open} />);
+    fireEvent.press(screen.getByText("View vehicle diagram"));
+    expect(open).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("why-this-score")).toBeTruthy();
-    fireEvent.press(screen.getByTestId("view-toggle-diagram"));
-    expect(screen.queryByTestId("why-this-score")).toBeNull();
+    expect(screen.getByText("69")).toBeTruthy();
+    expect(screen.queryByTestId("zone-ENGINE_BAY")).toBeNull();
+  });
+
+  it("offers no diagram entry without recorded findings", () => {
+    render(<HealthScoreScreen score={base} results={[]} onOpenDiagram={jest.fn()} />);
+    expect(screen.queryByText("View vehicle diagram")).toBeNull();
   });
 });
-
-
-it("explains an unavailable status without calling it not applicable", () => {
-  render(<HealthScoreScreen score={base} results={[{ ...results[0], status: null, thresholds: null, measuredValue: null }]} />);
-  fireEvent.press(screen.getByTestId("view-toggle-diagram"));
-  fireEvent.press(screen.getByTestId("region-ENGINE_BAY"));
-  fireEvent.press(screen.getByTestId("zone-point-ENGINE_IDLE"));
-  expect(screen.getByTestId("explain-sentence")).toHaveTextContent(/does not provide a usable status/);
-});
-
-it("clears an open finding when inspection identity changes", () => {
-  const { rerender } = render(<HealthScoreScreen score={{ ...base, inspectionId: "first" }} results={results} />);
-  fireEvent.press(screen.getByTestId("view-toggle-diagram"));
-  fireEvent.press(screen.getByTestId("region-ENGINE_BAY"));
-  fireEvent.press(screen.getByTestId("zone-point-ENGINE_IDLE"));
-  expect(screen.getByTestId("explain-sentence")).toBeTruthy();
-  rerender(<HealthScoreScreen score={{ ...base, inspectionId: "second" }} results={results} />);
-  expect(screen.queryByTestId("explain-sentence")).toBeNull();
-});
-
 
 it("offers findings retry while keeping the score visible after a detail error", () => {
   const retry = jest.fn();
@@ -102,15 +73,5 @@ it("offers findings retry while keeping the score visible after a detail error",
   expect(screen.getByText("Why 69?")).toBeTruthy();
   fireEvent.press(screen.getByText("Retry findings"));
   expect(retry).toHaveBeenCalledTimes(1);
-  expect(screen.queryByTestId("view-toggle-diagram")).toBeNull();
-});
-
-
-it("remembers manual 2D choice when returning from the list during the same screen visit", async () => {
-  render(<HealthScoreScreen score={base} results={results} />);
-  fireEvent.press(screen.getByTestId("view-toggle-diagram"));
-  fireEvent.press(screen.getByLabelText("2D vehicle view"));
-  fireEvent.press(screen.getByTestId("view-toggle-list"));
-  fireEvent.press(screen.getByTestId("view-toggle-diagram"));
-  expect(screen.getByRole("button", { name: "2D vehicle view", selected: true })).toBeTruthy();
+  expect(screen.queryByTestId("open-vehicle-diagram")).toBeNull();
 });

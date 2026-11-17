@@ -1,10 +1,13 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, AppState, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { DIAGRAM_ZONES } from "@autocare/contracts";
 import { theme } from "../../theme";
+import { BottomSheet } from "../../components/BottomSheet";
+import { Button } from "../../components/Button";
+import { DiagramZoneSheet } from "./DiagramZoneSheet";
 import { VehicleDiagram } from "./VehicleDiagram";
-import { SHAPES, shapeStatuses, zonesForShape, type ShapeId } from "./diagramGeometry";
-import { effectiveStatus, statusLabel, zoneStatuses } from "./zoneStatus";
+import { type ShapeId } from "./diagramGeometry";
+import { statusLabel } from "./zoneStatus";
 import { statusColor } from "./statusColor";
 import type { InspectionResultDetail } from "./healthScoreApi";
 
@@ -21,18 +24,24 @@ class DiagramBoundary extends Component<{ children: ReactNode; onError: (error: 
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export function VehicleHealthViewer({ results, onShapePress, initialMode, onModeChange }: {
+export function VehicleHealthViewer({ results, onShapePress, initialMode, onModeChange, enabled = true, onOpenBreakdown }: {
+  enabled?: boolean;
+  onOpenBreakdown?: () => void;
   results: InspectionResultDetail[];
   onShapePress: (shape: ShapeId) => void;
   initialMode?: "2d" | "3d";
   onModeChange?: (mode: "2d" | "3d") => void;
 }) {
+  const { height } = useWindowDimensions();
+  const viewportHeight = Math.max(220, Math.min(460, height * 0.45));
+  const [panel, setPanel] = useState<"regions" | "colors" | null>(null);
   const [mode, setMode] = useState<"2d" | "3d">(Platform.OS === "web" ? "2d" : initialMode ?? "3d");
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [active, setActive] = useState(AppState.currentState !== "background" && AppState.currentState !== "inactive");
-  const byShape = shapeStatuses(zoneStatuses(results));
+  const [selectedShape, setSelectedShape] = useState<ShapeId | null>(null);
+  const selectShape = (shape: ShapeId) => { setSelectedShape(shape); setPanel("regions"); onShapePress(shape); };
   const fail = useCallback(() => { setFailed(true); setMode("2d"); onModeChange?.("2d"); }, [onModeChange]);
   const markReady = useCallback(() => setReady(true), []);
   const markLoading = useCallback(() => setReady(false), []);
@@ -41,14 +50,15 @@ export function VehicleHealthViewer({ results, onShapePress, initialMode, onMode
     return () => subscription.remove();
   }, []);
   useEffect(() => {
-    if (mode !== "3d" || ready || !active) return;
+    if (mode !== "3d" || ready || !active || !enabled) return;
     const timeout = setTimeout(fail, 15000);
     return () => clearTimeout(timeout);
-  }, [mode, ready, active, fail]);
+  }, [mode, ready, active, enabled, fail]);
+  useEffect(() => { if (!enabled) setReady(false); }, [enabled]);
   return (
-    <View style={{ gap: theme.spacing.sm }}>
-      <Text style={{ ...theme.text("label"), color: theme.colors.inkMuted }}>Generic vehicle · Inspection regions</Text>
-      <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
+    <View style={{ gap: theme.spacing.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <View style={{ flexDirection: "row", gap: theme.spacing.xs, backgroundColor: theme.colors.surfaceSunken, padding: 4, borderRadius: theme.radii.sm }}>
         {(["3d", "2d"] as const).map(value => (
           <Pressable key={value} accessibilityRole="button" accessibilityLabel={`${value.toUpperCase()} vehicle view`}
             accessibilityState={{ selected: mode === value, disabled: value === "3d" && Platform.OS === "web" }}
@@ -59,39 +69,39 @@ export function VehicleHealthViewer({ results, onShapePress, initialMode, onMode
               setMode(value);
               onModeChange?.(value);
             }}
-            style={{ minHeight: 48, padding: 12, backgroundColor: mode === value ? theme.colors.primary : theme.colors.surface, borderRadius: theme.radii.sm }}>
-            <Text style={{ color: mode === value ? "#FFFFFF" : theme.colors.ink }}>{value.toUpperCase()}</Text>
+            style={{ minHeight: 48, padding: 12, backgroundColor: mode === value ? theme.colors.surface : "transparent", borderRadius: theme.radii.sm }}>
+            <Text style={{ ...theme.text("label", 600), color: mode === value ? theme.colors.primary : theme.colors.inkMuted }}>{value.toUpperCase()}</Text>
           </Pressable>
         ))}
       </View>
+      <Pressable accessibilityRole="button" onPress={() => setPanel("colors")} style={{ minHeight: 48, justifyContent: "center", paddingHorizontal: 8 }}>
+        <Text style={{ ...theme.text("label"), color: theme.colors.inkMuted }}>Color key</Text>
+      </Pressable>
+      </View>
       {failed && <Text accessibilityRole="alert" style={{ color: theme.colors.inkMuted }}>3D is unavailable. You can explore the same findings in 2D or select a region below.</Text>}
-      {mode === "2d" ? <VehicleDiagram results={results} onShapePress={onShapePress} /> : (
+      {mode === "2d" ? <VehicleDiagram results={results} onShapePress={selectShape} /> : (
         <DiagramBoundary key={attempt} onError={fail}>
           {!ready && <View accessibilityLabel="Loading vehicle model"><ActivityIndicator /><Text style={{ color: theme.colors.inkMuted }}>Loading vehicle model…</Text></View>}
-          <Suspense fallback={null}><NativeDiagram results={results} onShapePress={onShapePress} onError={fail} onReady={markReady} onLoading={markLoading} /></Suspense>
+          <Suspense fallback={null}>{enabled && <NativeDiagram viewportHeight={viewportHeight} results={results} onShapePress={selectShape} onError={fail} onReady={markReady} onLoading={markLoading} />}</Suspense>
         </DiagramBoundary>
       )}
-      <Text style={{ ...theme.text("label"), color: theme.colors.ink }}>Select an inspection region</Text>
-      <Text style={{ ...theme.text("body"), color: theme.colors.inkMuted }}>Each region shows its most concerning recorded finding. Group findings can affect several regions.</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
+      <Button block variant="secondary" icon="list-tree" onPress={() => { setSelectedShape(null); setPanel("regions"); }}>Choose a region</Button>
+      <Text style={{ ...theme.text("label"), color: theme.colors.inkMuted }}>Generic vehicle. Colors show the most concerning finding in each region.</Text>
+      {results.some(r => !r.diagramZone || !(DIAGRAM_ZONES as readonly string[]).includes(r.diagramZone)) && <View style={{ gap: theme.spacing.sm }}>
+        <Text style={{ ...theme.text("label"), color: theme.colors.inkMuted }}>Some findings have no known location. Open category breakdown to see all inspection findings.</Text>
+        {onOpenBreakdown && <Button variant="ghost" onPress={onOpenBreakdown}>See category breakdown</Button>}
+      </View>}
+      <BottomSheet open={panel === "colors"} title="Diagram colors" onClose={() => setPanel(null)} closeLabel="Close">
+        <Text style={{ ...theme.text("body"), color: theme.colors.inkMuted }}>Group findings can affect several regions. Missing findings are not a healthy result.</Text>
         {(["GOOD", "MONITOR", "ATTENTION", "CRITICAL", undefined] as const).map(status => (
           <View key={status ?? "unknown"} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: statusColor(status) }} />
             <Text style={{ ...theme.text("label"), color: theme.colors.inkMuted }}>{statusLabel(status)}</Text>
           </View>
         ))}
-      </View>
-      {SHAPES.map(shape => {
-        const zones = new Set(zonesForShape(shape.id));
-        const matching = results.filter(r => r.diagramZone && zones.has(r.diagramZone));
-        const label = byShape[shape.id] ? statusLabel(byShape[shape.id]) : matching.length === 0 ? "No findings recorded" : matching.every(r => effectiveStatus(r) === "NOT_APPLICABLE") ? "Not applicable" : "Status unavailable";
-        return <Pressable key={shape.id} testID={`region-${shape.id}`} accessibilityRole="button"
-          accessibilityLabel={`${shape.label}: ${label}`} onPress={() => onShapePress(shape.id)}
-          style={{ minHeight: 48, justifyContent: "center", borderBottomWidth: 1, borderBottomColor: theme.colors.line }}>
-          <Text style={{ ...theme.text("body"), color: theme.colors.ink }}>{shape.label} · {label}</Text>
-        </Pressable>;
-      })}
-      {results.some(r => !r.diagramZone || !(DIAGRAM_ZONES as readonly string[]).includes(r.diagramZone)) && <Text style={{ color: theme.colors.inkMuted }}>Some findings have no known location. Open category breakdown to see all inspection findings.</Text>}
+      </BottomSheet>
+      <DiagramZoneSheet shapeId={panel === "regions" ? selectedShape : null} chooseRegion={panel === "regions"}
+        results={results} onSelectRegion={selectShape} onClose={() => { setPanel(null); setSelectedShape(null); }} />
     </View>
   );
 }

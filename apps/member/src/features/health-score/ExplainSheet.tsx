@@ -27,17 +27,24 @@ function statusBandScore(status: PointStatus): number {
  *  included — with the templated sentence, measured value vs threshold, and the
  *  finding photo if present. Uses the pure renderExplanation (no round trip). */
 export function ExplainSheet({ target, onClose }: { target: ExplainTarget | null; onClose: () => void }) {
-  const t = theme;
   if (!target) return null;
 
+  return (
+    <BottomSheet title={target.point.label} onClose={onClose}>
+      <FindingExplanation target={target} />
+    </BottomSheet>
+  );
+}
+
+export function FindingExplanation({ target }: { target: ExplainTarget }) {
+  const t = theme;
   const sentence = !target.status ? "The inspection does not provide a usable status for this finding." : target.status === "NOT_APPLICABLE"
     ? "This component does not apply to your vehicle, so it was not scored."
     : renderExplanation(target.point, target.status, { measuredValue: target.measuredValue }) ?? "";
   const starScore = target.score ?? statusBandScore(target.status ?? "GOOD");
   const th = target.point.thresholds;
-
   return (
-    <BottomSheet title={target.point.label} onClose={onClose}>
+    <>
       {target.status && target.status !== "NOT_APPLICABLE" && <StarRating score={starScore} size={22} />}
       <Text testID="explain-sentence" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{sentence}</Text>
 
@@ -50,6 +57,6 @@ export function ExplainSheet({ target, onClose }: { target: ExplainTarget | null
       {target.photoUrl && (
         <Image accessibilityLabel="Finding photo" source={{ uri: target.photoUrl }} style={{ width: "100%", height: 180, borderRadius: t.radii.sm }} resizeMode="cover" />
       )}
-    </BottomSheet>
+    </>
   );
 }

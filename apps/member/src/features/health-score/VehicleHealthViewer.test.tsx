@@ -1,7 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
 import { VehicleHealthViewer } from "./VehicleHealthViewer";
 import type { InspectionResultDetail } from "./healthScoreApi";
+
+beforeEach(() => { jest.spyOn(AppState, "addEventListener").mockReturnValue({ remove: jest.fn() }); });
+afterEach(() => { cleanup(); jest.restoreAllMocks(); });
 
 let mockHang = false;
 let mockRendererProps: { onReady: () => void; onLoading: () => void };
@@ -16,15 +19,17 @@ jest.mock("./VehicleDiagram3D", () => ({ VehicleDiagram3D: (props: any) => {
 
 it("recovers a renderer failure into 2D and preserves accessible region selections", async () => {
   const onShapePress = jest.fn();
-  render(<VehicleHealthViewer results={[{ diagramZone: "AXLE_FRONT", status: "CRITICAL" }] as InspectionResultDetail[]} onShapePress={onShapePress} />);
+  render(<VehicleHealthViewer results={[{ pointCode: "BRAKES", label: "Front brakes", diagramZone: "AXLE_FRONT", status: "CRITICAL" }] as InspectionResultDetail[]} onShapePress={onShapePress} />);
   expect(await screen.findByText(/3D is unavailable/)).toBeTruthy();
   expect(screen.getByTestId("zone-WHEEL_FL")).toBeTruthy();
+  fireEvent.press(screen.getByText("Choose a region"));
   fireEvent.press(screen.getByLabelText("Front-right wheel: Critical"));
   expect(onShapePress).toHaveBeenCalledWith("WHEEL_FR");
 });
 
 it("labels missing observations separately from explicit N/A", () => {
   render(<VehicleHealthViewer results={[{ diagramZone: "CABIN", status: "NOT_APPLICABLE" }] as InspectionResultDetail[]} onShapePress={jest.fn()} />);
+  fireEvent.press(screen.getByText("Choose a region"));
   expect(screen.getByLabelText("Cabin: Not applicable")).toBeTruthy();
   expect(screen.getByLabelText("Engine bay: No findings recorded")).toBeTruthy();
 });
@@ -83,4 +88,23 @@ it("pauses initialization timeout in background and reapplies it to a resumed co
     act(() => { jest.advanceTimersByTime(15000); });
     expect(screen.getByText(/3D is unavailable/)).toBeTruthy();
   } finally { listener.mockRestore(); mockHang = false; jest.useRealTimers(); }
+});
+
+it("keeps region and color lists hidden until requested", () => {
+  render(<VehicleHealthViewer results={[]} onShapePress={jest.fn()} />);
+  expect(screen.queryByTestId("region-ENGINE_BAY")).toBeNull();
+  expect(screen.queryByText("Critical")).toBeNull();
+  fireEvent.press(screen.getByText("Color key"));
+  expect(screen.getByText("Critical")).toBeTruthy();
+});
+
+it("opens finding explanations inside the region picker and returns to the region", () => {
+  render(<VehicleHealthViewer initialMode="2d" results={[{ pointCode: "IDLE", label: "Engine idle", diagramZone: "ENGINE_BAY", status: null }] as InspectionResultDetail[]} onShapePress={jest.fn()} />);
+  fireEvent.press(screen.getByText("Choose a region"));
+  fireEvent.press(screen.getByTestId("region-ENGINE_BAY"));
+  fireEvent.press(screen.getByTestId("zone-point-IDLE"));
+  expect(screen.getByTestId("explain-sentence")).toHaveTextContent(/does not provide a usable status/);
+  fireEvent.press(screen.getByText("Back to Engine bay"));
+  expect(screen.getByTestId("zone-point-IDLE")).toBeTruthy();
+  expect(screen.queryByTestId("explain-sentence")).toBeNull();
 });

@@ -4,6 +4,8 @@ import { Canvas, useFrame, useLoader, useThree, type RootState } from "@react-th
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Color, Group, Mesh, MeshStandardMaterial, Raycaster, Vector2 } from "three";
 import { theme } from "../../theme";
+import { BottomSheet } from "../../components/BottomSheet";
+import { Icon } from "../../components/Icon";
 import { SHAPES, shapeStatuses, type ShapeId } from "./diagramGeometry";
 import { zoneStatuses } from "./zoneStatus";
 import { statusColor } from "./statusColor";
@@ -12,6 +14,7 @@ import { modelRegion } from "./modelRegion";
 import { fitVehicleCameraDistance, VEHICLE_CAMERA_FOV } from "./vehicleCameraFit.mjs";
 
 type Props = {
+  viewportHeight?: number;
   results: InspectionResultDetail[];
   onShapePress?: (id: ShapeId) => void;
   onError: (error: Error) => void;
@@ -123,12 +126,13 @@ function VehicleModel({ results, onReady, modelRef }: Pick<Props, "results" | "o
 }
 
 /** Native-only scene. Screen-level lazy loading catches unavailable native modules. */
-export function VehicleDiagram3D({ results, onShapePress, onError, onLoading, onReady }: Props) {
+export function VehicleDiagram3D({ results, onShapePress, onError, onLoading, onReady, viewportHeight = 340 }: Props) {
   const modelRef = useRef<Group>(null);
   const rootRef = useRef<RootState | null>(null);
   const size = useRef({ width: 1, height: 340 });
   const start = useRef({ x: INITIAL_ROTATION[0], y: INITIAL_ROTATION[1] });
   const [active, setActive] = useState(AppState.currentState !== "background" && AppState.currentState !== "inactive");
+  const [viewsOpen, setViewsOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const pressRef = useRef(onShapePress);
   pressRef.current = onShapePress;
@@ -198,19 +202,16 @@ export function VehicleDiagram3D({ results, onShapePress, onError, onLoading, on
     onPanResponderTerminationRequest: () => false,
   }), [raycaster]);
 
-  const controls = [
-    { label: "Front", action: () => preset(0.18, 0) },
-    { label: "Rear", action: () => preset(0.18, Math.PI) },
-    { label: "Top", action: () => preset(1.45, 0) },
-    { label: "Underbody", action: () => preset(-1.45, 0) },
-    { label: "Zoom in", action: () => applyZoom(zoom + 0.2), disabled: zoom >= 1.8 },
-    { label: "Zoom out", action: () => applyZoom(zoom - 0.2), disabled: zoom <= 0.8 },
-    { label: "Reset view", action: () => { preset(INITIAL_ROTATION[0], INITIAL_ROTATION[1]); applyZoom(1); } },
+  const views = [
+    { label: "Front", x: 0.18, y: 0 },
+    { label: "Rear", x: 0.18, y: Math.PI },
+    { label: "Top", x: 1.45, y: 0 },
+    { label: "Underbody", x: -1.45, y: 0 },
   ];
 
   return (
     <View>
-      <View style={{ height: 340, width: "100%" }} onLayout={({ nativeEvent }) => { size.current = nativeEvent.layout; }}>
+      <View style={{ height: viewportHeight, width: "100%", backgroundColor: theme.colors.surfaceSoft, borderRadius: theme.radii.md, overflow: "hidden" }} onLayout={({ nativeEvent }) => { size.current = nativeEvent.layout; }}>
         {active && (
           <View style={{ flex: 1 }} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             <Canvas
@@ -235,14 +236,31 @@ export function VehicleDiagram3D({ results, onShapePress, onError, onLoading, on
       <Text style={{ ...theme.text("label"), color: theme.colors.inkMuted, textAlign: "center" }}>
         Drag to rotate. Tap a region to see findings.
       </Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-        {controls.map(({ label, action, disabled }) => (
-          <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={action}
-            style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: theme.colors.line, borderRadius: theme.radii.md, opacity: disabled ? 0.4 : 1 }}>
-            <Text style={{ ...theme.text("label"), color: theme.colors.ink }}>{label}</Text>
-          </Pressable>
-        ))}
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Camera views" onPress={() => setViewsOpen(true)}
+          style={{ flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radii.sm }}>
+          <Icon name="camera" size={16} /><Text style={{ ...theme.text("label"), color: theme.colors.ink, flexShrink: 1 }}>Views</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Reset view" onPress={() => { preset(INITIAL_ROTATION[0], INITIAL_ROTATION[1]); applyZoom(1); }}
+          style={{ flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <Icon name="rotate-cw" size={16} /><Text style={{ ...theme.text("label"), color: theme.colors.ink, flexShrink: 1 }}>Reset</Text>
+        </Pressable>
+        <View style={{ flexDirection: "row", borderWidth: 1, borderColor: theme.colors.line, borderRadius: theme.radii.sm }}>
+          {([{ label: "Zoom out", glyph: "−", delta: -0.2, disabled: zoom <= 0.8 }, { label: "Zoom in", glyph: "+", delta: 0.2, disabled: zoom >= 1.8 }]).map(control => (
+            <Pressable key={control.label} accessibilityRole="button" accessibilityLabel={control.label} accessibilityState={{ disabled: control.disabled }} disabled={control.disabled}
+              onPress={() => applyZoom(zoom + control.delta)} style={{ minHeight: 48, width: 48, alignItems: "center", justifyContent: "center", opacity: control.disabled ? 0.4 : 1 }}>
+              <Text style={{ ...theme.text("h2"), color: theme.colors.ink }}>{control.glyph}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
+      <BottomSheet open={viewsOpen} title="Camera views" onClose={() => setViewsOpen(false)} closeLabel="Close">
+        {views.map(view => <Pressable key={view.label} accessibilityRole="button" accessibilityLabel={`${view.label} view`}
+          onPress={() => { preset(view.x, view.y); setViewsOpen(false); }}
+          style={{ minHeight: 48, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.lineSoft }}>
+          <Text style={{ ...theme.text("body"), color: theme.colors.ink }}>{view.label}</Text>
+        </Pressable>)}
+      </BottomSheet>
     </View>
   );
 }

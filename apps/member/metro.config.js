@@ -12,7 +12,7 @@ for (const extension of ["glb", "gltf"]) {
 // Fiber's native entry patches Three's FileLoader for Expo registry assets.
 // Keep ESM addons (GLTFLoader) and Fiber's CJS entry on the same constructors;
 // otherwise package exports can load two Three instances on native platforms.
-// Three r187's CJS shim also calls Node's process.emitWarning. Metro can expose
+// Three's CJS shim also calls Node's process.emitWarning. Metro can expose
 // the ESM namespace to Fiber's require(), avoiding that Node-only wrapper.
 const nativeThree = path.join(path.dirname(require.resolve("three")), "three.module.js");
 const resolveRequest = config.resolver.resolveRequest;

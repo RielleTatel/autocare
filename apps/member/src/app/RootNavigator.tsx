@@ -3,7 +3,7 @@ import { Image, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useIsFocused } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { Skeleton } from "../components/Skeleton";
@@ -43,6 +43,8 @@ import { BookingContainer } from "../features/booking/BookingContainer";
 import { BookingsListScreen } from "../features/booking/BookingsListScreen";
 import { makeHealthScoreApi, type HealthScore, type HealthScoreHistoryPoint } from "../features/health-score/healthScoreApi";
 import { HealthScoreScreen } from "../features/health-score/HealthScoreScreen";
+import { VehicleHealthDiagramScreen } from "../features/health-score/VehicleHealthDiagramScreen";
+import { useDiagramInspection } from "../features/health-score/useDiagramInspection";
 import { CategoryBreakdownScreen } from "../features/health-score/CategoryBreakdownScreen";
 import { ScoreHistoryScreen } from "../features/health-score/ScoreHistoryScreen";
 import { ShareCertificateScreen } from "../features/health-score/ShareCertificateScreen";
@@ -620,10 +622,15 @@ function HealthInspectionError({ message, onRetry }: { message: string; onRetry:
 }
 
 function HealthScoreContainer({ navigation, route }: any) {
+  const returningFromDiagram = useRef(false);
   const { vehicleId } = route.params;
   const { score, results, error, resultsLoading, resultsError, load: loadScore } = useHealthInspection(healthScoreApi, vehicleId);
   useEffect(() => {
-    const unsub = navigation.addListener("focus", loadScore);
+    const unsub = navigation.addListener("focus", () => {
+      // The diagram is read-only; retain the mounted overview and scroll position.
+      if (returningFromDiagram.current) { returningFromDiagram.current = false; return; }
+      void loadScore();
+    });
     void loadScore();
     return unsub;
   }, [navigation, loadScore]);
@@ -637,11 +644,24 @@ function HealthScoreContainer({ navigation, route }: any) {
       resultsLoading={resultsLoading}
       resultsError={resultsError}
       onRetryResults={loadScore}
+      onOpenDiagram={() => {
+        returningFromDiagram.current = true;
+        navigation.navigate("VehicleHealthDiagram", { vehicleId, inspectionId: score.inspectionId });
+      }}
       onOpenBreakdown={() => navigation.navigate("CategoryBreakdown", { vehicleId })}
       onOpenHistory={() => navigation.navigate("ScoreHistory", { vehicleId })}
       onShare={() => navigation.navigate("ShareCertificate", { vehicleId, healthScoreId: score.id })}
     />
   );
+}
+
+function VehicleHealthDiagramContainer({ navigation, route }: any) {
+  const { vehicleId, inspectionId } = route.params;
+  const active = useIsFocused();
+  const { detail, error, load } = useDiagramInspection(healthScoreApi, vehicleId, inspectionId);
+  return <VehicleHealthDiagramScreen detail={detail} error={error} active={active} onRetry={load}
+    onBack={() => navigation.goBack()}
+    onOpenBreakdown={() => navigation.navigate("CategoryBreakdown", { vehicleId })} />;
 }
 
 function CategoryBreakdownContainer({ navigation, route }: any) {
@@ -896,6 +916,7 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="Booking" component={BookingFlowContainer} />
       <Stack.Screen name="Bookings" component={BookingsContainer} />
       <Stack.Screen name="HealthScore" component={HealthScoreContainer} />
+      <Stack.Screen name="VehicleHealthDiagram" component={VehicleHealthDiagramContainer} />
       <Stack.Screen name="CategoryBreakdown" component={CategoryBreakdownContainer} />
       <Stack.Screen name="ScoreHistory" component={ScoreHistoryContainer} />
       <Stack.Screen name="ShareCertificate" component={ShareCertificateContainer} />

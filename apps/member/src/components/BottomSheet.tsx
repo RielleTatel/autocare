@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { Modal, Pressable, Text, View, type ViewStyle } from "react-native";
+import { useContext, type ReactNode } from "react";
+import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions, type ViewStyle } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { theme } from "../theme";
 
 /**
@@ -10,7 +11,7 @@ import { theme } from "../theme";
  * a tap inside never closes it.
  */
 export function BottomSheet({
-  open = true, title, children, onClose, closeLabel = "Got it", style, testID,
+  open = true, title, children, onClose, closeLabel = "Got it", style, testID, contentKey,
 }: {
   open?: boolean;
   title?: string;
@@ -19,30 +20,41 @@ export function BottomSheet({
   closeLabel?: string;
   style?: ViewStyle;
   testID?: string;
+  /** Reset scroll position when navigating within the same native sheet. */
+  contentKey?: string;
 }) {
   const t = theme;
+  const { height } = useWindowDimensions();
+  const insets = useContext(SafeAreaInsetsContext);
+  const top = insets?.top ?? 0;
+  const bottom = insets?.bottom ?? 0;
   if (!open) return null;
 
   return (
-    <Modal transparent visible animationType="slide" onRequestClose={onClose}>
-      <Pressable
-        accessibilityRole="button"
-        // Distinct from the sheet's own close button, which carries `closeLabel`
-        // — two controls sharing one label is ambiguous to a screen reader.
-        accessibilityLabel="Dismiss"
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: t.elevation.scrim, justifyContent: "flex-end" }}
-      >
+    <Modal transparent visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+      <View accessibilityViewIsModal style={{ flex: 1, justifyContent: "flex-end", paddingTop: top + t.spacing.md }}>
+        <Pressable
+          accessibilityRole="button"
+          // Distinct from the sheet's own close button, which carries `closeLabel`
+          // — two controls sharing one label is ambiguous to a screen reader.
+          accessibilityLabel="Dismiss"
+          onPress={onClose}
+          style={{ position: "absolute", inset: 0, backgroundColor: t.elevation.scrim }}
+        />
         <Pressable
           testID={testID}
+          accessible={false}
           onPress={() => undefined}
           style={{
             backgroundColor: t.colors.surface,
             borderTopLeftRadius: t.radii.md,
             borderTopRightRadius: t.radii.md,
             padding: t.spacing.lg,
+            paddingBottom: Math.max(bottom, t.spacing.md),
             gap: t.spacing.sm,
             ...style,
+            maxHeight: height - top - t.spacing.md,
+            flexShrink: 1,
           }}
         >
           <View
@@ -50,14 +62,17 @@ export function BottomSheet({
             importantForAccessibility="no"
             style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: t.colors.line, alignSelf: "center" }}
           />
-          {title ? <Text style={{ ...t.text("h1"), color: t.colors.ink }}>{title}</Text> : null}
-          {children}
+          {title ? <Text accessibilityRole="header" style={{ ...t.text("h1"), color: t.colors.ink, flexShrink: 0 }}>{title}</Text> : null}
+          <ScrollView key={contentKey} style={{ flexShrink: 1, flexGrow: 0 }} contentContainerStyle={{ gap: t.spacing.sm, paddingBottom: t.spacing.sm }} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={closeLabel}
             onPress={onClose}
             style={{
               minHeight: t.minTarget,
+              flexShrink: 0,
               borderRadius: t.radii.md,
               backgroundColor: t.colors.primary,
               alignItems: "center",
@@ -68,7 +83,7 @@ export function BottomSheet({
             <Text style={{ ...t.text("h2"), color: t.colors.onPrimary }}>{closeLabel}</Text>
           </Pressable>
         </Pressable>
-      </Pressable>
+      </View>
     </Modal>
   );
 }

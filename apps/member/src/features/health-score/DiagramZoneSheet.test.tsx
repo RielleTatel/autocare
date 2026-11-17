@@ -44,3 +44,10 @@ describe("DiagramZoneSheet", () => {
     expect(screen.getByText(/nothing was recorded/i)).toBeTruthy();
   });
 });
+
+it("puts critical findings before monitor and good findings", () => {
+  const mixed = [...results, { pointCode: "FLUID", label: "Power steering fluid", diagramZone: "ENGINE_BAY", status: "CRITICAL", categoryCode: "FLUIDS" }] as any;
+  render(<DiagramZoneSheet shapeId="ENGINE_BAY" results={mixed} onClose={jest.fn()} />);
+  const rows = screen.getAllByTestId(/^zone-point-/);
+  expect(rows.map(row => row.props.testID)).toEqual(["zone-point-FLUID", "zone-point-ENGINE_IDLE", "zone-point-BATTERY_VOLTAGE"]);
+});
