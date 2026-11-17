@@ -50,10 +50,9 @@ export class EntitlementService {
    *
    * Concurrency: the increment is guarded at the DB level via a conditional `updateMany` whose
    * `where` clause requires `usedQty <= quota - qty`. Two concurrent transactions racing on the
-   * same usage row can both pass the upsert, but only one `updateMany` can match its predicate
-   * once the first writer's row is committed — Postgres serializes the row-level write, so the
-   * loser's affected-row count comes back 0 and it is reported EXHAUSTED. This holds without
-   * needing SERIALIZABLE isolation or an explicit `SELECT ... FOR UPDATE`.
+   * same usage row can both attempt creation; `createMany` with `skipDuplicates` uses
+   * PostgreSQL's conflict handling so only one inserts it. The subsequent `updateMany`
+   * serializes the increments on that row and checks the quota predicate again.
    */
   async consume(subscriptionId: string, type: EntitlementType, qty: number, sourceRef?: string): Promise<ConsumeResult> {
     const sub = await this.loadSubscriptionOrThrow(subscriptionId);
@@ -69,14 +68,11 @@ export class EntitlementService {
     const periodStart = sub.currentPeriodStart;
 
     const consumed = await this.prisma.$transaction(async (tx) => {
-      // Ensure the current-period usage row exists before the conditional increment below can
-      // target it. `update: {}` is a deliberate no-op on the happy path where the row already
-      // exists — creation only matters the first time this (subscription, period, type) triple
-      // is touched.
-      await tx.entitlementUsage.upsert({
-        where: { subscriptionId_periodStart_entitlementType: { subscriptionId, periodStart, entitlementType: type } },
-        create: { subscriptionId, periodStart, entitlementType: type, usedQty: 0, sourceRef },
-        update: {},
+      // Ensure the row exists. Concurrent first-time requests may both get here; skip the
+      // duplicate instead of failing the entire transaction with P2002.
+      await tx.entitlementUsage.createMany({
+        data: [{ subscriptionId, periodStart, entitlementType: type, usedQty: 0, sourceRef }],
+        skipDuplicates: true,
       });
 
       const updated = await tx.entitlementUsage.updateMany({
@@ -120,9 +116,8 @@ export class EntitlementService {
 
   /**
    * Seeds fresh (usedQty=0) usage rows for every entitlement in the subscription's current
-   * plan at `newPeriodStart` — called at a cycle boundary (Task 8). Idempotent: upserting with
-   * `update: {}` means re-running for a period that already has rows is a no-op rather than
-   * resetting usage that's already accrued in that period.
+   * plan at `newPeriodStart` — called at a cycle boundary (Task 8). Duplicate rows are
+   * skipped, so re-running never resets usage already accrued in that period.
    */
   async resetCycle(subscriptionId: string, newPeriodStart: Date): Promise<void> {
     const sub = await this.prisma.subscription.findUnique({ where: { id: subscriptionId }, select: { planId: true } });
@@ -132,15 +127,13 @@ export class EntitlementService {
       where: { planId: sub.planId },
       select: { entitlementType: true },
     });
+    if (entitlements.length === 0) return;
 
-    await this.prisma.$transaction(
-      entitlements.map((e) =>
-        this.prisma.entitlementUsage.upsert({
-          where: { subscriptionId_periodStart_entitlementType: { subscriptionId, periodStart: newPeriodStart, entitlementType: e.entitlementType } },
-          create: { subscriptionId, periodStart: newPeriodStart, entitlementType: e.entitlementType, usedQty: 0 },
-          update: {},
-        }),
-      ),
-    );
+    await this.prisma.entitlementUsage.createMany({
+      data: entitlements.map((e) => ({
+        subscriptionId, periodStart: newPeriodStart, entitlementType: e.entitlementType, usedQty: 0,
+      })),
+      skipDuplicates: true,
+    });
   }
 }
