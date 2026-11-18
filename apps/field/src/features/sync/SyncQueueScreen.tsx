@@ -8,7 +8,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { FieldNav } from "../../components/FieldNav";
 import { ActionBar, Disclosure, workContent } from "../../components/FieldLayout";
 import { Icon, type IconName } from "../../components/Icon";
-import { outbox, syncProcessor } from "../../shared/sync";
+import { outbox, photoUploader, syncProcessor } from "../../shared/sync";
 import { useSyncStatus } from "../../shared/sync/useSyncStatus";
 import type { OutboxEntry } from "../../shared/sync/types";
 import { discardRejected } from "./discard";
@@ -28,9 +28,10 @@ export function SyncQueueScreen({ storageUsedBytes = 0, onBack }: { storageUsedB
   const [actionError, setActionError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [photos, setPhotos] = useState({ pending: 0, failed: 0, lastError: null as string | null });
   const refresh = useCallback(async () => {
-    const [queued, parked] = await Promise.all([outbox.pendingInOrder(), outbox.rejectedInOrder()]);
-    setPending(queued); setRejected(parked); setLoaded(true);
+    const [queued, parked, photoState] = await Promise.all([outbox.pendingInOrder(), outbox.rejectedInOrder(), photoUploader.summary()]);
+    setPending(queued); setRejected(parked); setPhotos(photoState); setLoaded(true);
   }, []);
   useEffect(() => {
     void refresh().catch(() => setActionError("Could not read saved records. Reopen the sync queue to try again."));
@@ -56,6 +57,17 @@ export function SyncQueueScreen({ storageUsedBytes = 0, onBack }: { storageUsedB
     <ScrollView contentContainerStyle={workContent}>
       <Text style={[t.text("body"), { color: t.colors.ink }]}>{status.pendingCount} pending · {status.rejectedCount} need attention</Text>
       {status.lastSyncAt ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Last synced {age(status.lastSyncAt)} ago</Text> : null}
+      {photos.pending || photos.failed ? <Card style={{ gap: 12 }}>
+        <Text style={[t.text("h2"), { color: t.colors.ink }]}>Optional inspection photos</Text>
+        <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>{photos.pending} waiting · {photos.failed} need retry. Report acceptance and health scores are separate from photo delivery.</Text>
+        {photos.lastError ? <Text style={[t.text("label"), { color: t.colors.danger }]}>{photos.lastError}</Text> : null}
+        <Button variant="secondary" disabled={retrying || status.isDraining} onPress={() => {
+          setRetrying(true); setActionError(null);
+          void photoUploader.retryFailed().then(() => syncProcessor.drain({ force: true })).then(refresh)
+            .catch((failure) => setActionError(failure instanceof Error ? failure.message : "Could not retry optional photos."))
+            .finally(() => setRetrying(false));
+        }}>Retry optional photos</Button>
+      </Card> : null}
       {rejected.length ? <View style={{ gap: 8 }}>
         <Text style={[t.text("h2"), { color: t.colors.ink }]}>Needs attention</Text>
         {rejected.map((entry) => <Card key={entry.clientUuid} pad="none" style={{ overflow: "hidden" }}>
@@ -72,7 +84,7 @@ export function SyncQueueScreen({ storageUsedBytes = 0, onBack }: { storageUsedB
       </View> : null}
       {status.lastError ? <EmptyState tone="error" title="Sync needs attention" body={status.lastError} /> : null}
       {pending.length ? <View style={{ gap: 8 }}><Text style={[t.text("h2"), { color: t.colors.ink }]}>Waiting to sync</Text>{pending.map((entry) => <Card key={entry.clientUuid} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><Icon name={ENTITY_ICONS[entry.entityType] ?? "package"} color={t.colors.inkMuted} /><View style={{ flex: 1, gap: 4 }}><Text style={[t.text("body"), { color: t.colors.ink }]}>{entityLabel(entry.entityType)}</Text><Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{entry.op === "create" ? "Save record" : entry.op === "submit" ? "Submit report" : entry.op} · {age(entry.createdAt)} old</Text></View><StatusPill tone={entry.attempts > 0 ? "warn" : "neutral"}>{entry.attempts > 0 ? "Retrying" : "Queued"}</StatusPill></Card>)}</View> : null}
-      {loaded && !pending.length && !rejected.length && !status.lastError ? <EmptyState title="Everything is synced" body="Your saved records have been sent." /> : !loaded && !actionError ? <EmptyState tone="loading" title="Loading saved records…" /> : null}
+      {loaded && !pending.length && !rejected.length && !photos.pending && !photos.failed && !status.lastError ? <EmptyState title="Everything is synced" body="Your saved records have been sent." /> : !loaded && !actionError ? <EmptyState tone="loading" title="Loading saved records…" /> : null}
       {actionError ? <Text accessibilityRole="alert" style={[t.text("body"), { color: t.colors.danger }]}>{actionError}</Text> : null}
       {storageUsedBytes > 0 ? <Disclosure title="Storage details"><Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Local queue storage: {(storageUsedBytes / 1024).toFixed(0)} KB</Text></Disclosure> : null}
     </ScrollView>

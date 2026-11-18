@@ -17,13 +17,15 @@ export function PhotoAnnotateScreen({ onDone, onCancel }: { onDone(uri: string, 
   const [tool, setTool] = useState<Mark["kind"]>("arrow");
   const [marks, setMarks] = useState<Mark[]>([]);
   const [busy, setBusy] = useState(false);
+  const savingPhoto = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const prepare = async () => {
-    if (busy || !photoUri) return;
+    if (savingPhoto.current || busy || !photoUri) return;
+    savingPhoto.current = true;
     setBusy(true); setError(null);
     try { await onDone(await compressForUpload(photoUri), marks); }
     catch { setError("Could not save this photo. Try again, or return to the finding without it."); }
-    finally { setBusy(false); }
+    finally { savingPhoto.current = false; setBusy(false); }
   };
   if (!permission?.granted) return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
     <FieldNav title="Finding photo" onBack={onCancel} />

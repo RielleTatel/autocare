@@ -44,6 +44,10 @@ export const inspectionCreatePayloadSchema = z.object({
   startedAt: z.string().datetime().optional(),
   notes: z.string().max(4000).optional(),
   results: z.array(inspectionResultInputSchema).min(1),
+  additionalObservations: z.array(z.object({
+    clientUuid: z.string().uuid(),
+    notes: z.string().trim().min(1).max(2000),
+  })).max(100).optional(),
 });
 export type InspectionCreatePayload = z.infer<typeof inspectionCreatePayloadSchema>;
 

@@ -30,9 +30,13 @@ export class CertificatesService {
    *  latest (or specified) score. Starts PRIVATE. */
   async create(u: AbilityUser, vehicleId: string, healthScoreId?: string) {
     await this.assertOwnsVehicle(u, vehicleId);
+    const fullInspectionWhere = { scope: "FULL" as const, submittedAt: { not: null } };
     const score = healthScoreId
-      ? await this.prisma.healthScore.findFirst({ where: { id: healthScoreId, vehicleId } })
-      : await this.prisma.healthScore.findFirst({ where: { vehicleId }, orderBy: { computedAt: "desc" } });
+      ? await this.prisma.healthScore.findFirst({ where: { id: healthScoreId, vehicleId, inspection: fullInspectionWhere } })
+      : await this.prisma.healthScore.findFirst({
+        where: { vehicleId, inspection: fullInspectionWhere },
+        orderBy: [{ inspection: { submittedAt: "desc" } }, { id: "desc" }],
+      });
     if (!score) throw new DomainError("INSPECTION_INCOMPLETE", "no score to certify", 404);
 
     const publicToken = randomBytes(32).toString("base64url"); // ~256 bits

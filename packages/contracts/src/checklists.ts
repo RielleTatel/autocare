@@ -38,6 +38,23 @@ export const checklistDraftPatchSchema = z.object({
 });
 export type ChecklistDraftPatch = z.infer<typeof checklistDraftPatchSchema>;
 
+export const inspectionTemplateScopeSchema = z.enum(["FULL", "FOCUSED"]);
+export const inspectionTemplateCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  scope: inspectionTemplateScopeSchema,
+});
+export type InspectionTemplateCreate = z.infer<typeof inspectionTemplateCreateSchema>;
+
+export const inspectionTemplateVersionCreateSchema = z.object({
+  sourceVersionId: z.string().uuid().optional(),
+});
+export type InspectionTemplateVersionCreate = z.infer<typeof inspectionTemplateVersionCreateSchema>;
+
+export const inspectionTemplatePublishSchema = z.object({
+  versionId: z.string().uuid(),
+});
+export type InspectionTemplatePublish = z.infer<typeof inspectionTemplatePublishSchema>;
+
 export const previewScoreSchema = z.object({
   results: z.array(z.object({
     pointCode: z.string().min(1),

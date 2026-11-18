@@ -4,7 +4,10 @@ type Response = {
   status(code: number): { end(): void };
   json(body: unknown): void;
 };
-import { checklistDraftPatchSchema, previewScoreSchema, ChecklistDraftPatch, PreviewScoreInput } from "@autocare/contracts";
+import {
+  checklistDraftPatchSchema, inspectionTemplateCreateSchema, inspectionTemplateVersionCreateSchema,
+  previewScoreSchema, ChecklistDraftPatch, InspectionTemplateCreate, InspectionTemplateVersionCreate, PreviewScoreInput,
+} from "@autocare/contracts";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { AbilityUser } from "../../common/policies/ability.factory";
@@ -56,5 +59,37 @@ export class ChecklistsController {
   @Post("admin/checklists/:id/preview-score")
   preview(@CurrentUser() u: AbilityUser, @Param("id") id: string, @Body(new ZodValidationPipe(previewScoreSchema)) dto: PreviewScoreInput) {
     return this.checklists.previewScore(u, id, dto);
+  }
+
+  @Get("admin/inspection-templates")
+  listTemplates(@CurrentUser() u: AbilityUser) {
+    return this.checklists.listTemplates(u);
+  }
+
+  @Get("admin/inspection-templates/:templateId")
+  getTemplate(@CurrentUser() u: AbilityUser, @Param("templateId") templateId: string) {
+    return this.checklists.getTemplate(u, templateId);
+  }
+
+  @Post("admin/inspection-templates")
+  createTemplate(@CurrentUser() u: AbilityUser, @Body(new ZodValidationPipe(inspectionTemplateCreateSchema)) dto: InspectionTemplateCreate) {
+    return this.checklists.createTemplate(u, dto);
+  }
+
+  @Post("admin/inspection-templates/:templateId/versions")
+  createTemplateVersion(@CurrentUser() u: AbilityUser, @Param("templateId") templateId: string,
+                        @Body(new ZodValidationPipe(inspectionTemplateVersionCreateSchema)) dto: InspectionTemplateVersionCreate) {
+    return this.checklists.createTemplateVersion(u, templateId, dto);
+  }
+
+  @Patch("admin/inspection-templates/:templateId/versions/:versionId")
+  patchTemplateVersion(@CurrentUser() u: AbilityUser, @Param("templateId") templateId: string, @Param("versionId") versionId: string,
+                       @Body(new ZodValidationPipe(checklistDraftPatchSchema)) dto: ChecklistDraftPatch) {
+    return this.checklists.patchTemplateVersion(u, templateId, versionId, dto);
+  }
+
+  @Post("admin/inspection-templates/:templateId/versions/:versionId/publish")
+  publishTemplateVersion(@CurrentUser() u: AbilityUser, @Param("templateId") templateId: string, @Param("versionId") versionId: string) {
+    return this.checklists.publishTemplateVersion(u, templateId, versionId);
   }
 }

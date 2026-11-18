@@ -32,7 +32,8 @@ export default function ChecklistsPage() {
       <div className="max-w-3xl mx-auto flex flex-col gap-5">
         <header className="flex items-center justify-between">
           <h1 className="font-display text-2xl text-ink">Inspection checklists</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/admin/inspection-templates" className="text-primary text-sm font-medium">Service inspection templates</Link>
             <Link href="/admin" className="text-primary text-sm font-medium">← Admin</Link>
             <button type="button" disabled={busy} onClick={onCreateDraft} className="h-9 px-3 rounded-sm bg-primary text-white text-sm font-medium disabled:opacity-50">
               New draft from active

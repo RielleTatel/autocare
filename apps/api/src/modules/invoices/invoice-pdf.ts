@@ -13,6 +13,11 @@ export interface InvoicePdfInvoice {
   status: string;
   issuedAt: Date;
   dueDate: Date;
+  documentKind?: "BILL" | "NO_CHARGE";
+  appointmentId?: string;
+  workOrderId?: string;
+  plateNo?: string;
+  serviceName?: string;
 }
 
 export interface InvoicePdfItem {
@@ -20,11 +25,15 @@ export interface InvoicePdfItem {
   qty: number;
   unitPriceCentavos: number;
   taxCentavos: number;
+  source?: "LEGACY" | "SERVICE" | "REPAIR";
 }
 
 export interface InvoicePdfPayment {
   method: string;
   status: string;
+  amountCentavos?: number;
+  tenderedCentavos?: number;
+  changeCentavos?: number;
 }
 
 export interface InvoicePdfSubscription {
@@ -64,7 +73,7 @@ function computeVat(totalCentavos: number, items: InvoicePdfItem[]) {
 }
 
 /**
- * Renders an itemized, BIR-style official-receipt PDF for an invoice. Pure function of its
+ * Renders an unpaid bill, a settled-payment receipt, or a No charge document. Pure function of its
  * inputs — no DB/storage access — so it is directly unit-testable.
  */
 export async function renderInvoicePdf(
@@ -75,6 +84,10 @@ export async function renderInvoicePdf(
   plan?: InvoicePdfPlan,
 ): Promise<Buffer> {
   const doc = new PDFDocument({ size: "A4", margin: 50, font: "Helvetica" });
+  const noCharge = invoice.documentKind === "NO_CHARGE";
+  const paid = invoice.status === "PAID";
+  const settled = !noCharge && paid && payment?.status === "SUCCEEDED";
+  const cashReceipt = settled && payment?.method === "CASH";
   const chunks: Buffer[] = [];
   const done = new Promise<Buffer>((resolve, reject) => {
     doc.on("data", (c: Buffer) => chunks.push(c));
@@ -83,17 +96,18 @@ export async function renderInvoicePdf(
   });
 
   doc.fontSize(18).text("AutoCare+", { continued: false });
-  doc.fontSize(10).fillColor("#555").text("Official Receipt / Invoice");
+  doc.fontSize(10).fillColor("#555").text(noCharge ? "No charge document" : cashReceipt ? "Cash receipt" : settled ? "Payment receipt" : paid ? "Paid bill" : "Unpaid bill");
   doc.moveDown(1);
   doc.fillColor("#000");
 
-  // OR-style / BIR sequence number: the invoice's own `number` (format INV-YYYY-NNNNNN, minted
-  // by invoice-numbering.ts under a DB-serialized sequence) doubles as the BIR-facing OR number —
-  // no separate sequence is maintained, since `Invoice.number` is already unique and monotonic.
-  doc.fontSize(11).text(`OR / Invoice No.: ${invoice.number}`);
+  doc.fontSize(11).text(`Bill No.: ${invoice.number}`);
   doc.text(`Issued: ${invoice.issuedAt.toISOString().slice(0, 10)}`);
-  doc.text(`Due: ${invoice.dueDate.toISOString().slice(0, 10)}`);
-  doc.text(`Status: ${invoice.status}`);
+  if (!noCharge && !paid) doc.text(`Due: ${invoice.dueDate.toISOString().slice(0, 10)}`);
+  doc.text(`Status: ${noCharge ? "No charge" : invoice.status}`);
+  if (invoice.plateNo) doc.text(`Vehicle: ${invoice.plateNo}`);
+  if (invoice.serviceName) doc.text(`Service: ${invoice.serviceName}`);
+  if (invoice.appointmentId) doc.text(`Booking: ${invoice.appointmentId}`);
+  if (invoice.workOrderId) doc.text(`Work order: ${invoice.workOrderId}`);
   if (subscription) doc.text(`Subscription: ${subscription.id}`);
   if (plan) doc.text(`Plan: ${plan.name} (${plan.billingInterval})`);
   doc.moveDown(1);
@@ -113,7 +127,8 @@ export async function renderInvoicePdf(
   for (const item of items) {
     const y = doc.y;
     const amount = item.qty * item.unitPriceCentavos;
-    doc.fontSize(10).text(item.description, colX.desc, y, { width: 240 });
+    const source = item.source === "SERVICE" ? "Service: " : item.source === "REPAIR" ? "Repair: " : "";
+    doc.fontSize(10).text(`${source}${item.description}`, colX.desc, y, { width: 240 });
     doc.text(String(item.qty), colX.qty, y);
     doc.text(peso(item.unitPriceCentavos), colX.unit, y);
     doc.text(peso(amount), colX.amount, y);
@@ -125,17 +140,21 @@ export async function renderInvoicePdf(
   doc.fontSize(10);
   doc.text(`VATable Sales: ${peso(vatableSales)}`, { align: "right" });
   doc.text(`VAT (12%)${inclusive ? " (VAT-inclusive price)" : ""}: ${peso(vat)}`, { align: "right" });
-  doc.fontSize(12).text(`Total Amount Due: ${peso(total)}`, { align: "right" });
+  doc.fontSize(12).text(`${noCharge ? "Total charge" : settled ? "Total paid" : paid ? "Final total" : "Total amount due"}: ${peso(total)}`, { align: "right" });
   doc.moveDown(1);
 
-  if (payment) {
+  if (settled && payment) {
     doc.fontSize(10).text(`Payment Method: ${payment.method}`);
     doc.text(`Payment Status: ${payment.status}`);
+    if (cashReceipt && payment.tenderedCentavos !== undefined) doc.text(`Cash tendered: ${peso(payment.tenderedCentavos)}`);
+    if (cashReceipt && payment.changeCentavos !== undefined) doc.text(`Change: ${peso(payment.changeCentavos)}`);
     doc.moveDown(1);
   }
 
   doc.fontSize(8).fillColor("#555").text(
-    "This serves as an Official Receipt. Retain for 10 years (BIR record-keeping requirement).",
+    noCharge ? "No payment is due. No cash payment was recorded for this document."
+      : settled ? `Payment received for bill ${invoice.number}.` : paid ? "This bill is marked paid."
+      : "This is an unpaid bill. A receipt is available after successful payment.",
     { align: "center" },
   );
 

@@ -50,28 +50,29 @@ model Organization {
 }
 
 model User {
-  id                     String          @id @default(uuid()) @db.Uuid
-  firebaseUid            String          @unique @map("firebase_uid")
-  mobile                 String?         @unique
-  email                  String?         @unique
+  id                     String                      @id @default(uuid()) @db.Uuid
+  firebaseUid            String                      @unique @map("firebase_uid")
+  mobile                 String?                     @unique
+  email                  String?                     @unique
   name                   String?
-  role                   Role            @default(MEMBER)
-  status                 UserStatus      @default(ACTIVE)
-  isCertifiedTechnician  Boolean         @default(false) @map("is_certified_technician")
-  createdAt              DateTime        @default(now()) @map("created_at")
+  role                   Role                        @default(MEMBER)
+  status                 UserStatus                  @default(ACTIVE)
+  isCertifiedTechnician  Boolean                     @default(false) @map("is_certified_technician")
+  createdAt              DateTime                    @default(now()) @map("created_at")
   consents               ConsentRecord[]
   vehicles               Vehicle[]
   roadsideRequests       RoadsideRequest[]
   address                String?
-  emergencyContactName   String?         @map("emergency_contact_name")
-  emergencyContactMobile String?         @map("emergency_contact_mobile")
-  orgId                  String?         @map("org_id") @db.Uuid
-  org                    Organization?   @relation(fields: [orgId], references: [id])
-  erasureRequestedAt     DateTime?       @map("erasure_requested_at")
+  emergencyContactName   String?                     @map("emergency_contact_name")
+  emergencyContactMobile String?                     @map("emergency_contact_mobile")
+  orgId                  String?                     @map("org_id") @db.Uuid
+  org                    Organization?               @relation(fields: [orgId], references: [id])
+  erasureRequestedAt     DateTime?                   @map("erasure_requested_at")
   dataRequests           DataRequest[]
   subscriptions          Subscription[]
   shifts                 StaffShift[]
   inspections            Inspection[]
+  billingActions         AppointmentBillingHistory[]
 
   @@map("users")
 }
@@ -229,6 +230,17 @@ enum InvoiceStatus {
   SUSPENDED
 }
 
+enum InvoiceDocumentKind {
+  BILL
+  NO_CHARGE
+}
+
+enum InvoiceItemSource {
+  LEGACY
+  SERVICE
+  REPAIR
+}
+
 enum SubscriptionPaymentMethod {
   E_PAYMENT
   COD
@@ -306,19 +318,22 @@ model EntitlementUsage {
 }
 
 model Invoice {
-  id             String        @id @default(uuid()) @db.Uuid
-  subscriptionId String?       @map("subscription_id") @db.Uuid
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-  workOrderId    String?       @map("work_order_id") @db.Uuid
-  workOrder      WorkOrder?    @relation(fields: [workOrderId], references: [id])
-  number         String        @unique
-  totalCentavos  BigInt        @map("total_centavos")
+  id             String              @id @default(uuid()) @db.Uuid
+  subscriptionId String?             @map("subscription_id") @db.Uuid
+  subscription   Subscription?       @relation(fields: [subscriptionId], references: [id])
+  workOrderId    String?             @map("work_order_id") @db.Uuid
+  workOrder      WorkOrder?          @relation(fields: [workOrderId], references: [id])
+  appointmentId  String?             @unique @map("appointment_id") @db.Uuid
+  appointment    Appointment?        @relation(fields: [appointmentId], references: [id])
+  number         String              @unique
+  totalCentavos  BigInt              @map("total_centavos")
   status         InvoiceStatus
-  dueDate        DateTime      @map("due_date")
-  issuedAt       DateTime      @default(now()) @map("issued_at")
-  chargeAttempts Int           @default(0) @map("charge_attempts")
-  firstFailedAt  DateTime?     @map("first_failed_at")
-  pdfObjectPath  String?       @map("pdf_object_path")
+  documentKind   InvoiceDocumentKind @default(BILL) @map("document_kind")
+  dueDate        DateTime            @map("due_date")
+  issuedAt       DateTime            @default(now()) @map("issued_at")
+  chargeAttempts Int                 @default(0) @map("charge_attempts")
+  firstFailedAt  DateTime?           @map("first_failed_at")
+  pdfObjectPath  String?             @map("pdf_object_path")
   items          InvoiceItem[]
   payments       Payment[]
 
@@ -327,33 +342,36 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id                String  @id @default(uuid()) @db.Uuid
-  invoiceId         String  @map("invoice_id") @db.Uuid
-  invoice           Invoice @relation(fields: [invoiceId], references: [id])
+  id                String            @id @default(uuid()) @db.Uuid
+  invoiceId         String            @map("invoice_id") @db.Uuid
+  invoice           Invoice           @relation(fields: [invoiceId], references: [id])
   description       String
   qty               Int
-  unitPriceCentavos BigInt  @map("unit_price_centavos")
-  taxCentavos       BigInt  @default(0) @map("tax_centavos")
+  unitPriceCentavos BigInt            @map("unit_price_centavos")
+  taxCentavos       BigInt            @default(0) @map("tax_centavos")
+  source            InvoiceItemSource @default(LEGACY)
 
   @@map("invoice_items")
 }
 
 model Payment {
-  id                String        @id @default(uuid()) @db.Uuid
-  invoiceId         String        @map("invoice_id") @db.Uuid
-  invoice           Invoice       @relation(fields: [invoiceId], references: [id])
-  method            PaymentMethod
-  amountCentavos    BigInt        @map("amount_centavos")
-  status            PaymentStatus @default(PENDING)
-  pspReference      String?       @map("psp_reference")
-  collectedByUserId String?       @map("collected_by_user_id") @db.Uuid
-  shiftId           String?       @map("shift_id") @db.Uuid
-  cashShift         CashShift?    @relation(fields: [shiftId], references: [id])
-  clientUuid        String        @unique @map("client_uuid")
-  supersedesId      String?       @unique @map("supersedes_id") @db.Uuid
-  supersedes        Payment?      @relation("PaymentSupersedes", fields: [supersedesId], references: [id])
-  supersededBy      Payment?      @relation("PaymentSupersedes")
-  createdAt         DateTime      @default(now()) @map("created_at")
+  id                   String        @id @default(uuid()) @db.Uuid
+  invoiceId            String        @map("invoice_id") @db.Uuid
+  invoice              Invoice       @relation(fields: [invoiceId], references: [id])
+  method               PaymentMethod
+  amountCentavos       BigInt        @map("amount_centavos")
+  cashTenderedCentavos BigInt?       @map("cash_tendered_centavos")
+  changeCentavos       BigInt?       @map("change_centavos")
+  status               PaymentStatus @default(PENDING)
+  pspReference         String?       @map("psp_reference")
+  collectedByUserId    String?       @map("collected_by_user_id") @db.Uuid
+  shiftId              String?       @map("shift_id") @db.Uuid
+  cashShift            CashShift?    @relation(fields: [shiftId], references: [id])
+  clientUuid           String        @unique @map("client_uuid")
+  supersedesId         String?       @unique @map("supersedes_id") @db.Uuid
+  supersedes           Payment?      @relation("PaymentSupersedes", fields: [supersedesId], references: [id])
+  supersededBy         Payment?      @relation("PaymentSupersedes")
+  createdAt            DateTime      @default(now()) @map("created_at")
 
   @@index([collectedByUserId, shiftId])
   @@map("payments")
@@ -410,6 +428,45 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum AppointmentBillingStatus {
+  PENDING
+  RETURNED
+  ISSUED
+}
+
+enum InspectionTemplateScope {
+  FULL
+  FOCUSED
+}
+
+enum InspectionScope {
+  FULL
+  FOCUSED
+  LEGACY_UNKNOWN
+}
+
+enum InspectionPhotoTarget {
+  RESULT
+  OBSERVATION
+}
+
+enum RepairWorkflowStatus {
+  IN_PROGRESS
+  AWAITING_ADMIN_REVIEW
+  RETURNED_FOR_CORRECTION
+  VERIFIED
+  STOPPED
+}
+
+enum SimpleRepairOperationAction {
+  UPDATE
+  SCHEDULE_RETURN
+  COMPLETE
+  STOP
+  ADMIN_RETURN
+  ADMIN_ISSUE
+}
+
 enum Weekday {
   MON
   TUE
@@ -421,19 +478,22 @@ enum Weekday {
 }
 
 model ServiceType {
-  id                  String           @id @default(uuid()) @db.Uuid
-  code                String           @unique
-  name                String
-  standardDurationMin Int              @map("standard_duration_min")
-  requiredSkills      String[]         @map("required_skills")
-  priceCentavos       BigInt           @map("price_centavos")
-  entitlementType     EntitlementType? @map("entitlement_type")
-  intervalDays        Int?             @map("interval_days")
-  intervalKm          Int?             @map("interval_km")
-  isActive            Boolean          @default(true) @map("is_active")
-  inspectionRequired  Boolean          @default(false) @map("inspection_required")
-  createdAt           DateTime         @default(now()) @map("created_at")
-  appointments        Appointment[]
+  id                          String            @id @default(uuid()) @db.Uuid
+  code                        String            @unique
+  name                        String
+  standardDurationMin         Int               @map("standard_duration_min")
+  requiredSkills              String[]          @map("required_skills")
+  priceCentavos               BigInt            @map("price_centavos")
+  entitlementType             EntitlementType?  @map("entitlement_type")
+  intervalDays                Int?              @map("interval_days")
+  intervalKm                  Int?              @map("interval_km")
+  isActive                    Boolean           @default(true) @map("is_active")
+  inspectionRequired          Boolean           @default(false) @map("inspection_required")
+  inspectionTemplateVersionId String?           @map("inspection_template_version_id") @db.Uuid
+  inspectionTemplateVersion   ChecklistVersion? @relation("ServiceInspectionTemplateVersion", fields: [inspectionTemplateVersionId], references: [id])
+  createdAt                   DateTime          @default(now()) @map("created_at")
+  appointments                Appointment[]
+  repairOriginWorkOrders      WorkOrder[]       @relation("RepairOriginServiceType")
 
   @@map("service_types")
 }
@@ -489,20 +549,36 @@ model CapacityBlock {
 }
 
 model Appointment {
-  id             String            @id @default(uuid()) @db.Uuid
-  vehicleId      String            @map("vehicle_id") @db.Uuid
-  serviceTypeId  String            @map("service_type_id") @db.Uuid
-  bayId          String?           @map("bay_id") @db.Uuid
-  scheduledStart DateTime          @map("scheduled_start")
-  scheduledEnd   DateTime          @map("scheduled_end")
-  status         AppointmentStatus @default(BOOKED)
-  requiresPickup Boolean           @default(false) @map("requires_pickup")
-  createdBy      String            @map("created_by") @db.Uuid
-  subscriptionId String?           @map("subscription_id") @db.Uuid
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  vehicle        Vehicle           @relation(fields: [vehicleId], references: [id])
-  serviceType    ServiceType       @relation(fields: [serviceTypeId], references: [id])
+  id                           String                      @id @default(uuid()) @db.Uuid
+  vehicleId                    String                      @map("vehicle_id") @db.Uuid
+  serviceTypeId                String                      @map("service_type_id") @db.Uuid
+  bayId                        String?                     @map("bay_id") @db.Uuid
+  scheduledStart               DateTime                    @map("scheduled_start")
+  scheduledEnd                 DateTime                    @map("scheduled_end")
+  status                       AppointmentStatus           @default(BOOKED)
+  requiresPickup               Boolean                     @default(false) @map("requires_pickup")
+  createdBy                    String                      @map("created_by") @db.Uuid
+  subscriptionId               String?                     @map("subscription_id") @db.Uuid
+  serviceNameSnapshot          String?                     @map("service_name_snapshot")
+  servicePriceCentavosSnapshot BigInt?                     @map("service_price_centavos_snapshot")
+  currencySnapshot             String?                     @map("currency_snapshot")
+  inspectionRequiredSnapshot   Boolean?                    @map("inspection_required_snapshot")
+  inspectionTemplateVersionId  String?                     @map("inspection_template_version_id") @db.Uuid
+  inspectionTemplateVersion    ChecklistVersion?           @relation("AppointmentInspectionTemplateVersion", fields: [inspectionTemplateVersionId], references: [id])
+  coveredBySubscription        Boolean?                    @map("covered_by_subscription")
+  billingSnapshotKnown         Boolean                     @default(false) @map("billing_snapshot_known")
+  billingStatus                AppointmentBillingStatus    @default(PENDING) @map("billing_status")
+  billingVersion               Int                         @default(0) @map("billing_version")
+  finalServiceChargeCentavos   BigInt?                     @map("final_service_charge_centavos")
+  repairReturnWorkOrderId      String?                     @unique @map("repair_return_work_order_id") @db.Uuid
+  createdAt                    DateTime                    @default(now()) @map("created_at")
+  updatedAt                    DateTime                    @updatedAt @map("updated_at")
+  vehicle                      Vehicle                     @relation(fields: [vehicleId], references: [id])
+  serviceType                  ServiceType                 @relation(fields: [serviceTypeId], references: [id])
+  invoice                      Invoice?
+  inspections                  Inspection[]
+  billingHistory               AppointmentBillingHistory[]
+  repairReturnForWorkOrder     WorkOrder?                  @relation("RepairReturnAppointment", fields: [repairReturnWorkOrderId], references: [id], onDelete: SetNull)
 
   @@index([scheduledStart, bayId])
   @@index([status, scheduledStart])
@@ -579,13 +655,30 @@ model ChecklistVersion {
   status        ChecklistStatus     @default(DRAFT)
   isActive      Boolean             @default(false) @map("is_active")
   publishedAt   DateTime?           @map("published_at")
+  templateId    String?             @map("template_id") @db.Uuid
+  template      InspectionTemplate? @relation(fields: [templateId], references: [id])
   createdAt     DateTime            @default(now()) @map("created_at")
   categories    ChecklistCategory[]
   inspections   Inspection[]
   healthScores  HealthScore[]
+  serviceTypes  ServiceType[]       @relation("ServiceInspectionTemplateVersion")
+  appointments  Appointment[]       @relation("AppointmentInspectionTemplateVersion")
 
   @@index([isActive])
   @@map("checklist_versions")
+}
+
+model InspectionTemplate {
+  id        String                  @id @default(uuid()) @db.Uuid
+  name      String
+  scope     InspectionTemplateScope
+  isActive  Boolean                 @default(true) @map("is_active")
+  createdAt DateTime                @default(now()) @map("created_at")
+  updatedAt DateTime                @updatedAt @map("updated_at")
+  versions  ChecklistVersion[]
+
+  @@index([scope, isActive])
+  @@map("inspection_templates")
 }
 
 model ChecklistCategory {
@@ -640,28 +733,67 @@ model ChecklistPoint {
 
 // Append-only (NFR-054): corrections create a new row via supersedesId.
 model Inspection {
-  id                 String             @id @default(uuid()) @db.Uuid
-  clientUuid         String             @unique @map("client_uuid")
-  vehicleId          String             @map("vehicle_id") @db.Uuid
-  vehicle            Vehicle            @relation(fields: [vehicleId], references: [id])
-  appointmentId      String?            @map("appointment_id") @db.Uuid
-  mechanicId         String             @map("mechanic_id") @db.Uuid
-  mechanic           User               @relation(fields: [mechanicId], references: [id])
-  checklistVersionId String             @map("checklist_version_id") @db.Uuid
-  checklistVersion   ChecklistVersion   @relation(fields: [checklistVersionId], references: [id])
-  odometerKm         Int?               @map("odometer_km")
-  startedAt          DateTime?          @map("started_at")
-  submittedAt        DateTime?          @map("submitted_at")
-  notes              String?
-  supersedesId       String?            @unique @map("supersedes_id") @db.Uuid
-  supersedes         Inspection?        @relation("InspectionSupersedes", fields: [supersedesId], references: [id])
-  supersededBy       Inspection?        @relation("InspectionSupersedes")
-  createdAt          DateTime           @default(now()) @map("created_at")
-  results            InspectionResult[]
-  healthScore        HealthScore?
+  id                   String                  @id @default(uuid()) @db.Uuid
+  clientUuid           String                  @unique @map("client_uuid")
+  vehicleId            String                  @map("vehicle_id") @db.Uuid
+  vehicle              Vehicle                 @relation(fields: [vehicleId], references: [id])
+  appointmentId        String?                 @map("appointment_id") @db.Uuid
+  appointment          Appointment?            @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  mechanicId           String                  @map("mechanic_id") @db.Uuid
+  mechanic             User                    @relation(fields: [mechanicId], references: [id])
+  checklistVersionId   String                  @map("checklist_version_id") @db.Uuid
+  checklistVersion     ChecklistVersion        @relation(fields: [checklistVersionId], references: [id])
+  scope                InspectionScope         @default(LEGACY_UNKNOWN)
+  templateNameSnapshot String?                 @map("template_name_snapshot")
+  serviceNameSnapshot  String?                 @map("service_name_snapshot")
+  odometerKm           Int?                    @map("odometer_km")
+  startedAt            DateTime?               @map("started_at")
+  submittedAt          DateTime?               @map("submitted_at")
+  notes                String?
+  supersedesId         String?                 @unique @map("supersedes_id") @db.Uuid
+  supersedes           Inspection?             @relation("InspectionSupersedes", fields: [supersedesId], references: [id])
+  supersededBy         Inspection?             @relation("InspectionSupersedes")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  results              InspectionResult[]
+  observations         InspectionObservation[]
+  photos               InspectionPhoto[]
+  workOrders           WorkOrder[]             @relation("InspectionWorkOrders")
+  healthScore          HealthScore?
 
   @@index([vehicleId, createdAt])
   @@map("inspections")
+}
+
+model InspectionObservation {
+  id           String            @id @default(uuid()) @db.Uuid
+  clientUuid   String            @unique @map("client_uuid")
+  inspectionId String            @map("inspection_id") @db.Uuid
+  inspection   Inspection        @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  notes        String
+  photoUrls    String[]          @default([]) @map("photo_urls")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  photos       InspectionPhoto[]
+
+  @@index([inspectionId, createdAt])
+  @@map("inspection_observations")
+}
+
+model InspectionPhoto {
+  id            String                 @id @default(uuid()) @db.Uuid
+  clientUuid    String                 @unique @map("client_uuid")
+  inspectionId  String                 @map("inspection_id") @db.Uuid
+  inspection    Inspection             @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  target        InspectionPhotoTarget
+  pointCode     String?                @map("point_code")
+  observationId String?                @map("observation_id") @db.Uuid
+  observation   InspectionObservation? @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  storagePath   String                 @map("storage_path")
+  attachedAt    DateTime?              @map("attached_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  @@index([inspectionId, target])
+  @@index([observationId])
+  @@map("inspection_photos")
 }
 
 model InspectionResult {
@@ -847,28 +979,80 @@ model Part {
 }
 
 model WorkOrder {
-  id                  String          @id @default(uuid()) @db.Uuid
-  number              String          @unique
-  vehicleId           String          @map("vehicle_id") @db.Uuid
-  vehicle             Vehicle         @relation(fields: [vehicleId], references: [id])
-  appointmentId       String?         @map("appointment_id") @db.Uuid
-  status              WorkOrderStatus @default(DRAFT)
-  customerComplaint   String?         @map("customer_complaint")
-  technicianSummary   String?         @map("technician_summary")
-  advisorUserId       String          @map("advisor_user_id") @db.Uuid
-  inspectionId        String?         @map("inspection_id") @db.Uuid
-  stockOverride       Boolean         @default(false) @map("stock_override")
-  stockOverrideReason String?         @map("stock_override_reason")
-  openedAt            DateTime        @default(now()) @map("opened_at")
-  closedAt            DateTime?       @map("closed_at")
-  updatedAt           DateTime        @updatedAt @map("updated_at")
-  items               WorkOrderItem[]
-  wasteRecords        WasteRecord[]
-  invoices            Invoice[]
+  id                        String                  @id @default(uuid()) @db.Uuid
+  number                    String                  @unique
+  vehicleId                 String                  @map("vehicle_id") @db.Uuid
+  vehicle                   Vehicle                 @relation(fields: [vehicleId], references: [id])
+  appointmentId             String?                 @map("appointment_id") @db.Uuid
+  repairOriginServiceTypeId String?                 @map("repair_origin_service_type_id") @db.Uuid
+  repairOriginServiceType   ServiceType?            @relation("RepairOriginServiceType", fields: [repairOriginServiceTypeId], references: [id], onDelete: SetNull)
+  returnAppointment         Appointment?            @relation("RepairReturnAppointment")
+  status                    WorkOrderStatus         @default(DRAFT)
+  customerComplaint         String?                 @map("customer_complaint")
+  technicianSummary         String?                 @map("technician_summary")
+  advisorUserId             String                  @map("advisor_user_id") @db.Uuid
+  inspectionId              String?                 @map("inspection_id") @db.Uuid
+  inspection                Inspection?             @relation("InspectionWorkOrders", fields: [inspectionId], references: [id])
+  simpleRepair              Boolean                 @default(false) @map("simple_repair")
+  repairClientUuid          String?                 @unique @map("repair_client_uuid")
+  repairStatus              RepairWorkflowStatus?   @map("repair_status")
+  repairVersion             Int                     @default(0) @map("repair_version")
+  repairNotes               String?                 @map("repair_notes")
+  estimatedRepairCentavos   BigInt?                 @map("estimated_repair_centavos")
+  finalRepairCentavos       BigInt?                 @map("final_repair_centavos")
+  repairRechecked           Boolean?                @map("repair_rechecked")
+  repairCompletionNotes     String?                 @map("repair_completion_notes")
+  completedWorkNotes        String?                 @map("completed_work_notes")
+  repairStopReason          String?                 @map("repair_stop_reason")
+  repairReviewReason        String?                 @map("repair_review_reason")
+  repairStartedAt           DateTime?               @map("repair_started_at")
+  repairCompletedAt         DateTime?               @map("repair_completed_at")
+  repairStoppedAt           DateTime?               @map("repair_stopped_at")
+  repairVerifiedAt          DateTime?               @map("repair_verified_at")
+  repairVerifiedByUserId    String?                 @map("repair_verified_by_user_id") @db.Uuid
+  stockOverride             Boolean                 @default(false) @map("stock_override")
+  stockOverrideReason       String?                 @map("stock_override_reason")
+  openedAt                  DateTime                @default(now()) @map("opened_at")
+  closedAt                  DateTime?               @map("closed_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+  items                     WorkOrderItem[]
+  wasteRecords              WasteRecord[]
+  invoices                  Invoice[]
+  repairOperations          SimpleRepairOperation[]
 
   @@index([vehicleId, status])
   @@index([status])
   @@map("work_orders")
+}
+
+model SimpleRepairOperation {
+  id          String                      @id @default(uuid()) @db.Uuid
+  operationId String                      @unique @map("operation_id")
+  workOrderId String                      @map("work_order_id") @db.Uuid
+  workOrder   WorkOrder                   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  action      SimpleRepairOperationAction
+  response    Json?
+  createdAt   DateTime                    @default(now()) @map("created_at")
+
+  @@index([workOrderId, createdAt])
+  @@map("simple_repair_operations")
+}
+
+model AppointmentBillingHistory {
+  id            String      @id @default(uuid()) @db.Uuid
+  appointmentId String      @map("appointment_id") @db.Uuid
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  actorUserId   String      @map("actor_user_id") @db.Uuid
+  actorUser     User        @relation(fields: [actorUserId], references: [id])
+  operationId   String?     @unique @map("operation_id")
+  action        String
+  notes         String?
+  before        Json?
+  after         Json?
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([appointmentId, createdAt])
+  @@map("appointment_billing_history")
 }
 
 model WorkOrderItem {
@@ -933,28 +1117,28 @@ enum AnnouncementStatus {
 }
 
 model Announcement {
-  id            String             @id @default(uuid()) @db.Uuid
+  id                String             @id @default(uuid()) @db.Uuid
   // null = broadcast visible to every member (FR-107)
-  userId        String?            @map("user_id") @db.Uuid
-  kind          AnnouncementKind
-  status        AnnouncementStatus @default(ACTIVE)
-  title         String
-  body          String
-  vehicleId     String?            @map("vehicle_id") @db.Uuid
-  serviceTypeId String?            @map("service_type_id") @db.Uuid
-  appointmentId String?            @map("appointment_id") @db.Uuid
+  userId            String?            @map("user_id") @db.Uuid
+  kind              AnnouncementKind
+  status            AnnouncementStatus @default(ACTIVE)
+  title             String
+  body              String
+  vehicleId         String?            @map("vehicle_id") @db.Uuid
+  serviceTypeId     String?            @map("service_type_id") @db.Uuid
+  appointmentId     String?            @map("appointment_id") @db.Uuid
   // Roadside updates are keyed on the incident, not on a service type — they
   // have none — so they cannot ride the (user, vehicle, service type) thread
   // index. One ACTIVE row per incident, superseded on each status change.
-  roadsideRequestId String?        @map("roadside_request_id") @db.Uuid
+  roadsideRequestId String?            @map("roadside_request_id") @db.Uuid
   // TIME | ODOMETER, for SERVICE_DUE threads
-  reason        String?
-  publishedAt   DateTime           @default(now()) @map("published_at")
-  expiresAt     DateTime?          @map("expires_at")
-  createdBy     String?            @map("created_by") @db.Uuid
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
-  reads         AnnouncementRead[]
+  reason            String?
+  publishedAt       DateTime           @default(now()) @map("published_at")
+  expiresAt         DateTime?          @map("expires_at")
+  createdBy         String?            @map("created_by") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  reads             AnnouncementRead[]
   // Optional because a broadcast has no vehicle. The relation (rather than a bare column)
   // gives referential integrity and lets test fixtures scope cleanup through the vehicle,
   // the same way every other vehicle-owned model in the cleanup chain does.
@@ -963,7 +1147,7 @@ model Announcement {
   // vehicle is gone the thread is unactionable — SetNull left it in the member's feed forever,
   // still saying "Oil Change due" for a car they no longer own. Broadcasts are unaffected:
   // they have no vehicle row to cascade from.
-  vehicle       Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle           Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, publishedAt])
   @@map("announcements")

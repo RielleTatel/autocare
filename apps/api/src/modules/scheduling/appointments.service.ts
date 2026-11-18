@@ -9,6 +9,7 @@ import { CLOCK, Clock } from "../../common/clock/clock";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { HoldsService, HoldDetails } from "./holds.service";
 import { dateOf, hhmmOf } from "./time";
+import { toChecklistConfig } from "../checklists/config-mapper";
 
 const STAFF_ROLES = new Set(["MECHANIC", "ADVISOR", "ADMIN"]);
 const ACTIVE_STATUSES: Prisma.AppointmentWhereInput["status"] = { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] };
@@ -79,6 +80,21 @@ export class AppointmentsService {
       throw new DomainError("FORBIDDEN_ROLE", "not your vehicle", 403);
     }
 
+    if (!serviceType.inspectionRequired && serviceType.inspectionTemplateVersionId) {
+      throw new DomainError("CHECKLIST_INVALID", "this service has a template assigned but does not require inspection; update its configuration", 409);
+    }
+    const templateVersion = serviceType.inspectionRequired && serviceType.inspectionTemplateVersionId
+      ? await this.prisma.checklistVersion.findUnique({ where: { id: serviceType.inspectionTemplateVersionId }, include: { template: true } })
+      : null;
+    if (serviceType.inspectionRequired && (!templateVersion || templateVersion.status !== "PUBLISHED" || !templateVersion.template?.isActive)) {
+      throw new DomainError(
+        "INSPECTION_TEMPLATE_UNCONFIGURED",
+        `Configure and publish an inspection template for ${serviceType.name} before booking this service`,
+        409,
+        { serviceTypeId: serviceType.id },
+      );
+    }
+
     const start = new Date(hold.startIso);
     const end = new Date(hold.endIso);
 
@@ -112,13 +128,30 @@ export class AppointmentsService {
       // No active subscription → book as a paid one-off (no entitlement consumed).
     }
 
-    const created = await this.prisma.appointment.create({
-      data: {
-        vehicleId: dto.vehicleId, serviceTypeId: dto.serviceTypeId, bayId: hold.bayId,
-        scheduledStart: start, scheduledEnd: end, requiresPickup: dto.requiresPickup,
-        createdBy: u.id, subscriptionId,
-      },
-    });
+    let created;
+    try {
+      created = await this.prisma.appointment.create({
+        data: {
+          vehicleId: dto.vehicleId, serviceTypeId: dto.serviceTypeId, bayId: hold.bayId,
+          scheduledStart: start, scheduledEnd: end, requiresPickup: dto.requiresPickup,
+          createdBy: u.id, subscriptionId,
+          serviceNameSnapshot: serviceType.name,
+          servicePriceCentavosSnapshot: serviceType.priceCentavos,
+          currencySnapshot: "PHP",
+          inspectionRequiredSnapshot: serviceType.inspectionRequired,
+          inspectionTemplateVersionId: templateVersion?.id ?? null,
+          coveredBySubscription: subscriptionId !== null,
+          billingSnapshotKnown: true,
+        },
+      });
+    } catch (error) {
+      // Booking creation is the only operation after entitlement consumption that can fail
+      // synchronously. Restore exactly the consumed unit so a retry does not burn coverage.
+      if (subscriptionId && serviceType.entitlementType) {
+        await this.refundEntitlement(subscriptionId, serviceType.entitlementType);
+      }
+      throw error;
+    }
 
     // Transitions the member's open SERVICE_DUE thread to "scheduled" rather than
     // adding a second notification about the same service.
@@ -130,6 +163,93 @@ export class AppointmentsService {
       });
     }
     return this.toDto(created);
+  }
+
+  async inspectionContext(u: AbilityUser, appointmentId: string) {
+    if (!STAFF_ROLES.has(u.role)) throw new DomainError("FORBIDDEN_ROLE", "staff only", 403);
+    const staff = await this.prisma.user.findUnique({ where: { id: u.id }, select: { isCertifiedTechnician: true } });
+    if (!staff?.isCertifiedTechnician) throw new DomainError("NOT_CERTIFIED_TECHNICIAN", "only certified technicians can inspect", 403);
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        serviceType: true,
+        vehicle: { select: { id: true, plateNo: true, make: true, model: true, year: true } },
+        inspectionTemplateVersion: {
+          include: {
+            template: true,
+            categories: { include: { points: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } },
+          },
+        },
+      },
+    });
+    if (!appointment) throw new DomainError("INSPECTION_BOOKING_NOT_FOUND", "booking not found", 404);
+    if (["CANCELLED", "NO_SHOW"].includes(appointment.status)) {
+      throw new DomainError("INSPECTION_BOOKING_NOT_FOUND", "this booking cannot be inspected in its current state", 409);
+    }
+    const requiresInspection = appointment.inspectionRequiredSnapshot ?? appointment.serviceType.inspectionRequired;
+    const version = appointment.inspectionTemplateVersion;
+    const configReady = !requiresInspection || Boolean(version && version.status === "PUBLISHED");
+    const checklist = requiresInspection && version
+      ? {
+          id: version.id,
+          versionLabel: version.versionLabel,
+          weightVersion: version.weightVersion,
+          status: version.status,
+          categories: toChecklistConfig(version).categories,
+        }
+      : null;
+    return {
+      appointmentId: appointment.id,
+      vehicleId: appointment.vehicleId,
+      vehicle: appointment.vehicle,
+      serviceTypeId: appointment.serviceTypeId,
+      serviceName: appointment.serviceNameSnapshot ?? appointment.serviceType.name,
+      inspectionRequired: requiresInspection,
+      configReady,
+      configMessage: configReady ? null : "No inspection template was pinned to this booking. Ask an administrator to resolve the service setup before starting a new inspection.",
+      templateVersionId: version?.id ?? null,
+      templateVersionLabel: version?.versionLabel ?? null,
+      scope: version?.template?.scope ?? "LEGACY_UNKNOWN",
+      templateName: version?.template?.name ?? null,
+      checklist,
+      charge: {
+        currency: appointment.currencySnapshot ?? "PHP",
+        priceCentavos: appointment.servicePriceCentavosSnapshot === null ? null : Number(appointment.servicePriceCentavosSnapshot),
+        coveredBySubscription: appointment.coveredBySubscription,
+        subscriptionId: appointment.subscriptionId,
+        legacyProvenance: !appointment.billingSnapshotKnown,
+      },
+    };
+  }
+
+  async completeServiceWithoutInspection(u: AbilityUser, appointmentId: string) {
+    if (!STAFF_ROLES.has(u.role)) throw new DomainError("FORBIDDEN_ROLE", "only workshop staff can complete a service", 403);
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM appointments WHERE id = ${appointmentId}::uuid FOR UPDATE`;
+      const appointment = await tx.appointment.findUnique({
+        where: { id: appointmentId },
+        include: { serviceType: true, inspections: { select: { id: true } } },
+      });
+      if (!appointment) throw new DomainError("SLOT_UNAVAILABLE", "booking not found", 404);
+      if (appointment.status === "COMPLETED") return appointment;
+      if (appointment.repairReturnWorkOrderId) {
+        throw new DomainError("ILLEGAL_TRANSITION", "repair return visits are completed through the linked repair workflow", 409);
+      }
+      if (!["BOOKED", "CONFIRMED", "IN_PROGRESS"].includes(appointment.status)) {
+        throw new DomainError("ILLEGAL_TRANSITION", "this booking cannot be completed from its current state", 409);
+      }
+      const inspectionRequired = appointment.inspectionRequiredSnapshot ?? appointment.serviceType.inspectionRequired;
+      if (inspectionRequired || appointment.inspections.length > 0) {
+        throw new DomainError("INSPECTION_INCOMPLETE", "this service requires its inspection report to be accepted before completion", 409);
+      }
+      const updated = await tx.appointment.update({ where: { id: appointmentId }, data: { status: "COMPLETED" } });
+      await tx.auditLog.create({ data: {
+        actorUserId: u.id, action: "SERVICE_COMPLETED_WITHOUT_INSPECTION", entityType: "Appointment", entityId: appointmentId,
+        before: { status: appointment.status }, after: { status: "COMPLETED" },
+      } });
+      return { ...appointment, ...updated };
+    });
+    return this.toDto(result);
   }
 
   async reschedule(u: AbilityUser, id: string, dto: Reschedule): Promise<AppointmentDto> {

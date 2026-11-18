@@ -1,5 +1,6 @@
 import { ApiError } from "@autocare/api-client";
 import { kvGet, kvSet } from "../../shared/db/kv";
+import { getDb } from "../../shared/db/schema";
 import { api, API_BASE_URL } from "../../shared/api";
 import type { CachedChecklist } from "./draft";
 
@@ -41,4 +42,53 @@ export async function getActiveChecklist(): Promise<CachedChecklist> {
     if (cached) return JSON.parse(cached) as CachedChecklist;
     throw new Error("No checklist available — connect to the internet once to download it.");
   }
+}
+
+export type BookingInspectionContext = {
+  appointmentId: string;
+  vehicleId: string;
+  serviceName: string;
+  inspectionRequired: boolean;
+  configReady: boolean;
+  templateVersionId: string | null;
+  templateVersionLabel: string | null;
+  scope: "FULL" | "FOCUSED" | "LEGACY_UNKNOWN";
+  checklist: CachedChecklist | null;
+  charge: {
+    currency: "PHP";
+    priceCentavos: number | null;
+    coveredBySubscription: boolean;
+    subscriptionId: string | null;
+    legacyProvenance: boolean;
+  };
+};
+
+/** Booked work never falls back to the global active checklist. The cached
+ * context is the exact pinned booking version, usable when the bay is offline. */
+export async function getBookingInspectionContext(appointmentId: string, vehicleId: string): Promise<BookingInspectionContext> {
+  const key = `inspection-context:${API_BASE_URL}:${appointmentId}`;
+  const cacheDb = getDb();
+  let context: BookingInspectionContext;
+  try {
+    context = await api.get<BookingInspectionContext>(`/appointments/${encodeURIComponent(appointmentId)}/inspection-context`);
+  } catch (error) {
+    if (!isUnreachable(error)) throw error;
+    const cached = await (await cacheDb).getFirstAsync<{ value: string }>("SELECT value FROM kv WHERE key = ?", key);
+    if (!cached) throw new Error("Connect once to download the checks assigned to this booking.");
+    context = JSON.parse(cached.value) as BookingInspectionContext;
+  }
+  if (context.appointmentId !== appointmentId || context.vehicleId !== vehicleId) {
+    throw new Error("The inspection checks do not match this booking and vehicle. Reopen the booking.");
+  }
+  if (!context.inspectionRequired) throw new Error("This service does not require an inspection.");
+  if (!context.configReady || !context.checklist || context.checklist.id !== context.templateVersionId) {
+    throw new Error("This service needs an inspection template. Ask an admin to configure it before starting.");
+  }
+  await (await cacheDb).runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", key, JSON.stringify(context));
+  return context;
+}
+
+export async function getBookingChecklist(appointmentId: string, vehicleId: string): Promise<CachedChecklist> {
+  const context = await getBookingInspectionContext(appointmentId, vehicleId);
+  return { ...context.checklist!, scope: context.scope, serviceName: context.serviceName };
 }

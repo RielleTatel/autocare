@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { theme } from "../../theme";
 import { Vehicle } from "@autocare/contracts";
@@ -9,22 +9,33 @@ import { VehicleCard } from "../../components/VehicleCard";
 export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle, onAddVehicle }: {
   fetchVehicles: () => Promise<Vehicle[]>;
   /** Optional per-vehicle latest health score, for the band + stars. */
-  fetchHealth?: (vehicleId: string) => Promise<{ score: number; band: Band } | null>;
+  fetchHealth?: (vehicleId: string) => Promise<{ score: number; band: Band; inspectedAt?: string | null } | null>;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onAddVehicle: () => void;
 }) {
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
-  const [health, setHealth] = useState<Record<string, { score: number; band: Band }>>({});
+  const [health, setHealth] = useState<Record<string, { score: number; band: Band; inspectedAt?: string | null }>>({});
   const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const request = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++request.current;
     setFailed(false);
     const list = await fetchVehicles();
+    if (generation !== request.current) return;
     setVehicles(list);
     if (fetchHealth) {
       for (const v of list) {
-        fetchHealth(v.id).then((h) => { if (h) setHealth((prev) => ({ ...prev, [v.id]: h })); }).catch(() => undefined);
+        fetchHealth(v.id).then((h) => {
+          if (generation !== request.current) return;
+          setHealth(prev => {
+            const next = { ...prev };
+            if (h) next[v.id] = h;
+            else delete next[v.id];
+            return next;
+          });
+        }).catch(() => undefined);
       }
     }
   }, [fetchVehicles, fetchHealth]);
@@ -32,7 +43,10 @@ export function VehiclesListScreen({ fetchVehicles, fetchHealth, onSelectVehicle
   // The rejection has to be handled here: an async call fired from useEffect
   // with nothing attached becomes an unhandled rejection, which RN surfaces as
   // a red uncaught-error box — and the list sits empty for ever.
-  useEffect(() => { load().catch(() => setFailed(true)); }, [load]);
+  useEffect(() => {
+    load().catch(() => setFailed(true));
+    return () => { request.current++; };
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -20,9 +20,13 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl text-ink">Admin dashboard</h1>
-        <nav className="flex items-center gap-4">
+        <nav className="flex flex-wrap items-center gap-4">
+          <Link href="/admin/reviews" className="text-primary text-sm font-medium">Review work</Link>
+          <Link href="/admin/services" className="text-primary text-sm font-medium">Services</Link>
+          <Link href="/admin/inspection-templates" className="text-primary text-sm font-medium">Inspection templates</Link>
+          <Link href="/staff/billing" className="text-primary text-sm font-medium">Cash bills</Link>
           <Link href="/admin/staff" className="text-primary text-sm font-medium">Staff</Link>
           <Link href="/admin/checklists" className="text-primary text-sm font-medium">Checklists</Link>
           <Link href="/admin/settings/roadside" className="text-primary text-sm font-medium">Roadside settings</Link>

@@ -70,6 +70,8 @@ export interface PhotoUploader {
   /** Upload every pending photo belonging to a synced record. JSON before photos (NFR-007). */
   uploadFor(ownerClientUuid: string): Promise<{ uploaded: number; failed: number }>;
   pendingCount(): Promise<number>;
+  /** Optional photos retry independently of new inspection JSON. */
+  uploadReady?(): Promise<{ uploaded: number; failed: number }>;
 }
 
 export interface DrainReport {

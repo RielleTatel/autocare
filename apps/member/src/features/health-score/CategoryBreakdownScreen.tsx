@@ -64,6 +64,7 @@ export function CategoryBreakdownScreen({ score, results = [], resultsLoading = 
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
       <ScrollView contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.sm }}>
         <Text style={{ ...t.text("h1"), color: t.colors.ink }}>Category breakdown</Text>
+        <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Last full inspection{score.inspectedAt ? ` · ${new Date(score.inspectedAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" })}` : " · Date unavailable"}</Text>
         <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Tap any category or component to see what it means.</Text>
         {resultsLoading && <Text accessibilityLiveRegion="polite" style={{ ...t.text("body"), color: t.colors.inkMuted }}>Loading inspection findings…</Text>}
         {resultsError && <Card>

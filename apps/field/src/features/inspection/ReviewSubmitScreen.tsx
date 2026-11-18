@@ -8,15 +8,16 @@ import { FieldNav } from "../../components/FieldNav";
 import { ActionBar, Disclosure, workContent } from "../../components/FieldLayout";
 import { FindingRow } from "../../components/FindingRow";
 import { ProgressBar } from "../../components/ProgressBar";
-import type { LocalResult } from "../../shared/db/inspections.repo";
+import type { LocalObservation, LocalResult } from "../../shared/db/inspections.repo";
 import { resolveStatus, type CachedChecklist, type Completeness } from "./draft";
 
 const severity = { CRITICAL: 3, ATTENTION: 2, MONITOR: 1, GOOD: 0, NOT_APPLICABLE: 0 };
-export function ReviewSubmitScreen({ checklist, results, check, overall, isOffline, submitted, vehicle, onJumpToPoint, onSubmit, onBack, error }: {
+export function ReviewSubmitScreen({ checklist, results, check, overall, isOffline, submitted, vehicle, onJumpToPoint, onSubmit, onBack, error, observations = [], onAdditionalFindings }: {
   checklist: CachedChecklist; results: LocalResult[]; check: Completeness;
   overall: { answered: number; total: number }; isOffline?: boolean; submitted?: boolean;
   vehicle?: { plateNo: string; description?: string; odometerKm?: number };
   onJumpToPoint(code: string): void; onSubmit(): void | Promise<void>; onBack?(): void; error?: string | null;
+  observations?: LocalObservation[]; onAdditionalFindings?(): void;
 }) {
   const submitting = useRef(false);
   const [sending, setSending] = useState(false);
@@ -44,11 +45,14 @@ export function ReviewSubmitScreen({ checklist, results, check, overall, isOffli
     <FieldNav title="Review & submit" onBack={onBack} />
     <ScrollView contentContainerStyle={workContent}>
       {vehicle ? <View style={{ gap: 6 }}><Plate variant="plain">{vehicle.plateNo}</Plate>{vehicle.description || vehicle.odometerKm !== undefined ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{[vehicle.description, vehicle.odometerKm !== undefined ? `${vehicle.odometerKm.toLocaleString("en-PH")} km` : null].filter(Boolean).join(" · ")}</Text> : null}</View> : null}
+      <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>{checklist.serviceName ? `${checklist.serviceName}: ` : ""}{checklist.versionLabel}{checklist.scope === "FOCUSED" ? ". These checks cover the booked scope. Other systems are uninspected." : ""}</Text>
       <View style={{ gap: 8 }}><Text accessibilityLabel={`Completion ${pct} percent`} style={[t.text("h2"), { color: check.complete ? t.colors.success : t.colors.ink }]}>{pct}% complete ({overall.answered}/{overall.total})</Text><ProgressBar answered={overall.answered} total={overall.total} /></View>
       {missing.length ? <View><Text style={[t.text("h2"), { color: t.colors.ink }]}>{missing.length} still to record</Text>{missing.map((point) => row(point, true))}</View> : null}
       {concerns.length ? <View><Text style={[t.text("h2"), { color: t.colors.ink }]}>Findings to discuss ({concerns.length})</Text>{concerns.map((point) => row(point))}</View> : check.complete ? <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>All points recorded. No findings need attention.</Text> : null}
       <Disclosure title={`All results (${allPoints.length})`}>{checklist.categories.map((category) => <View key={category.code}><Text style={[t.text("body", 600), { color: t.colors.ink }]}>{category.label}</Text>{category.points.map((point) => row(point))}</View>)}</Disclosure>
-      {submitted ? <View style={{ gap: 8 }}><Text style={[t.text("h2"), { color: t.colors.ink }]}>Pending sync</Text><Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Saved on this device. The inspection is complete after the server accepts it.</Text>{isOffline ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Score will appear when synced.</Text> : null}</View> : null}
+      {observations.some((observation) => observation.notes.trim()) ? <Disclosure title="Additional findings">{observations.filter((observation) => observation.notes.trim()).map((observation) => <Text key={observation.clientUuid} style={[t.text("body"), { color: t.colors.ink }]}>{observation.notes}{observation.photoUris.length ? ` · ${observation.photoUris.length} optional photos` : ""}</Text>)}</Disclosure> : null}
+      {onAdditionalFindings && !submitted ? <Button variant="secondary" onPress={onAdditionalFindings}>Review additional findings</Button> : null}
+      {submitted ? <View style={{ gap: 8 }}><Text style={[t.text("h2"), { color: t.colors.ink }]}>Pending sync</Text><Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Saved on this device. The inspection is complete after the server accepts it.</Text>{isOffline ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{checklist.scope === "FULL" ? "Score will appear when synced." : checklist.scope === "FOCUSED" ? "Focused findings appear after sync. Other systems remain uninspected." : "The accepted report will appear after sync."}</Text> : null}</View> : null}
       {error || submitError ? <Text accessibilityRole="alert" style={[t.text("body"), { color: t.colors.danger }]}>{error ?? submitError}</Text> : null}
     </ScrollView>
     {!submitted ? <ActionBar hint={missing.length ? `Record ${missing.length} remaining ${missing.length === 1 ? "answer" : "answers"} before submitting. Photos are optional.` : "Saves on this device and syncs when connected. Completion follows server acceptance."}><Button accessibilityLabel="Submit inspection" disabled={!check.complete || sending} onPress={() => { void submit(); }}>{sending ? "Saving…" : "Submit inspection"}</Button></ActionBar> : null}

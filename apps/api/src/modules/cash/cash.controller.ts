@@ -16,6 +16,11 @@ import { CashService } from "./cash.service";
 export class CashController {
   constructor(private cash: CashService) {}
 
+  @Get("cash-shifts/current")
+  currentShift(@CurrentUser() u: AbilityUser) {
+    return this.cash.currentShift(u);
+  }
+
   @Post("cash-shifts/open")
   openShift(@CurrentUser() u: AbilityUser) {
     return this.cash.openShift(u);

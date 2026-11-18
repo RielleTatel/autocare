@@ -8,12 +8,15 @@ import { WorkOrderEvents } from "./work-order-events";
 import { WorkOrderBillingService } from "./billing.service";
 import { RecommendationsService } from "./recommendations.service";
 import { PartsService } from "./parts.service";
+import { SimpleRepairsService } from "./simple-repairs.service";
+import { SchedulingModule } from "../scheduling/scheduling.module";
 
 @Module({
-  imports: [AnnouncementsModule],
+  imports: [AnnouncementsModule, SchedulingModule],
   controllers: [WorkOrdersController],
   providers: [
     WorkOrdersService,
+    SimpleRepairsService,
     WorkOrderConfigService,
     WorkOrderEvents,
     WorkOrderBillingService,

@@ -25,6 +25,7 @@ import { InspectionFlow } from "../features/inspection/InspectionFlow";
 import { SyncQueueScreen } from "../features/sync/SyncQueueScreen";
 import { RoadsideContainer } from "../features/roadside/RoadsideContainer";
 import { InspectionDetailScreen } from "../features/history/InspectionDetailScreen";
+import { RepairWorkScreen } from "../features/repairs/RepairWorkScreen";
 import { startSyncListener, syncProcessor } from "../shared/sync";
 
 const splashMark = require("../../assets/splash-icon.png");
@@ -131,6 +132,7 @@ function AppShell() {
               onBack={() => navigation.goBack()}
               onStart={(task, setup) => navigation.navigate("Inspection", { vehicleId: task.vehicleId, appointmentId: task.id, scheduledStart: task.scheduledStart, serviceTypeName: task.serviceTypeName, setup })}
               onOpenSyncQueue={() => navigation.navigate("SyncQueue")}
+              onOpenRepair={boot.role === "MECHANIC" || boot.role === "ADMIN" ? (task) => task.returnInspectionId && navigation.navigate("RepairWork", { vehicleId: task.vehicleId, inspectionId: task.returnInspectionId, vehiclePlateNo: task.vehiclePlateNo }) : undefined}
               onOpenReport={(vehicleId, inspectionId) => navigation.navigate("InspectionDetail", { vehicleId, inspectionId, vehiclePlateNo: (route.params as { task: FieldTask }).task.vehiclePlateNo })} />}
           </Stack.Screen>
           <Stack.Screen name="VehicleOverview">
@@ -159,8 +161,15 @@ function AppShell() {
                   inspectionId={p.inspectionId}
                   vehiclePlateNo={p.vehiclePlateNo}
                   onBack={() => navigation.goBack()}
+                  onOpenRepair={boot.role === "MECHANIC" || boot.role === "ADMIN" ? () => navigation.navigate("RepairWork", p) : undefined}
                 />
               );
+            }}
+          </Stack.Screen>
+          <Stack.Screen name="RepairWork">
+            {({ navigation, route }) => {
+              const p = route.params as { vehicleId: string; inspectionId: string; vehiclePlateNo?: string };
+              return <RepairWorkScreen key={`${p.vehicleId}:${p.inspectionId}`} {...p} role={boot.role} onBack={() => navigation.goBack()} />;
             }}
           </Stack.Screen>
           <Stack.Screen name="Roadside">

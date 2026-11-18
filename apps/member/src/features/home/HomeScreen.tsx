@@ -144,8 +144,8 @@ export function HomeScreen({
   vehicle: Vehicle | null;
   /** e.g. "Care Plus · next billing 15 Sep 2026" */
   planLabel?: string;
-  /** Latest health score for the primary vehicle, if inspected. */
-  health?: { score: number; band: Band } | null;
+  /** Latest accepted full inspection score for the primary vehicle. */
+  health?: { score: number; band: Band; inspectedAt?: string | null } | null;
   roadsideCallouts?: number | null;
   onAddVehicle: () => void;
   onUpdateOdometer: () => void;

@@ -12,6 +12,7 @@ import { StatusPill } from "../../../../components/StatusPill";
 import { Plate } from "../../../../components/Plate";
 import { bandVar } from "../../../../components/BandChip";
 import { HealthScorePanel } from "./HealthScorePanel";
+import { useStaffRole } from "../../../../components/StaffShell";
 
 const STATUS_FLOW: WorkOrderStatus[] = ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "IN_PROGRESS", "QC", "READY", "CLOSED"];
 /** Finding severity → its protected band token. Severity is product data. */
@@ -70,6 +71,8 @@ export default function WorkOrderPage() {
   if (!wo || !totals) {
     return <p className="text-ink-muted text-sm">{err ?? "Loading…"}</p>;
   }
+
+  if (wo.simpleRepair) return <SimpleRepairSummary wo={wo} />;
 
   const editable = wo.status === "DRAFT" || wo.status === "AWAITING_APPROVAL";
   const nextStatus = ((): WorkOrderStatus | null => {
@@ -130,6 +133,19 @@ export default function WorkOrderPage() {
         </div>
       </div>
   );
+}
+
+function SimpleRepairSummary({ wo }: { wo: WorkOrder }) {
+  const role = useStaffRole();
+  return <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-3"><h1 className="font-display text-2xl text-ink">Repair {wo.number}</h1>{wo.plateNo && <Plate variant="outline">{wo.plateNo}</Plate>}</div><Link href="/staff/schedule" className="min-h-12 inline-flex items-center text-sm font-medium text-primary">Back to schedule</Link></header>
+    <section className="rounded-md border border-line bg-surface p-5 flex flex-col gap-4">
+      <h2 className="font-display text-xl text-ink">{(wo.repairStatus ?? "Repair in progress").replaceAll("_", " ").toLowerCase()}</h2>
+      <dl className="grid gap-4 text-sm sm:grid-cols-2"><div className="sm:col-span-2"><dt className="text-ink-muted">Repair notes</dt><dd className="whitespace-pre-wrap text-ink">{wo.repairNotes ?? "No notes recorded."}</dd></div><div><dt className="text-ink-muted">Estimated additional repairs</dt><dd className="text-ink">{wo.estimatedRepairCentavos == null ? "Not recorded" : peso(wo.estimatedRepairCentavos)}</dd></div>{wo.finalRepairCentavos != null && <div><dt className="text-ink-muted">Admin-finalized repair amount</dt><dd className="text-ink">{peso(wo.finalRepairCentavos)}</dd></div>}{wo.completedWorkNotes && <div className="sm:col-span-2"><dt className="text-ink-muted">Work actually completed</dt><dd className="whitespace-pre-wrap text-ink">{wo.completedWorkNotes}</dd></div>}{wo.repairCompletionNotes && <div className="sm:col-span-2"><dt className="text-ink-muted">Completion notes</dt><dd className="whitespace-pre-wrap text-ink">{wo.repairCompletionNotes}</dd></div>}{wo.repairStopReason && <div className="sm:col-span-2"><dt className="text-ink-muted">Why work stopped</dt><dd className="whitespace-pre-wrap text-ink">{wo.repairStopReason}</dd></div>}{wo.repairReviewReason && <div className="sm:col-span-2"><dt className="text-ink-muted">Admin correction requested</dt><dd className="whitespace-pre-wrap text-ink">{wo.repairReviewReason}</dd></div>}<div><dt className="text-ink-muted">Mechanic recheck</dt><dd className="text-ink">{wo.repairRechecked ? "Confirmed" : "Not confirmed"}</dd></div></dl>
+      <div className="flex flex-wrap gap-3">{role === "ADMIN" && wo.appointmentId && <Link href={`/admin/reviews/${wo.appointmentId}`} className="min-h-12 inline-flex items-center rounded-pill bg-primary px-6 font-semibold text-white">Open admin review</Link>}{wo.invoiceId && (role === "ADMIN" || role === "ADVISOR") && <Link href={`/staff/billing/${wo.invoiceId}`} className="min-h-12 inline-flex items-center text-sm font-medium text-primary">Open final bill</Link>}</div>
+    </section>
+    <p className="text-sm text-ink-muted">Repair progress is recorded in Field. Admin verifies completed or stopped work before billing.</p>
+  </div>;
 }
 
 function ItemTable({ wo, editable, onMarkDone }: { wo: WorkOrder; editable: boolean; onMarkDone: (itemId: string, done: boolean) => void }) {

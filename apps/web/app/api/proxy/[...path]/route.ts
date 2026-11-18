@@ -17,6 +17,7 @@ async function forward(req: NextRequest, path: string[]): Promise<NextResponse> 
     headers: {
       Authorization: `Bearer ${session}`,
       ...(hasBody ? { "Content-Type": "application/json" } : {}),
+      ...(req.headers.get("Idempotency-Key") ? { "Idempotency-Key": req.headers.get("Idempotency-Key")! } : {}),
     },
     body: hasBody ? await req.text() : undefined,
     cache: "no-store",

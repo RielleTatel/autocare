@@ -66,7 +66,14 @@ export class SyncProcessor {
       const pending = await this.deps.outbox.pendingInOrder();
       const eligible = pending.filter((e) => options.force || e.attempts === 0 || (e.lastAttemptAt ?? 0) + backoffMs(e.attempts) <= now);
       report.deferred = pending.length - eligible.length;
-      if (eligible.length === 0) return report;
+      if (eligible.length === 0) {
+        if (this.deps.photos?.uploadReady) {
+          const photos = await this.deps.photos.uploadReady();
+          report.photosUploaded += photos.uploaded;
+          if (photos.uploaded || photos.failed) this.lastSyncAt = now;
+        }
+        return report;
+      }
 
       const items = eligible.map((e) => ({ clientUuid: e.clientUuid, entityType: e.entityType, op: e.op, payload: e.payload }));
       let results;
@@ -103,6 +110,7 @@ export class SyncProcessor {
           report.rejected += 1;
         }
       }
+      if (this.deps.photos?.uploadReady) report.photosUploaded += (await this.deps.photos.uploadReady()).uploaded;
       this.lastSyncAt = now;
       return report;
     } catch (error) {

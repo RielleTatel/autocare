@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import type { ChecklistDraftPatch, PreviewScoreInput } from "@autocare/contracts";
+import type { ChecklistDraftPatch, InspectionTemplateCreate, InspectionTemplateVersionCreate, PreviewScoreInput } from "@autocare/contracts";
 import { computeVHS } from "@autocare/scoring";
 import { DomainError } from "../../common/errors/domain-error";
 import { AuditService } from "../../common/audit/audit.service";
@@ -51,6 +51,156 @@ export class ChecklistsService {
   async list(u: AbilityUser) {
     this.assertAdmin(u);
     return this.prisma.checklistVersion.findMany({ orderBy: { createdAt: "desc" } });
+  }
+
+  async listTemplates(u: AbilityUser) {
+    this.assertAdmin(u);
+    const rows = await this.prisma.inspectionTemplate.findMany({
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      include: { versions: { orderBy: { createdAt: "desc" } } },
+    });
+    return rows.map((template) => this.presentTemplate(template));
+  }
+
+  async getTemplate(u: AbilityUser, templateId: string) {
+    this.assertAdmin(u);
+    const template = await this.prisma.inspectionTemplate.findUnique({
+      where: { id: templateId },
+      include: {
+        versions: {
+          orderBy: { createdAt: "desc" },
+          include: { categories: { include: { points: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } } },
+        },
+      },
+    });
+    if (!template) throw new DomainError("CHECKLIST_INVALID", "inspection template not found", 404);
+    return {
+      id: template.id,
+      name: template.name,
+      scope: template.scope,
+      isActive: template.isActive,
+      versions: template.versions.map((version) => ({
+        id: version.id,
+        versionLabel: this.templateDisplayVersion(version.versionLabel),
+        weightVersion: version.weightVersion,
+        status: version.status,
+        publishedAt: version.publishedAt,
+        categories: toChecklistConfig(version as LoadedChecklist).categories,
+      })),
+    };
+  }
+
+  async createTemplate(u: AbilityUser, dto: InspectionTemplateCreate) {
+    this.assertAdmin(u);
+    const created = await this.prisma.inspectionTemplate.create({ data: { name: dto.name, scope: dto.scope } });
+    await this.audit.record(u.id, "INSPECTION_TEMPLATE_CREATED", "InspectionTemplate", created.id, null, { name: created.name, scope: created.scope });
+    return { id: created.id, name: created.name, scope: created.scope, isActive: created.isActive, versions: [] };
+  }
+
+  async createTemplateVersion(u: AbilityUser, templateId: string, dto: InspectionTemplateVersionCreate) {
+    this.assertAdmin(u);
+    const template = await this.prisma.inspectionTemplate.findUnique({ where: { id: templateId } });
+    if (!template || !template.isActive) throw new DomainError("CHECKLIST_INVALID", "active inspection template not found", 404);
+
+    const versions = await this.prisma.checklistVersion.findMany({ where: { templateId }, orderBy: { createdAt: "desc" } });
+    const sourceId = dto.sourceVersionId ?? versions[0]?.id ?? (await this.prisma.checklistVersion.findFirst({ where: { isActive: true }, select: { id: true } }))?.id;
+    if (!sourceId) throw new DomainError("CHECKLIST_INVALID", "no published baseline exists to copy; publish the current full checklist first", 409);
+    const source = await this.loadFull(sourceId);
+    if (dto.sourceVersionId && source.templateId !== templateId && source.isActive !== true) {
+      throw new DomainError("CHECKLIST_INVALID", "source must be a version of this template or the active full checklist", 422);
+    }
+    if (source.status === "DRAFT") throw new DomainError("CHECKLIST_INVALID", "only a published checklist can seed a new template version", 409);
+
+    const localRevision = versions.length + 1;
+    const label = `template-${templateId}-v${localRevision}`;
+    const draft = await this.cloneChecklist(source, { templateId, versionLabel: label });
+    await this.audit.record(u.id, "INSPECTION_TEMPLATE_VERSION_CREATED", "ChecklistVersion", draft.id, null, { templateId, sourceVersionId: source.id, versionLabel: `v${localRevision}` });
+    return this.getTemplate(u, templateId);
+  }
+
+  async patchTemplateVersion(u: AbilityUser, templateId: string, versionId: string, dto: ChecklistDraftPatch) {
+    this.assertAdmin(u);
+    const version = await this.prisma.checklistVersion.findFirst({ where: { id: versionId, templateId } });
+    if (!version) throw new DomainError("CHECKLIST_INVALID", "template version not found", 404);
+    await this.patchDraft(u, versionId, dto);
+    return this.getTemplate(u, templateId);
+  }
+
+  async publishTemplateVersion(u: AbilityUser, templateId: string, versionId: string) {
+    this.assertAdmin(u);
+    const [template, version] = await Promise.all([
+      this.prisma.inspectionTemplate.findUnique({ where: { id: templateId } }),
+      this.prisma.checklistVersion.findFirst({ where: { id: versionId, templateId } }),
+    ]);
+    if (!template || !version) throw new DomainError("CHECKLIST_INVALID", "template version not found", 404);
+    if (version.status !== "DRAFT") throw new DomainError("CHECKLIST_IMMUTABLE", "only draft versions can be published", 409);
+
+    const draft = await this.loadFull(versionId);
+    this.validateForPublish(draft);
+    const previousFull = template.scope === "FULL"
+      ? await this.prisma.checklistVersion.findFirst({ where: { isActive: true } })
+      : null;
+    if (template.scope === "FULL" && previousFull && previousFull.id !== versionId) {
+      const baseline = await this.loadFull(previousFull.id);
+      this.validateFullCoverage(draft, baseline);
+    }
+    const published = await this.prisma.$transaction(async (tx) => {
+      if (previousFull) await tx.checklistVersion.update({ where: { id: previousFull.id }, data: { isActive: false } });
+      return tx.checklistVersion.update({
+        where: { id: versionId },
+        data: { status: "PUBLISHED", isActive: template.scope === "FULL", publishedAt: new Date() },
+      });
+    });
+    await this.audit.record(u.id, "INSPECTION_TEMPLATE_VERSION_PUBLISHED", "ChecklistVersion", published.id, { previousFullVersionId: previousFull?.id ?? null }, { templateId, scope: template.scope });
+    return this.getTemplate(u, templateId);
+  }
+
+  private presentTemplate<T extends { id: string; name: string; scope: string; isActive: boolean; versions: Array<{ id: string; versionLabel: string; weightVersion: string; status: string; publishedAt: Date | null }> }>(template: T) {
+    return {
+      id: template.id,
+      name: template.name,
+      scope: template.scope,
+      isActive: template.isActive,
+      versions: template.versions.map((version) => ({
+        id: version.id,
+        versionLabel: this.templateDisplayVersion(version.versionLabel),
+        weightVersion: version.weightVersion,
+        status: version.status,
+        publishedAt: version.publishedAt,
+      })),
+    };
+  }
+
+  private templateDisplayVersion(versionLabel: string): string {
+    const match = /-v(\d+)$/.exec(versionLabel);
+    return match ? `v${match[1]}.0` : versionLabel;
+  }
+
+  private async cloneChecklist(source: LoadedChecklist, opts: { templateId?: string; versionLabel: string }) {
+    return this.prisma.$transaction(async (tx) => {
+      const v = await tx.checklistVersion.create({
+        data: { versionLabel: opts.versionLabel, weightVersion: source.weightVersion, status: "DRAFT", isActive: false, templateId: opts.templateId ?? null },
+      });
+      const categories = source.categories.map((cat) => ({ ...cat, newId: randomUUID() }));
+      await tx.checklistCategory.createMany({
+        data: categories.map((cat) => ({
+          id: cat.newId, checklistVersionId: v.id, code: cat.code, label: cat.label,
+          labelFil: cat.labelFil, weight: cat.weight, sortOrder: cat.sortOrder,
+        })),
+      });
+      await tx.checklistPoint.createMany({
+        data: categories.flatMap((cat) => cat.points.map((p) => ({
+          categoryId: cat.newId, code: p.code, label: p.label, labelFil: p.labelFil,
+          weightInCategory: p.weightInCategory, isSafetyCritical: p.isSafetyCritical,
+          inputType: p.inputType, unit: p.unit, thresholdDirection: p.thresholdDirection,
+          thresholdGood: p.thresholdGood, thresholdMonitor: p.thresholdMonitor,
+          thresholdAttention: p.thresholdAttention, recommendation: p.recommendation,
+          templates: p.templates ?? undefined, requiresPhotoOnAdverse: p.requiresPhotoOnAdverse,
+          notApplicableWhen: p.notApplicableWhen, diagramZoneId: p.diagramZoneId, sortOrder: p.sortOrder,
+        }))),
+      });
+      return v;
+    });
   }
 
   async get(u: AbilityUser, id: string) {
@@ -183,12 +333,25 @@ export class ChecklistsService {
     const problems: string[] = [];
     const catSum = v.categories.reduce((s, c) => s + c.weight, 0);
     if (Math.abs(catSum - 100) > 1e-9) problems.push(`category weights sum to ${catSum}, expected 100`);
+    const categoryCodes = new Set<string>();
+    const pointCodes = new Set<string>();
     for (const c of v.categories) {
+      if (categoryCodes.has(c.code)) problems.push(`category code ${c.code} is duplicated`);
+      categoryCodes.add(c.code);
       const ptSum = c.points.reduce((s, p) => s + p.weightInCategory, 0);
       if (Math.abs(ptSum - 100) > 1e-9) problems.push(`category ${c.code} point weights sum to ${ptSum}, expected 100`);
       for (const p of c.points) {
+        if (pointCodes.has(p.code)) problems.push(`check code ${p.code} is duplicated across the template`);
+        pointCodes.add(p.code);
         if (p.inputType === "MEASURED" && (p.thresholdDirection == null || p.thresholdGood == null || p.thresholdMonitor == null || p.thresholdAttention == null)) {
           problems.push(`measured point ${p.code} is missing thresholds`);
+        }
+        if (p.inputType === "MEASURED" && !p.unit?.trim()) problems.push(`measured point ${p.code} is missing a unit`);
+        if (p.inputType === "MEASURED" && p.thresholdDirection && p.thresholdGood != null && p.thresholdMonitor != null && p.thresholdAttention != null) {
+          const ordered = p.thresholdDirection === "HIGHER_BETTER"
+            ? p.thresholdGood >= p.thresholdMonitor && p.thresholdMonitor >= p.thresholdAttention
+            : p.thresholdGood <= p.thresholdMonitor && p.thresholdMonitor <= p.thresholdAttention;
+          if (!ordered) problems.push(`measured point ${p.code} thresholds are out of order for ${p.thresholdDirection}`);
         }
         if (!p.label || !p.labelFil) problems.push(`point ${p.code} is missing EN+FIL labels`);
         if (!p.recommendation) problems.push(`point ${p.code} is missing a recommendation`);
@@ -196,6 +359,24 @@ export class ChecklistsService {
     }
     if (problems.length > 0) {
       throw new DomainError("CHECKLIST_INVALID", "checklist failed publish validation", 409, { problems });
+    }
+  }
+
+  private validateFullCoverage(candidate: LoadedChecklist, baseline: LoadedChecklist): void {
+    const candidateByCategory = new Map(candidate.categories.map((category) => [category.code, new Set(category.points.map((point) => point.code))]));
+    const missing: string[] = [];
+    for (const category of baseline.categories) {
+      const included = candidateByCategory.get(category.code);
+      if (!included) {
+        missing.push(category.code);
+        continue;
+      }
+      for (const point of category.points) {
+        if (!included.has(point.code)) missing.push(`${category.code}.${point.code}`);
+      }
+    }
+    if (missing.length) {
+      throw new DomainError("CHECKLIST_INVALID", "full template must retain every check in the current full baseline", 409, { missing });
     }
   }
 

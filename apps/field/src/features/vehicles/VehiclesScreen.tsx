@@ -132,21 +132,22 @@ export function VehicleOverviewScreen({ vehicle, onBack, onOpenReport }: { vehic
   }, [vehicle.id]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   useEffect(() => { if (sync.lastSyncAt) void load(); }, [sync.lastSyncAt, load]);
-  const latest = history?.[0];
+  const latestFull = history?.find((entry) => entry.scope === "FULL");
+  const fullBand = latestFull?.band ? t.vhsBands[latestFull.band] : null;
   return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
     <FieldNav title="Vehicle overview" onBack={onBack} />
     <ScrollView contentContainerStyle={workContent}>
       <View style={{ gap: 6 }}><Plate variant="plain">{vehicle.plateNo}</Plate><Text style={[t.text("h2"), { color: t.colors.ink }]}>{vehicle.make} {vehicle.model}</Text><Text style={[t.text("body"), { color: t.colors.inkMuted }]}>{vehicle.year} · {vehicle.currentOdometerKm.toLocaleString()} km</Text></View>
       {cachedAt !== null ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Cached history{cachedAt ? ` downloaded ${manilaSchedule(new Date(cachedAt).toISOString())}` : "; download time unavailable"}. Reconnect to refresh.</Text> : null}
-      {error ? <EmptyState tone="error" title="Could not load history" body={error} action={<Button variant="secondary" onPress={() => void load()}>Try again</Button>} /> : history === null ? <EmptyState tone="loading" title="Loading health summary and inspections…" /> : history.length === 0 ? <EmptyState title="No scored inspection yet" body="Accepted reports may still be awaiting score calculation. Open the booking to check its report status." /> : <>
-        <Card accent={t.vhsBands[latest!.band].fill} style={{ gap: 8 }}>
-          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Latest health score</Text>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}><Text style={[t.text("h1"), { fontSize: 48, color: t.vhsBands[latest!.band].text }]}>{latest!.score}<Text style={[t.text("body"), { color: t.colors.inkMuted }]}> / 100</Text></Text><Text style={[t.text("body", 600), { color: t.vhsBands[latest!.band].text }]}>{t.vhsBands[latest!.band].labelEn}</Text></View>
-          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{manilaSchedule(latest!.computedAt)}{latest!.isStale ? " · Score is over 90 days old" : ""}</Text>
-        </Card>
+      {error ? <EmptyState tone="error" title="Could not load history" body={error} action={<Button variant="secondary" onPress={() => void load()}>Try again</Button>} /> : history === null ? <EmptyState tone="loading" title="Loading health summary and inspections…" /> : history.length === 0 ? <EmptyState title="No accepted inspection yet" body="Open a booking to check saved work or a pending submission." /> : <>
+        {latestFull ? <Card accent={fullBand?.fill} style={{ gap: 8 }}>
+          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Last full inspection</Text>
+          {latestFull.score != null ? <View style={{ flexDirection: "row", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}><Text style={[t.text("h1"), { fontSize: 48, color: fullBand?.text ?? t.colors.ink }]}>{latestFull.score}<Text style={[t.text("body"), { color: t.colors.inkMuted }]}> / 100</Text></Text>{fullBand ? <Text style={[t.text("body", 600), { color: fullBand.text }]}>{fullBand.labelEn}</Text> : null}</View> : <Text style={[t.text("body"), { color: t.colors.inkMuted }]}>Full inspection score is pending.</Text>}
+          <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{manilaSchedule(latestFull.computedAt)}{latestFull.isStale ? " · Score is over 90 days old" : ""}</Text>
+        </Card> : <EmptyState title="No confirmed full inspection yet" body="Focused and legacy reports remain available below. They do not establish whole-vehicle health." />}
         <Text style={[t.text("h2"), { color: t.colors.ink }]}>Inspection history</Text>
-        {history.map((h) => <Card key={h.id} interactive accessibilityLabel={`Open inspection ${manilaSchedule(h.computedAt)}, score ${h.score}`} onPress={() => onOpenReport(vehicle.id, h.inspectionId)} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <View style={{ flex: 1, gap: 4 }}><Text style={[t.text("body"), { color: t.colors.ink }]}>{manilaSchedule(h.computedAt)}</Text><Text style={[t.text("label"), { color: t.vhsBands[h.band].text }]}>{t.vhsBands[h.band].labelEn}{h.isStale ? " · Stale" : ""}</Text></View><Text style={[t.text("h2"), { color: t.vhsBands[h.band].text }]}>{h.score}</Text><Icon name="chevron-right" size={20} color={t.colors.inkMuted} />
+        {history.map((h) => <Card key={h.id} interactive accessibilityLabel={`Open inspection ${manilaSchedule(h.computedAt)}`} onPress={() => onOpenReport(vehicle.id, h.inspectionId)} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View style={{ flex: 1, gap: 4 }}><Text style={[t.text("body"), { color: t.colors.ink }]}>{h.serviceName ?? h.templateName ?? "Inspection"}</Text><Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{h.scope === "FULL" ? "Full inspection" : h.scope === "FOCUSED" ? "Focused inspection" : "Legacy · scope unknown"} · {manilaSchedule(h.computedAt)}</Text></View>{h.scope === "FULL" && h.score != null ? <Text style={[t.text("h2"), { color: h.band ? t.vhsBands[h.band].text : t.colors.ink }]}>{h.score}</Text> : null}<Icon name="chevron-right" size={20} color={t.colors.inkMuted} />
         </Card>)}
       </>}
       <Disclosure title="References"><Reference label="Vehicle ID" value={vehicle.id} /></Disclosure>

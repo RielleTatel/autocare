@@ -13,7 +13,7 @@ import { manilaSchedule } from "../tasks/tasksApi";
 import { resolveStatus, type CachedChecklist, type CategoryProgress } from "./draft";
 
 /** Category checklist: expand a system, scan its findings, open any point. */
-export function CategoryNavScreen({ perCategory, overall, onOpenCategory, onOpenPoint, onReview, onBack, checklist, results = [], appointmentId, scheduledStart }: {
+export function CategoryNavScreen({ perCategory, overall, onOpenCategory, onOpenPoint, onReview, onBack, checklist, results = [], appointmentId, scheduledStart, onAdditionalFindings, additionalFindingCount = 0 }: {
   perCategory: CategoryProgress[];
   overall: { answered: number; total: number };
   onOpenCategory(code: string): void;
@@ -24,6 +24,8 @@ export function CategoryNavScreen({ perCategory, overall, onOpenCategory, onOpen
   results?: LocalResult[];
   appointmentId?: string;
   scheduledStart?: string;
+  onAdditionalFindings?(): void;
+  additionalFindingCount?: number;
 }) {
   const [expanded, setExpanded] = useState<string | null>(() => (perCategory.find((cat) => cat.answered < cat.total) ?? perCategory[0])?.code ?? null);
   return <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
@@ -51,6 +53,7 @@ export function CategoryNavScreen({ perCategory, overall, onOpenCategory, onOpen
           </View>;
         })}
       </View>
+      {onAdditionalFindings ? <Button variant="secondary" onPress={onAdditionalFindings}>Additional findings{additionalFindingCount ? ` (${additionalFindingCount})` : ""}</Button> : null}
       {appointmentId ? <Disclosure title="Booking references">{scheduledStart ? <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Scheduled {manilaSchedule(scheduledStart)} · Philippine time</Text> : null}<Reference label="Booking ID" value={appointmentId} /></Disclosure> : null}
     </ScrollView>
     <ActionBar><Button icon="clipboard-check" onPress={onReview}>Review &amp; submit</Button></ActionBar>

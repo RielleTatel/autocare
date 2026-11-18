@@ -13,12 +13,13 @@ import { outbox, syncProcessor } from "../../shared/sync";
 import { queuePhoto } from "../../shared/sync/photos";
 import { useInspectionDraft } from "./useInspectionDraft";
 import type { CachedChecklist, DraftDeps } from "./draft";
-import { getActiveChecklist } from "./checklistCache";
+import { getBookingChecklist } from "./checklistCache";
 import { TaskDetailScreen, type FieldVehicle } from "./TaskDetailScreen";
 import { CategoryNavScreen } from "./CategoryNavScreen";
 import { PointEntryScreen } from "./PointEntryScreen";
 import { PhotoAnnotateScreen } from "./PhotoAnnotateScreen";
 import { ReviewSubmitScreen } from "./ReviewSubmitScreen";
+import { AdditionalFindingsScreen } from "./AdditionalFindingsScreen";
 
 const inspectionsRepo = new InspectionsRepo();
 const draftDeps: DraftDeps = {
@@ -32,7 +33,9 @@ type Route =
   | { name: "task" }
   | { name: "categories" }
   | { name: "point"; code: string }
-  | { name: "photo"; forPoint: string }
+  | { name: "photo"; forPoint: string; photoClientUuid: string }
+  | { name: "observationPhoto"; observationClientUuid: string; photoClientUuid: string }
+  | { name: "observations" }
   | { name: "review" };
 
 /** F-04 → F-08 in one stateful flow. Navigation between capture steps is local
@@ -74,7 +77,10 @@ export function InspectionFlow({ onDone, initialVehicleId, initialAppointmentId,
         const cachedVehicle = await kvGet(`draft-vehicle:${saved.clientUuid}`);
         const bookedVehicle = cachedVehicle ? JSON.parse(cachedVehicle) as FieldVehicle : await api.get<FieldVehicle>(`/vehicles/${initialVehicleId}`);
         if (mounted) { setChecklist(JSON.parse(saved.checklistJson)); setVehicle(bookedVehicle); setOdometerKm(saved.odometerKm); setRoute({ name: "categories" }); }
-      } else if (mounted) setChecklist(await getActiveChecklist());
+      } else {
+        const bookedChecklist = await getBookingChecklist(initialAppointmentId, initialVehicleId);
+        if (mounted) setChecklist(bookedChecklist);
+      }
     })().catch((e) => { if (mounted) setError(e instanceof Error ? e.message : "checklist unavailable"); }).finally(() => { if (mounted) setRestoring(false); });
     return () => { mounted = false; };
   }, [initialVehicleId, initialAppointmentId]);
@@ -117,7 +123,7 @@ export function InspectionFlow({ onDone, initialVehicleId, initialAppointmentId,
     <View style={{ flex: 1, backgroundColor: t.colors.chassis }}>
       <View style={{ backgroundColor: t.colors.surface, borderBottomWidth: 1, borderColor: t.colors.lineSoft }}><View style={{ width: "100%", maxWidth: 760, alignSelf: "center", paddingHorizontal: 16, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 12 }}>
         <Text style={[t.text("code"), { color: t.colors.ink }]}>{vehicle.plateNo}</Text>
-        <Text numberOfLines={1} style={[t.text("label"), { color: t.colors.inkMuted, flex: 1 }]}>{serviceTypeName ?? "Vehicle inspection"}</Text>
+        <View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={[t.text("label"), { color: t.colors.inkMuted }]}>{checklist.serviceName ?? serviceTypeName ?? "Vehicle inspection"}</Text><Text style={[t.text("label"), { color: t.colors.inkMuted }]}>{checklist.versionLabel}{checklist.scope === "FOCUSED" ? " · Focused checks" : checklist.scope === "FULL" ? " · Full inspection" : " · Saved checklist"}</Text></View>
       </View>
       </View>
       <CaptureFlow
@@ -188,19 +194,34 @@ function CaptureFlow({
       <PhotoAnnotateScreen
         onCancel={() => setRoute({ name: "point", code: route.forPoint })}
         onDone={async (uri) => {
+          const retained = await queuePhoto(route.photoClientUuid, draft.draft!.clientUuid, uri, { type: "RESULT", pointCode: route.forPoint });
           const existing = draft.results.find((r) => r.pointCode === route.forPoint);
           await draft.saveResult({
             pointCode: route.forPoint,
             status: existing?.status,
             measuredValue: existing?.measuredValue,
             notes: existing?.notes,
-            photoUris: [...(existing?.photoUris ?? []), uri],
+            photoUris: [...new Set([...(existing?.photoUris ?? []), retained])],
           });
-          await queuePhoto(randomUUID(), draft.draft!.clientUuid, uri);
           setRoute({ name: "point", code: route.forPoint });
         }}
       />
     );
+  }
+
+  if (route.name === "observations") {
+    return <AdditionalFindingsScreen observations={draft.observations} onSave={draft.saveObservation} onDelete={draft.deleteObservation}
+      onBack={() => setRoute({ name: "categories" })} onPhoto={async (observationClientUuid) => { await draft.flush(); setRoute({ name: "observationPhoto", observationClientUuid, photoClientUuid: randomUUID() }); }} />;
+  }
+
+  if (route.name === "observationPhoto") {
+    return <PhotoAnnotateScreen onCancel={() => setRoute({ name: "observations" })} onDone={async (uri) => {
+      const observation = draft.observations.find((entry) => entry.clientUuid === route.observationClientUuid);
+      if (!observation) throw new Error("The saved finding could not be found. Return to additional findings.");
+      const retained = await queuePhoto(route.photoClientUuid, draft.draft!.clientUuid, uri, { type: "OBSERVATION", observationClientUuid: observation.clientUuid });
+      await draft.saveObservation({ ...observation, photoUris: [...new Set([...observation.photoUris, retained])] });
+      setRoute({ name: "observations" });
+    }} />;
   }
 
   if (route.name === "point") {
@@ -215,7 +236,7 @@ function CaptureFlow({
         point={point}
         initial={draft.results.find((r) => r.pointCode === route.code)}
         onSave={(r) => draft.saveResult(r)}
-        onAddPhoto={() => setRoute({ name: "photo", forPoint: route.code })}
+        onAddPhoto={() => setRoute({ name: "photo", forPoint: route.code, photoClientUuid: randomUUID() })}
         onNext={() => setRoute(nextAfter(route.code))}
         onBack={() => setRoute({ name: "categories" })}
         title={categoryOf(route.code)?.label}
@@ -229,6 +250,8 @@ function CaptureFlow({
       <ReviewSubmitScreen
         checklist={checklist}
         results={draft.results}
+        observations={draft.observations}
+        onAdditionalFindings={() => setRoute({ name: "observations" })}
         check={draft.check ?? { complete: false, missingPoints: [], missingPhotos: [] }}
         overall={draft.overall}
         submitted={draft.isLocked}
@@ -259,6 +282,8 @@ function CaptureFlow({
       overall={draft.overall}
       checklist={checklist}
       results={draft.results}
+      onAdditionalFindings={() => setRoute({ name: "observations" })}
+      additionalFindingCount={draft.observations.filter((observation) => observation.notes.trim()).length}
       appointmentId={appointmentId}
       scheduledStart={scheduledStart}
       onOpenPoint={(code) => setRoute({ name: "point", code })}

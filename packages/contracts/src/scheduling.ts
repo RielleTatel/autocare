@@ -33,6 +33,7 @@ export const serviceTypeSchema = z.object({
   requiredSkills: z.array(z.string()).default([]),
   priceCentavos: z.number().int().nonnegative(),
   inspectionRequired: z.boolean().default(false),
+  inspectionTemplateVersionId: z.string().uuid().nullable().optional(),
   entitlementType: z.enum(["INSPECTION", "PICKUP", "ROADSIDE", "OIL_CHANGE", "TIRE_ROTATION"]).nullable().optional(),
   intervalDays: z.number().int().positive().nullable().optional(),
   intervalKm: z.number().int().positive().nullable().optional(),
@@ -60,7 +61,12 @@ export interface FieldBooking {
   serviceTypeId: string;
   serviceTypeName: string;
   inspectionRequired: boolean;
+  inspectionTemplateReady?: boolean;
+  inspectionScope?: "FULL" | "FOCUSED" | null;
   canInspect: boolean;
+  canCompleteService?: boolean;
+  returnForWorkOrderId?: string | null;
+  returnInspectionId?: string | null;
   scheduledStart: string;
   scheduledEnd: string;
   status: string;

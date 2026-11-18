@@ -8,6 +8,8 @@ export type LocalResult = {
   photoUris: string[];
 };
 
+export type LocalObservation = { clientUuid: string; notes: string; photoUris: string[] };
+
 export type LocalInspection = {
   clientUuid: string;
   vehicleId: string;
@@ -102,6 +104,30 @@ export class InspectionsRepo {
     }));
   }
 
+  async saveObservation(inspectionClientUuid: string, observation: LocalObservation): Promise<void> {
+    const db = await getDb();
+    await db.runAsync(`INSERT INTO local_observations (inspection_client_uuid, client_uuid, notes, photo_uris)
+      VALUES (?, ?, ?, ?) ON CONFLICT (inspection_client_uuid, client_uuid)
+      DO UPDATE SET notes = excluded.notes, photo_uris = excluded.photo_uris`,
+    inspectionClientUuid, observation.clientUuid, observation.notes, JSON.stringify(observation.photoUris));
+  }
+
+  async observations(inspectionClientUuid: string): Promise<LocalObservation[]> {
+    const db = await getDb();
+    const rows = await db.getAllAsync<{ client_uuid: string; notes: string; photo_uris: string }>(
+      "SELECT client_uuid, notes, photo_uris FROM local_observations WHERE inspection_client_uuid = ? ORDER BY rowid", inspectionClientUuid,
+    );
+    return rows.map((row) => ({ clientUuid: row.client_uuid, notes: row.notes, photoUris: JSON.parse(row.photo_uris) }));
+  }
+
+  async deleteObservation(inspectionClientUuid: string, clientUuid: string): Promise<void> {
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync("DELETE FROM local_observations WHERE inspection_client_uuid = ? AND client_uuid = ?", inspectionClientUuid, clientUuid);
+      await db.runAsync("DELETE FROM photos_pending WHERE owner_client_uuid = ? AND observation_client_uuid = ?", inspectionClientUuid, clientUuid);
+    });
+  }
+
   /** Submission locks the draft read-only (append-only server side; client mirrors it). */
   async lock(clientUuid: string, submittedAt: number): Promise<void> {
     const db = await getDb();
@@ -114,6 +140,7 @@ export class InspectionsRepo {
    *  local schema, so results are deleted explicitly. */
   async delete(clientUuid: string): Promise<void> {
     const db = await getDb();
+    await db.runAsync("DELETE FROM local_observations WHERE inspection_client_uuid = ?", clientUuid);
     await db.runAsync("DELETE FROM local_results WHERE inspection_client_uuid = ?", clientUuid);
     await db.runAsync("DELETE FROM local_inspections WHERE client_uuid = ?", clientUuid);
   }

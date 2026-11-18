@@ -50,11 +50,11 @@ function Stat({ testID, value, label, last }: { testID: string; value: string; l
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-PH", { day: "numeric", month: "short" });
 
-export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt, onUpdateOdometer, onArchive, onArchived, onBack, onEditPhotos, onManageSubscription, onViewHealthScore, onBookService }: {
+export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt, onUpdateOdometer, onArchive, onArchived, onBack, onEditPhotos, onManageSubscription, onViewHealthScore, onViewInspectionHistory, onBookService }: {
   vehicle: Vehicle;
   /** Latest score, when the vehicle has been inspected. Absent is normal for a
    *  new vehicle and must not read as an error. */
-  health?: { score: number; band: Band } | null;
+  health?: { score: number; band: Band; inspectedAt?: string | null } | null;
   /** Open attention items for this vehicle. Undefined = not loaded yet, which
    *  reads as "—" rather than a confident zero. */
   openItems?: number | null;
@@ -66,6 +66,7 @@ export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt,
   onEditPhotos?: () => void;
   onManageSubscription?: () => void;
   onViewHealthScore?: () => void;
+  onViewInspectionHistory?: () => void;
   onBookService?: () => void;
 }) {
   const [editingOdo, setEditingOdo] = useState(false);
@@ -213,7 +214,7 @@ export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt,
             </Pressable>
           ) : (
             <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>
-              No health score yet — it appears after the first inspection.
+              No full inspection yet. Focused findings appear in inspection history.
             </Text>
           )}
         </View>
@@ -331,10 +332,11 @@ export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt,
           <Card testID="view-health-score" interactive onPress={onViewHealthScore}
             style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View style={{ gap: 2 }}>
-              <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Health Score</Text>
+              <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Last full vehicle score</Text>
               {health ? (
                 <Text testID="health-summary" style={[theme.text("label"), { color: theme.colors.inkMuted }]}>
                   {health.score} / 100 · {theme.vhsBands[health.band].labelEn}
+                  {health.inspectedAt ? ` · ${new Date(health.inspectedAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}` : " · Inspection date unavailable"}
                 </Text>
               ) : null}
             </View>
@@ -344,12 +346,18 @@ export function VehicleDetailScreen({ vehicle, health, openItems, lastServiceAt,
           </Card>
         ) : (
           <Card>
-            <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Health Score</Text>
+            <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Last full vehicle score</Text>
             <Text style={[theme.text("body"), { color: theme.colors.inkMuted, marginTop: theme.spacing.xs }]}>
-              Coming with your first inspection
+              Available after a full inspection
             </Text>
           </Card>
         )}
+
+        {onViewInspectionHistory && <Card testID="view-inspection-history" onPress={onViewInspectionHistory} style={{ gap: theme.spacing.xs }}>
+          <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>Inspections & repairs</Text>
+          <Text style={[theme.text("body"), { color: theme.colors.inkMuted }]}>Full and focused reports, repair progress, final bills and receipts.</Text>
+          <Text style={[theme.text("label"), { color: theme.colors.primary }]}>View history →</Text>
+        </Card>}
 
         {onManageSubscription ? (
           <Button block variant="ghost" testID="manage-subscription" onPress={onManageSubscription}>

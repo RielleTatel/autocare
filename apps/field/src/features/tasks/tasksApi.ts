@@ -7,6 +7,8 @@ export type FieldTask = {
   vehicleId: string; vehiclePlateNo: string; vehicleMake?: string; vehicleModel?: string; vehicleYear?: number;
   serviceTypeName: string; memberName: string | null; status: string;
   inspectionRequired?: boolean; canInspect?: boolean; inspectionId?: string | null; scorePending?: boolean;
+  canCompleteService?: boolean;
+  returnForWorkOrderId?: string | null; returnInspectionId?: string | null;
   bayName?: string | null; requiresPickup?: boolean;
 };
 export type BookingPage = { items: FieldTask[]; nextCursor: string | null; day: string; canInspect: boolean };

@@ -40,18 +40,24 @@ export class SchedulingConfigService {
 
   // ---- Service types (members read to pick a service; staff manage) ----
   listServiceTypes() {
-    return this.prisma.serviceType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
+    return this.prisma.serviceType.findMany({
+      where: { isActive: true }, orderBy: { name: "asc" },
+      include: { inspectionTemplateVersion: { include: { template: true } } },
+    });
   }
 
   async createServiceType(u: AbilityUser, dto: ServiceTypeInput) {
     this.assertServiceManager(u);
+    await this.assertTemplateAssignment(dto.inspectionRequired, dto.inspectionTemplateVersionId ?? null);
     return this.prisma.serviceType.create({
       data: {
         code: dto.code, name: dto.name, standardDurationMin: dto.standardDurationMin,
         requiredSkills: dto.requiredSkills, priceCentavos: BigInt(dto.priceCentavos),
         entitlementType: dto.entitlementType ?? null, intervalDays: dto.intervalDays ?? null, intervalKm: dto.intervalKm ?? null,
         inspectionRequired: dto.inspectionRequired,
+        inspectionTemplateVersionId: dto.inspectionTemplateVersionId ?? null,
       },
+      include: { inspectionTemplateVersion: { include: { template: true } } },
     });
   }
 
@@ -63,9 +69,30 @@ export class SchedulingConfigService {
     this.assertServiceManager(u);
     const service = await this.prisma.serviceType.findUnique({ where: { id } });
     if (!service) throw new DomainError("SLOT_UNAVAILABLE", "service not found", 404);
+    const inspectionRequired = dto.inspectionRequired ?? service.inspectionRequired;
+    const templateVersionId = dto.inspectionTemplateVersionId !== undefined
+      ? dto.inspectionTemplateVersionId
+      : (dto.inspectionRequired === false ? null : service.inspectionTemplateVersionId);
+    await this.assertTemplateAssignment(inspectionRequired, templateVersionId ?? null);
     return this.prisma.serviceType.update({ where: { id }, data: {
-      ...dto, ...(dto.priceCentavos !== undefined ? { priceCentavos: BigInt(dto.priceCentavos) } : {}),
-    } });
+      ...dto,
+      inspectionTemplateVersionId: templateVersionId,
+      ...(dto.priceCentavos !== undefined ? { priceCentavos: BigInt(dto.priceCentavos) } : {}),
+    }, include: { inspectionTemplateVersion: { include: { template: true } } } });
+  }
+
+  private async assertTemplateAssignment(inspectionRequired: boolean, templateVersionId: string | null): Promise<void> {
+    if (!inspectionRequired && templateVersionId) {
+      throw new DomainError("CHECKLIST_INVALID", "a service that does not require inspection cannot have an inspection template", 422);
+    }
+    if (!templateVersionId) return; // readiness is shown in admin; new bookings are guarded separately.
+    const version = await this.prisma.checklistVersion.findUnique({
+      where: { id: templateVersionId },
+      include: { template: true },
+    });
+    if (!version || version.status !== "PUBLISHED" || !version.template?.isActive) {
+      throw new DomainError("CHECKLIST_INVALID", "select a published version of an active inspection template", 422);
+    }
   }
 
   // ---- Bays ----
@@ -201,27 +228,38 @@ export class SchedulingConfigService {
     return user?.isCertifiedTechnician === true;
   }
 
-  private async decorateBookings(rows: Prisma.AppointmentGetPayload<{ include: { serviceType: true; vehicle: { include: { owner: true } } } }>[], certified: boolean): Promise<FieldBooking[]> {
-    const [reports, bays] = await Promise.all([
+  private async decorateBookings(rows: Prisma.AppointmentGetPayload<{ include: { serviceType: true; vehicle: { include: { owner: true } }; repairReturnForWorkOrder: { select: { id: true; inspectionId: true } } } }>[], certified: boolean, canCompleteService: boolean): Promise<FieldBooking[]> {
+    const [reports, bays, templateVersions] = await Promise.all([
       this.prisma.inspection.findMany({
         where: { appointmentId: { in: rows.map(r => r.id) }, submittedAt: { not: null } },
-        select: { id: true, appointmentId: true, healthScore: { select: { id: true } } },
+        select: { id: true, appointmentId: true, scope: true, healthScore: { select: { id: true } } },
         orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
       }),
       this.prisma.serviceBay.findMany({ where: { id: { in: rows.flatMap(r => r.bayId ? [r.bayId] : []) } }, select: { id: true, name: true } }),
+      this.prisma.checklistVersion.findMany({
+        where: { id: { in: rows.flatMap((row) => row.inspectionTemplateVersionId ? [row.inspectionTemplateVersionId] : []) } },
+        include: { template: { select: { name: true, scope: true } } },
+      }),
     ]);
     return rows.map(r => {
       const report = reports.find(i => i.appointmentId === r.id);
+      const inspectionRequired = r.inspectionRequiredSnapshot ?? r.serviceType.inspectionRequired;
+      const pinnedVersion = templateVersions.find((v) => v.id === r.inspectionTemplateVersionId);
       return {
         id: r.id, vehicleId: r.vehicleId, vehiclePlateNo: r.vehicle.plateNo,
         vehicleMake: r.vehicle.make, vehicleModel: r.vehicle.model, vehicleYear: r.vehicle.year,
-        serviceTypeId: r.serviceTypeId, serviceTypeName: r.serviceType.name,
-        inspectionRequired: r.serviceType.inspectionRequired,
+        serviceTypeId: r.serviceTypeId, serviceTypeName: r.serviceNameSnapshot ?? r.serviceType.name,
+        inspectionRequired,
+        inspectionTemplateReady: !inspectionRequired || Boolean(pinnedVersion && pinnedVersion.status === "PUBLISHED"),
+        inspectionScope: pinnedVersion?.template?.scope ?? null,
         canInspect: certified,
+        canCompleteService: canCompleteService && !inspectionRequired && !r.repairReturnForWorkOrder && ["BOOKED", "CONFIRMED", "IN_PROGRESS"].includes(r.status),
         scheduledStart: r.scheduledStart.toISOString(), scheduledEnd: r.scheduledEnd.toISOString(),
         status: r.status, requiresPickup: r.requiresPickup, bayId: r.bayId,
         bayName: bays.find(b => b.id === r.bayId)?.name ?? null, memberName: r.vehicle.owner?.name ?? null,
-        inspectionId: report?.id ?? null, scorePending: !!report && !report.healthScore,
+        inspectionId: report?.id ?? null, scorePending: report?.scope === "FULL" && !report.healthScore,
+        returnForWorkOrderId: r.repairReturnForWorkOrder?.id ?? null,
+        returnInspectionId: r.repairReturnForWorkOrder?.inspectionId ?? null,
       };
     });
   }
@@ -252,21 +290,21 @@ export class SchedulingConfigService {
     const rows = await this.prisma.appointment.findMany({
       where: { AND: [dateWhere, afterWhere] }, take: q.limit + 1,
       orderBy: [{ scheduledStart: descending ? "desc" : "asc" }, { id: descending ? "desc" : "asc" }],
-      include: { serviceType: true, vehicle: { include: { owner: true } } },
+      include: { serviceType: true, vehicle: { include: { owner: true } }, repairReturnForWorkOrder: { select: { id: true, inspectionId: true } } },
     });
     const selected = rows.slice(0, q.limit);
     const last = selected.at(-1);
     const certified = await this.canInspect(u);
     return {
-      items: await this.decorateBookings(selected, certified), day, canInspect: certified,
+      items: await this.decorateBookings(selected, certified, ["MECHANIC", "ADVISOR", "ADMIN"].includes(u.role)), day, canInspect: certified,
       nextCursor: rows.length > q.limit && last ? Buffer.from(JSON.stringify({ bucket: q.bucket, day, start: last.scheduledStart.toISOString(), id: last.id })).toString("base64url") : null,
     };
   }
 
   async fieldBooking(u: AbilityUser, id: string): Promise<FieldBooking> {
     this.assertStaff(u);
-    const row = await this.prisma.appointment.findUnique({ where: { id }, include: { serviceType: true, vehicle: { include: { owner: true } } } });
+    const row = await this.prisma.appointment.findUnique({ where: { id }, include: { serviceType: true, vehicle: { include: { owner: true } }, repairReturnForWorkOrder: { select: { id: true, inspectionId: true } } } });
     if (!row) throw new DomainError("SLOT_UNAVAILABLE", "booking not found", 404);
-    return (await this.decorateBookings([row], await this.canInspect(u)))[0];
+    return (await this.decorateBookings([row], await this.canInspect(u), ["MECHANIC", "ADVISOR", "ADMIN"].includes(u.role)))[0];
   }
 }

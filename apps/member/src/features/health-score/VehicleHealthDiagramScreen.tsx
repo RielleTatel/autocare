@@ -19,6 +19,10 @@ export function VehicleHealthDiagramScreen({ detail, error, active = true, onBac
     <View style={{ paddingHorizontal: t.spacing.md, paddingBottom: t.spacing.sm, borderBottomWidth: 1, borderBottomColor: t.colors.lineSoft }}>
       <Button variant="ghost" icon="chevron-left" onPress={onBack} accessibilityLabel="Back to health score" style={{ paddingHorizontal: 0 }}>Health score</Button>
       <Text accessibilityRole="header" style={{ ...t.text("h1"), color: t.colors.ink }}>Vehicle diagram</Text>
+      {detail && <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
+        {detail.scope === "FULL" ? "Full inspection" : detail.scope === "FOCUSED" ? "Focused inspection · other systems not inspected" : "Inspection scope unverified"}
+        {detail.submittedAt ? ` · ${new Date(detail.submittedAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" })}` : ""}
+      </Text>}
     </View>
     {error ? <View style={{ padding: t.spacing.lg, gap: t.spacing.md }}>
       <Text accessibilityRole="alert" style={{ ...t.text("body"), color: t.colors.inkMuted }}>{error}</Text>

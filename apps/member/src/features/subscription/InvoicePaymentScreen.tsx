@@ -5,6 +5,7 @@ import { Button } from "../../components/Button";
 import { theme } from "../../theme";
 import { InvoiceDetailScreen } from "./InvoiceDetailScreen";
 import { newIdempotencyKey } from "./billingPreview";
+import { HistoryPage, ServiceDocumentScreen } from "../service-history/ServiceHistoryScreens";
 
 export type CheckoutInvoice = Invoice & { checkoutEligible?: boolean };
 type PaymentState = "idle" | "opening" | "checking" | "pending" | "cancelled" | "failed";
@@ -106,6 +107,10 @@ export function InvoicePaymentScreen({ invoiceId, fetchInvoice, createPaymentInt
     {error ? <Button testID="invoice-retry" onPress={() => void load().catch(() => undefined)}>Try again</Button> : null}
     <Button variant="secondary" onPress={onBack}>Back</Button>
   </View>;
+  if (invoice.subscriptionId === null) return <HistoryPage title="Final bill & receipt" onBack={onBack}
+    loading={false} error={error} onRefresh={() => void load().catch(() => undefined)}>
+    <ServiceDocumentScreen document={invoice} onOpenDocument={onDownloadReceipt} />
+  </HistoryPage>;
   const pending = state === "pending" || state === "checking";
   const paymentContent = <View style={{ marginTop: theme.spacing.lg, gap: theme.spacing.sm }}>
     <Text style={[theme.text("label"), { color: theme.colors.inkMuted }]}>Sandbox checkout · official test cards only. No real money moves.</Text>

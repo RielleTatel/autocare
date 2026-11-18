@@ -8,15 +8,15 @@ import { Button } from "../../components/Button";
 import type { HealthScore, InspectionResultDetail } from "./healthScoreApi";
 
 const OVERRIDE_COPY: Record<string, string> = {
-  SAFETY_ATTENTION: "A safety-critical component needs attention, so the score is capped at 69 until it is resolved — no matter how good everything else is.",
-  SAFETY_CRITICAL: "A safety-critical component is in unsafe condition, so the score is capped at 49 until it is repaired.",
+  SAFETY_ATTENTION: "At this inspection, a safety-critical component needed attention, capping the recorded score at 69.",
+  SAFETY_CRITICAL: "At this inspection, a safety-critical component was in unsafe condition, capping the recorded score at 49.",
 };
 
 const SEVERITY_WORD: Record<string, string> = { CRITICAL: "Critical", ATTENTION: "Attention", MONITOR: "Monitor" };
 
 /** M-13 — gauge + plain-language top-detractor cards + "why this score?" */
 export function HealthScoreScreen({
-  score, results, resultsLoading = false, resultsError, onRetryResults, onOpenBreakdown, onOpenHistory, onShare, onOpenDiagram,
+  score, results, resultsLoading = false, resultsError, onRetryResults, onOpenBreakdown, onOpenHistory, onOpenInspectionHistory, onShare, onOpenDiagram,
 }: {
   score: HealthScore;
   /** Per-point results, needed to colour the diagram. Absent until an
@@ -28,22 +28,25 @@ export function HealthScoreScreen({
   onOpenDiagram?: () => void;
   onOpenBreakdown?: () => void;
   onOpenHistory?: () => void;
+  onOpenInspectionHistory?: () => void;
   onShare?: () => void;
 }) {
   const t = theme;
-  const daysAgo = Math.round((Date.now() - new Date(score.computedAt).getTime()) / 86_400_000);
+  const daysAgo = score.inspectedAt ? Math.max(0, Math.floor((Date.now() - new Date(score.inspectedAt).getTime()) / 86_400_000)) : undefined;
 
   const hasResults = (results?.length ?? 0) > 0;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.lg }}>
       <Card pad="lg" style={{ alignItems: "center", gap: t.spacing.sm }}>
+        <Text style={{ ...t.text("h2"), color: t.colors.ink }}>Last full vehicle inspection</Text>
         <ScoreGauge score={score.score} band={score.band} confidence={score.confidence} isStale={score.isStale} daysSinceInspection={daysAgo} />
         {/* Stars are a display transform beside the numeral, never replacing it (§11.5). */}
         <StarRating score={score.score} band={score.band} size={26} />
         <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textAlign: "center" }}>
-          {daysAgo === 0 ? "Inspected today" : `Inspected ${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`}
+          {score.inspectedAt ? new Date(score.inspectedAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "long", day: "numeric" }) : "Full inspection date unavailable"}
         </Text>
+        <Text style={{ ...t.text("label"), color: t.colors.inkMuted, textAlign: "center" }}>Focused inspections are shown separately in inspection history.</Text>
       </Card>
 
       {resultsLoading && <Text accessibilityLiveRegion="polite" style={{ ...t.text("body"), color: t.colors.inkMuted }}>Loading inspection findings…</Text>}
@@ -95,11 +98,12 @@ export function HealthScoreScreen({
 
       {score.topDetractors.length === 0 && score.overrideApplied === "NONE" && (
         <Card>
-          <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>No adverse findings — everything checked out.</Text>
+          <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>No adverse findings were recorded in this full inspection.</Text>
         </Card>
       )}
 
       <View style={{ gap: t.spacing.sm }}>
+        {onOpenInspectionHistory && <Button block variant="secondary" icon="clipboard-check" onPress={onOpenInspectionHistory}>Inspections & repairs</Button>}
         {onOpenBreakdown && (
           <Button block icon="list-tree" onPress={onOpenBreakdown}>See category breakdown</Button>
         )}

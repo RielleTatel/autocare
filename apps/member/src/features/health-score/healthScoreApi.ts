@@ -33,6 +33,8 @@ export type HealthScore = {
   overrideApplied: Override;
   isStale: boolean;
   computedAt: string;
+  /** The accepted full inspection's date, distinct from score calculation. */
+  inspectedAt?: string | null;
   odometerKm: number | null;
   inspectionId: string;
   checklistVersion: string;
@@ -48,6 +50,7 @@ export type HealthScoreHistoryPoint = {
   band: Band;
   isStale: boolean;
   computedAt: string;
+  inspectedAt?: string | null;
   odometerKm: number | null;
 };
 export type InspectionResultDetail = {
@@ -74,6 +77,9 @@ export type InspectionDetail = {
   id: string;
   /** Older cached/API responses can omit vehicle identity. */
   vehicleId?: string;
+  scope?: "FULL" | "FOCUSED" | "LEGACY_UNKNOWN";
+  templateName?: string | null;
+  serviceName?: string | null;
   submittedAt: string | null;
   odometerKm: number | null;
   results: InspectionResultDetail[];

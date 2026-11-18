@@ -94,6 +94,7 @@ export default function CapacityConfigPage() {
 
         <section className="rounded-md border border-line bg-surface p-4 flex flex-col gap-3">
           <h2 className="font-display text-lg text-ink">Service types</h2>
+          <p className="text-sm text-ink-muted">Inspection services also need a published template. <Link href="/admin/services" className="font-medium text-primary">Admin service and template settings</Link></p>
           <ul className="text-ink text-sm flex flex-wrap gap-2">
             {serviceTypes.map((s) => (
               <li key={s.id} className="rounded-sm border border-line px-2 py-1">

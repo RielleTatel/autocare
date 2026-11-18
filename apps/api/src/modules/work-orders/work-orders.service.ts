@@ -97,7 +97,12 @@ export class WorkOrdersService {
   private async loadOrThrow(id: string): Promise<WoWithItems> {
     const wo = await this.prisma.workOrder.findUnique({ where: { id }, include: { items: true, wasteRecords: true } });
     if (!wo) throw new DomainError("WORK_ORDER_NOT_FOUND", "work order not found", 404);
+    this.assertStructured(wo);
     return wo;
+  }
+
+  private assertStructured(wo: { simpleRepair: boolean }): void {
+    if (wo.simpleRepair) throw new DomainError("WORK_ORDER_IMMUTABLE", "use repair actions for this job", 409);
   }
 
   async create(u: AbilityUser, dto: CreateWorkOrderInput) {
@@ -134,7 +139,7 @@ export class WorkOrdersService {
     const wos = await this.prisma.workOrder.findMany({
       where: { vehicleId },
       orderBy: { openedAt: "desc" },
-      include: { items: { include: { part: true, recommendation: true } }, wasteRecords: true, vehicle: true },
+      include: { items: { include: { part: true, recommendation: true } }, wasteRecords: true, vehicle: true, invoices: { select: { id: true }, orderBy: { issuedAt: "desc" } } },
     });
     return wos.map((w) => this.present(w));
   }
@@ -143,7 +148,7 @@ export class WorkOrdersService {
     // Members may read their own vehicle's work orders (for the approval flow).
     const wo = await this.prisma.workOrder.findUnique({
       where: { id },
-      include: { items: { include: { part: true, recommendation: true } }, wasteRecords: true, vehicle: true },
+      include: { items: { include: { part: true, recommendation: true } }, wasteRecords: true, vehicle: true, invoices: { select: { id: true }, orderBy: { issuedAt: "desc" } } },
     });
     if (!wo) throw new DomainError("WORK_ORDER_NOT_FOUND", "work order not found", 404);
     if (!STAFF_ROLES.has(u.role)) {
@@ -158,6 +163,19 @@ export class WorkOrdersService {
     return {
       id: wo.id,
       number: wo.number,
+      ...(wo.simpleRepair ? {
+        simpleRepair: true, inspectionId: wo.inspectionId, appointmentId: wo.appointmentId,
+        repairStatus: wo.repairStatus, version: wo.repairVersion, notes: wo.repairNotes,
+        estimatedTotalCentavos: Number(wo.estimatedRepairCentavos ?? 0),
+        finalRepairCentavos: wo.finalRepairCentavos == null ? null : Number(wo.finalRepairCentavos),
+        rechecked: wo.repairRechecked === true, completionNotes: wo.repairCompletionNotes,
+        completedWorkNotes: wo.completedWorkNotes, stopReason: wo.repairStopReason,
+        reviewReason: wo.repairReviewReason, invoiceId: wo.invoices?.[0]?.id ?? null,
+        createdAt: wo.openedAt, updatedAt: wo.updatedAt,
+        repairNotes: wo.repairNotes, estimatedRepairCentavos: Number(wo.estimatedRepairCentavos ?? 0),
+        repairRechecked: wo.repairRechecked === true, repairCompletionNotes: wo.repairCompletionNotes,
+        repairStopReason: wo.repairStopReason, repairReviewReason: wo.repairReviewReason,
+      } : {}),
       vehicleId: wo.vehicleId,
       plateNo: wo.vehicle?.plateNo,
       status: wo.status,
@@ -230,6 +248,7 @@ export class WorkOrdersService {
 
   async markItemDone(u: AbilityUser, id: string, itemId: string, done: boolean) {
     this.assertStaff(u);
+    await this.loadOrThrow(id);
     const item = await this.prisma.workOrderItem.findFirst({ where: { id: itemId, workOrderId: id } });
     if (!item) throw new DomainError("ITEM_NOT_FOUND", "item not found", 404);
     await this.prisma.workOrderItem.update({ where: { id: itemId }, data: { done } });
@@ -252,6 +271,7 @@ export class WorkOrdersService {
   async decide(u: AbilityUser, id: string, decisions: Array<{ itemId: string; decision: "APPROVED" | "DECLINED" | "DEFERRED" }>) {
     const wo = await this.prisma.workOrder.findUnique({ where: { id }, include: { items: true, vehicle: true } });
     if (!wo) throw new DomainError("WORK_ORDER_NOT_FOUND", "work order not found", 404);
+    this.assertStructured(wo);
     const ownsDirect = wo.vehicle.ownerUserId === u.id;
     const ownsOrg = u.orgId != null && wo.vehicle.orgOwnerId === u.orgId;
     if (!ownsDirect && !ownsOrg) throw new DomainError("FORBIDDEN_ROLE", "not your work order", 403);

@@ -4,7 +4,7 @@ import { theme } from "../../theme";
 import { Card } from "../../components/Card";
 import { Plate } from "../../components/Plate";
 import { StatusPill } from "../../components/StatusPill";
-import { Invoice } from "@autocare/contracts";
+import { documentState, type ServiceDocument } from "../service-history/serviceHistoryApi";
 import { formatCentavos } from "./formatCentavos";
 
 /** Invoice lifecycle → the generic pill tones. Settled is success, anything the
@@ -21,7 +21,8 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => void }) {
+function InvoiceRow({ invoice, onPress }: { invoice: ServiceDocument; onPress: () => void }) {
+  const serviceState = invoice.subscriptionId === null ? documentState(invoice) : null;
   return (
     <Card
       testID={`invoice-${invoice.id}`}
@@ -36,7 +37,7 @@ function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => voi
       </View>
       <View style={{ alignItems: "flex-end", gap: theme.spacing.xs }}>
         <Text style={[theme.text("h2"), { color: theme.colors.ink }]}>{formatCentavos(invoice.totalCentavos)}</Text>
-        <StatusPill tone={STATUS_TONE[invoice.status] ?? "neutral"}>{invoice.status.replace(/_/g, " ")}</StatusPill>
+        <StatusPill tone={serviceState === "No charge" ? "success" : STATUS_TONE[invoice.status] ?? "neutral"}>{serviceState ?? invoice.status.replace(/_/g, " ")}</StatusPill>
       </View>
     </Card>
   );
@@ -44,10 +45,10 @@ function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => voi
 
 export function InvoicesScreen({ fetchInvoices, onSelectInvoice, navigation }: {
   navigation?: any;
-  fetchInvoices: () => Promise<Invoice[]>;
-  onSelectInvoice: (invoice: Invoice) => void;
+  fetchInvoices: () => Promise<ServiceDocument[]>;
+  onSelectInvoice: (invoice: ServiceDocument) => void;
 }) {
-  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [invoices, setInvoices] = useState<ServiceDocument[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 

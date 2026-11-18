@@ -3,6 +3,7 @@ import { openSession } from "./lib/auth/session";
 
 const GATES: Array<{ prefix: string; roles: string[] }> = [
   { prefix: "/admin", roles: ["ADMIN"] },
+  { prefix: "/staff/billing", roles: ["ADVISOR", "ADMIN"] },
   { prefix: "/staff", roles: ["ADVISOR", "MECHANIC", "ADMIN"] },
 ];
 

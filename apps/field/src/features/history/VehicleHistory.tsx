@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import type { Band } from "@autocare/scoring";
 import { vhsBands } from "@autocare/design-tokens";
 import { fieldTheme } from "../../theme";
 import { Card } from "../../components/Card";
@@ -38,8 +37,7 @@ export function VehicleHistory({
 
   if (history.length === 0) return null;
 
-  const [latest, ...previous] = history;
-  const latestBand = vhsBands[latest.band as Band];
+  const latestFull = history.find((entry) => entry.scope === "FULL");
 
   return (
     <View style={{ gap: t.spacing.xs }}>
@@ -48,37 +46,21 @@ export function VehicleHistory({
         <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Showing the last downloaded copy.</Text>
       ) : null}
 
-      <Card
-        accent={latestBand.fill}
-        interactive={!!onOpenInspection}
-        accessibilityLabel={`Most recent inspection ${manilaDate(latest.computedAt)}, score ${latest.score}`}
-        onPress={onOpenInspection ? () => onOpenInspection(latest.inspectionId) : undefined}
-      >
-        <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>Most recent</Text>
-        <Text style={{ ...t.text("h1"), color: latestBand.text }}>
-          {latest.score} · {latestBand.labelEn}
-        </Text>
-        <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>
-          {manilaDate(latest.computedAt)}
-          {latest.odometerKm !== null ? ` · ${latest.odometerKm.toLocaleString("en-PH")} km` : ""}
-          {latest.isStale ? " · stale" : ""}
-        </Text>
-      </Card>
-
-      {previous.map((h) => {
-        const band = vhsBands[h.band as Band];
+      <Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>{latestFull ? `Last full inspection: ${manilaDate(latestFull.computedAt)}` : "No confirmed full inspection yet."}</Text>
+      {history.map((h) => {
+        const band = h.scope === "FULL" && h.band ? vhsBands[h.band] : null;
+        const scope = h.scope === "FULL" ? "Full inspection" : h.scope === "FOCUSED" ? "Focused inspection" : "Legacy inspection · scope unknown";
         return (
           <Card
             key={h.id}
             interactive={!!onOpenInspection}
-            accessibilityLabel={`Inspection ${manilaDate(h.computedAt)}, score ${h.score}`}
+            accent={band?.fill}
+            accessibilityLabel={`${scope}, ${manilaDate(h.computedAt)}`}
             onPress={onOpenInspection ? () => onOpenInspection(h.inspectionId) : undefined}
             style={{ flexDirection: "row", alignItems: "center", gap: t.spacing.sm }}
           >
-            <Text style={{ ...t.text("h2"), color: band.text }}>{h.score}</Text>
-            <Text style={{ ...t.text("label"), color: t.colors.inkMuted, flex: 1 }}>
-              {band.labelEn} · {manilaDate(h.computedAt)}
-            </Text>
+            {h.scope === "FULL" && h.score != null ? <Text style={{ ...t.text("h2"), color: band?.text ?? t.colors.ink }}>{h.score}</Text> : null}
+            <View style={{ flex: 1, gap: 4 }}><Text style={{ ...t.text("body", 600), color: t.colors.ink }}>{h.serviceName ?? h.templateName ?? scope}</Text><Text style={{ ...t.text("label"), color: t.colors.inkMuted }}>{scope} · {manilaDate(h.computedAt)}</Text></View>
           </Card>
         );
       })}

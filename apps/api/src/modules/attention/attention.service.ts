@@ -54,15 +54,15 @@ export class AttentionService {
    * The severity filter runs in SQL too, so the rows never crossed the wire.
    */
   private async componentFindings(vehicleIds: string[]): Promise<AttentionInputs["componentFindings"]> {
-    const scores = await this.prisma.healthScore.findMany({
-      where: { vehicleId: { in: vehicleIds } },
-      orderBy: { computedAt: "desc" },
-      distinct: ["vehicleId"],
-      select: { vehicleId: true, inspectionId: true, computedAt: true },
+    const scoreRows = await this.prisma.healthScore.findMany({
+      where: { vehicleId: { in: vehicleIds }, inspection: { scope: "FULL", submittedAt: { not: null } } },
+      orderBy: [{ inspection: { submittedAt: "desc" } }, { id: "desc" }],
+      select: { vehicleId: true, inspectionId: true, inspection: { select: { submittedAt: true } } },
     });
+    const scores = [...new Map(scoreRows.map((score) => [score.vehicleId, score])).values()];
     if (scores.length === 0) return [];
 
-    const byInspection = new Map(scores.map((s) => [s.inspectionId, s]));
+    const byInspection = new Map(scores.map((s) => [s.inspectionId, { ...s, inspectedAt: s.inspection.submittedAt }]));
     const results = await this.prisma.inspectionResult.findMany({
       where: {
         inspectionId: { in: [...byInspection.keys()] },
@@ -79,7 +79,7 @@ export class AttentionService {
     const out: AttentionInputs["componentFindings"] = [];
     for (const r of results) {
       const score = byInspection.get(r.inspectionId);
-      if (!score) continue;
+      if (!score || !score.inspectedAt) continue;
       out.push({
         vehicleId: score.vehicleId,
         categoryCode: r.point.category.code,
@@ -87,7 +87,7 @@ export class AttentionService {
         label: r.point.label,
         severity: r.status as "ATTENTION" | "CRITICAL",
         inspectionId: r.inspectionId,
-        createdAt: score.computedAt,
+        createdAt: score.inspectedAt,
       });
     }
     return out;

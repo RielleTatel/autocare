@@ -23,6 +23,9 @@ export class ScoringIntegrationService implements InspectionScoringHook {
       where: { id: inspectionId },
       include: { results: true },
     });
+    // A focused inspection is a set of observations, not a vehicle-wide score.
+    // Unknown legacy provenance also cannot safely be promoted to a full score.
+    if (inspection.scope !== "FULL") return;
     const version = await tx.checklistVersion.findUniqueOrThrow({
       where: { id: inspection.checklistVersionId },
       include: { categories: { include: { points: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } } },

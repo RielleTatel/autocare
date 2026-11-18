@@ -10,6 +10,7 @@ export * from "./cash";
 export * from "./invoices";
 export * from "./scheduling";
 export * from "./checklists";
+export * from "./inspection-photos";
 export * from "./sync";
 export * from "./diagram";
 export * from "./certificates";

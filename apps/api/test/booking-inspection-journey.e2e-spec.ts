@@ -7,20 +7,17 @@ import { FirebaseService } from "../src/modules/auth/firebase.service";
 import { PrismaService } from "../src/modules/prisma/prisma.service";
 import { RedisService } from "../src/common/redis/redis.service";
 import { seedChecklist } from "../prisma/seed-checklist";
-import { seedConfig } from "@autocare/scoring";
 
 const TAG = `jrn-${randomUUID().slice(0, 8)}`;
 const POLICY = "2026-08-privacy-v1";
-const DATE = "2027-08-02"; // far-future dateOverride, distinct from other suites
+const DATE = new Date(Date.now() + (365 + Math.floor(Math.random() * 1825)) * 86_400_000).toISOString().slice(0, 10);
 
 async function seal(uid: string, role: string): Promise<string> {
   const key = new Uint8Array(createHash("sha256").update(process.env.SESSION_SECRET as string).digest());
   return new EncryptJWT({ uid, role }).setProtectedHeader({ alg: "dir", enc: "A256GCM" }).setIssuedAt().setExpirationTime("12h").encrypt(key);
 }
 
-const fullResults = seedConfig.categories
-  .flatMap((c) => c.points.map((p) => p.code))
-  .map((code) => ({ pointCode: code, status: "GOOD" as const }));
+const focusedResults = [{ pointCode: "BRK-001", status: "GOOD" as const }];
 
 /**
  * The whole cross-module journey a booked service actually takes:
@@ -41,15 +38,18 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
   let redis: RedisService;
   let mechToken: string;
   let advisorToken: string;
+  let adminToken: string;
   let vehicleId: string;
   let serviceTypeId: string;
   let bayId: string;
   let checklistVersionId: string;
+  let templateId: string;
   const mechId = randomUUID();
 
   const as = (uid: string) => request.agent(app.getHttpServer()).set("Authorization", `Bearer ${uid}`);
   const mech = () => request.agent(app.getHttpServer()).set("Authorization", `Bearer ${mechToken}`);
   const advisor = () => request.agent(app.getHttpServer()).set("Authorization", `Bearer ${advisorToken}`);
+  const admin = () => request.agent(app.getHttpServer()).set("Authorization", `Bearer ${adminToken}`);
 
   beforeAll(async () => {
     process.env.POLICY_VERSION = POLICY;
@@ -63,7 +63,9 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
     prisma = app.get(PrismaService);
     redis = app.get(RedisService);
 
-    checklistVersionId = await seedChecklist(prisma as any);
+    await seedChecklist(prisma as any);
+    const baseline = await prisma.checklistVersion.findFirst({ where: { isActive: true, status: "PUBLISHED" }, select: { id: true } });
+    if (!baseline) throw new Error("A published active baseline is required to create the focused test template");
 
     const member = await prisma.user.create({
       data: { firebaseUid: `${TAG}-mem`, role: "MEMBER", consents: { create: { policyVersion: POLICY } } },
@@ -71,8 +73,28 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
     // isCertifiedTechnician matters: the sync handler rejects uncertified mechanics (BR-06).
     await prisma.user.create({ data: { id: mechId, firebaseUid: `${TAG}-mech`, role: "MECHANIC", isCertifiedTechnician: true } });
     const advisorUser = await prisma.user.create({ data: { firebaseUid: `${TAG}-adv`, role: "ADVISOR" } });
+    const adminUser = await prisma.user.create({ data: { firebaseUid: `${TAG}-adm`, role: "ADMIN" } });
     mechToken = await seal(mechId, "MECHANIC");
     advisorToken = await seal(advisorUser.id, "ADVISOR");
+    adminToken = await seal(adminUser.id, "ADMIN");
+
+    const template = await admin().post("/api/v1/admin/inspection-templates")
+      .send({ name: `${TAG} Brake checks`, scope: "FOCUSED" }).expect(201);
+    templateId = template.body.data.id;
+    const draft = await admin().post(`/api/v1/admin/inspection-templates/${templateId}/versions`)
+      .send({ sourceVersionId: baseline.id }).expect(201);
+    checklistVersionId = draft.body.data.versions.find((item: any) => item.status === "DRAFT").id;
+    await admin().patch(`/api/v1/admin/inspection-templates/${templateId}/versions/${checklistVersionId}`).send({
+      categories: [{
+        code: "BRAKES", label: "Brakes", labelFil: "Preno", weight: 100,
+        points: [{
+          code: "BRK-001", label: "Brake operation", labelFil: "Pag-andar ng preno",
+          weightInCategory: 100, isSafetyCritical: true, inputType: "STATUS",
+          recommendation: "Inspect brake operation", requiresPhotoOnAdverse: false,
+        }],
+      }],
+    }).expect(200);
+    await admin().post(`/api/v1/admin/inspection-templates/${templateId}/versions/${checklistVersionId}/publish`).expect(201);
 
     vehicleId = (
       await prisma.vehicle.create({
@@ -82,11 +104,14 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
 
     serviceTypeId = (
       await prisma.serviceType.create({
-        data: { code: `${TAG}-INSP`, name: "Full Inspection", standardDurationMin: 60, requiredSkills: ["OIL"], priceCentavos: 50000n },
+        data: {
+          code: `${TAG}-INSP`, name: "Brake Inspection", standardDurationMin: 60,
+          requiredSkills: ["OIL"], priceCentavos: 50000n, inspectionRequired: true,
+          inspectionTemplateVersionId: checklistVersionId,
+        },
       })
     ).id;
     bayId = (await prisma.serviceBay.create({ data: { name: `${TAG}-bay`, capabilities: ["OIL"] } })).id;
-    await prisma.operatingHours.deleteMany({ where: { dateOverride: DATE } });
     await prisma.operatingHours.create({ data: { dateOverride: DATE, openTime: "09:00", closeTime: "17:00", walkInBufferPct: 0 } });
     await prisma.staffShift.create({ data: { userId: mechId, date: DATE, startTime: "09:00", endTime: "17:00", skills: ["OIL"] } });
   });
@@ -109,6 +134,8 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
       await prisma.categoryScore.deleteMany({ where: { healthScoreId: { in: scoreIds } } });
       await prisma.healthScore.deleteMany({ where: { id: { in: scoreIds } } });
       await prisma.inspectionResult.deleteMany({ where: { inspectionId: { in: ids } } });
+      await prisma.inspectionObservation.deleteMany({ where: { inspectionId: { in: ids } } });
+      await prisma.inspectionPhoto.deleteMany({ where: { inspectionId: { in: ids } } });
       await prisma.inspection.deleteMany({ where: { id: { in: ids } } });
       await prisma.syncOutboxReceipt.deleteMany({ where: { userId: mechId } });
       await prisma.appointment.deleteMany({ where: { vehicleId } });
@@ -119,7 +146,15 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
       await prisma.operatingHours.deleteMany({ where: { dateOverride: DATE } });
       await prisma.serviceBay.deleteMany({ where: { id: bayId } });
       await prisma.serviceType.deleteMany({ where: { id: serviceTypeId } });
+      if (checklistVersionId) {
+        await prisma.checklistPoint.deleteMany({ where: { category: { checklistVersionId } } });
+        await prisma.checklistCategory.deleteMany({ where: { checklistVersionId } });
+        await prisma.checklistVersion.delete({ where: { id: checklistVersionId } }).catch(() => undefined);
+      }
+      if (templateId) await prisma.inspectionTemplate.delete({ where: { id: templateId } }).catch(() => undefined);
       await prisma.consentRecord.deleteMany({ where: { user: { firebaseUid: { startsWith: TAG } } } });
+      const userIds = (await prisma.user.findMany({ where: { firebaseUid: { startsWith: TAG } }, select: { id: true } })).map((user) => user.id);
+      await prisma.auditLog.deleteMany({ where: { actorUserId: { in: userIds } } });
       await prisma.user.deleteMany({ where: { firebaseUid: { startsWith: TAG } } });
     } finally {
       await app.close();
@@ -175,7 +210,7 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
             op: "create",
             // vehicleId and appointmentId both come from the board row — exactly
             // what the field app now threads through to the outbox payload.
-            payload: { vehicleId: boardVehicleId, appointmentId, checklistVersionId, results: fullResults, odometerKm: 31_000 },
+            payload: { vehicleId: boardVehicleId, appointmentId, checklistVersionId, results: focusedResults, odometerKm: 31_000 },
           },
           {
             clientUuid: randomUUID(),
@@ -203,20 +238,21 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
     expect(board.find((r: any) => r.id === appointmentId).status).toBe("COMPLETED");
   });
 
-  it("5. the finished inspection is reachable as history, and links to its detail", async () => {
-    const history = (await mech().get(`/api/v1/vehicles/${vehicleId}/health-score/history`).expect(200)).body.data;
+  it("5. the finished focused inspection is reachable without creating a full score", async () => {
+    const history = (await mech().get(`/api/v1/vehicles/${vehicleId}/inspections`).expect(200)).body.data;
     expect(history.length).toBeGreaterThan(0);
 
-    const point = history[history.length - 1];
-    expect(typeof point.score).toBe("number");
-    // The other missing handoff: history used to expose only the HealthScore id,
-    // which the detail route cannot resolve, so a row could not be opened.
-    expect(point.inspectionId).toBeDefined();
+    const point = history[0];
+    expect(point.scope).toBe("FOCUSED");
+    expect(point.score).toBeNull();
+    // Focused history uses the inspection identity directly so it opens without a score row.
+    expect(point.id).toBeDefined();
 
-    const detail = (await mech().get(`/api/v1/vehicles/${vehicleId}/inspections/${point.inspectionId}`).expect(200)).body.data;
-    expect(detail.id).toBe(point.inspectionId);
+    const detail = (await mech().get(`/api/v1/vehicles/${vehicleId}/inspections/${point.id}`).expect(200)).body.data;
+    expect(detail.id).toBe(point.id);
+    expect(detail.scope).toBe("FOCUSED");
     expect(detail.odometerKm).toBe(31_000);
-    expect(detail.results.length).toBeGreaterThan(0);
+    expect(detail.results.map((result: any) => result.pointCode)).toEqual(["BRK-001"]);
   });
 
   it("6. a re-sent batch is de-duplicated and does not disturb the completed booking", async () => {
@@ -228,7 +264,7 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
           clientUuid: inspectionClientUuid,
           entityType: "inspection",
           op: "create",
-          payload: { vehicleId, appointmentId, checklistVersionId, results: fullResults, odometerKm: 31_000 },
+          payload: { vehicleId, appointmentId, checklistVersionId, results: focusedResults, odometerKm: 31_000 },
         }],
       })
       .expect(201);
@@ -246,6 +282,9 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
       data: {
         vehicleId, serviceTypeId, createdBy: mechId, status: "CANCELLED",
         scheduledStart: new Date(`${DATE}T06:00:00Z`), scheduledEnd: new Date(`${DATE}T07:00:00Z`),
+        inspectionRequiredSnapshot: true, inspectionTemplateVersionId: checklistVersionId,
+        serviceNameSnapshot: "Brake Inspection", servicePriceCentavosSnapshot: 50000n,
+        currencySnapshot: "PHP", coveredBySubscription: false, billingSnapshotKnown: true,
       },
     });
     const createUuid = randomUUID();
@@ -253,7 +292,7 @@ describe("journey: booking → inspection → completion → history (e2e)", () 
       .post("/api/v1/sync/batch")
       .send({
         items: [
-          { clientUuid: createUuid, entityType: "inspection", op: "create", payload: { vehicleId, appointmentId: late.id, checklistVersionId, results: fullResults, odometerKm: 32_000 } },
+          { clientUuid: createUuid, entityType: "inspection", op: "create", payload: { vehicleId, appointmentId: late.id, checklistVersionId, results: focusedResults, odometerKm: 32_000 } },
           { clientUuid: randomUUID(), entityType: "inspection", op: "submit", payload: { inspectionClientUuid: createUuid } },
         ],
       })

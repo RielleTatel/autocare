@@ -15,7 +15,7 @@ export function ScoreHistoryScreen({ history }: { history: HealthScoreHistoryPoi
   if (history.length === 0) {
     return (
       <View style={{ flex: 1, backgroundColor: t.colors.chassis, alignItems: "center", justifyContent: "center", padding: t.spacing.lg }}>
-        <Text style={{ ...t.text("body"), color: t.colors.inkMuted, textAlign: "center" }}>No inspection history yet.</Text>
+        <Text style={{ ...t.text("body"), color: t.colors.inkMuted, textAlign: "center" }}>No full inspection scores yet.</Text>
       </View>
     );
   }
@@ -26,7 +26,7 @@ export function ScoreHistoryScreen({ history }: { history: HealthScoreHistoryPoi
   const now = Date.now();
 
   const xValue = (p: HealthScoreHistoryPoint): number =>
-    xAxis === "time" ? new Date(p.computedAt).getTime() : (p.odometerKm ?? 0);
+    xAxis === "time" ? new Date(p.inspectedAt ?? p.computedAt).getTime() : (p.odometerKm ?? 0);
   const xs = history.map(xValue);
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs, minX + 1);
@@ -42,7 +42,8 @@ export function ScoreHistoryScreen({ history }: { history: HealthScoreHistoryPoi
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.colors.chassis }} contentContainerStyle={{ padding: t.spacing.md, gap: t.spacing.md }}>
-      <Text style={{ ...t.text("h1"), color: t.colors.ink }}>Score history</Text>
+      <Text style={{ ...t.text("h1"), color: t.colors.ink }}>Full inspection scores</Text>
+      <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>Focused inspection findings are available in inspection history and do not change this trend.</Text>
       <View style={{ flexDirection: "row", gap: t.spacing.sm }}>
         {(["time", "odometer"] as const).map((mode) => (
           <Pressable
@@ -76,7 +77,7 @@ export function ScoreHistoryScreen({ history }: { history: HealthScoreHistoryPoi
       <View style={{ gap: t.spacing.xs }}>
         {[...history].reverse().map((p) => (
           <Card key={p.id} pad="none" style={{ flexDirection: "row", justifyContent: "space-between", padding: t.spacing.sm }}>
-            <Text style={{ ...t.text("body"), color: t.colors.ink }}>{new Date(p.computedAt).toLocaleDateString()}</Text>
+            <Text style={{ ...t.text("body"), color: t.colors.ink }}>{p.inspectedAt ? new Date(p.inspectedAt).toLocaleDateString("en-PH") : `Calculated ${new Date(p.computedAt).toLocaleDateString("en-PH")}`}</Text>
             <Text style={{ ...t.text("body"), color: t.colors.inkMuted }}>{p.odometerKm != null ? `${p.odometerKm} km` : "—"}</Text>
             <Text style={{ ...t.text("h2"), color: p.isStale ? t.colors.inkMuted : vhsBands[bandFor(p.score)].text }}>{p.score}</Text>
           </Card>

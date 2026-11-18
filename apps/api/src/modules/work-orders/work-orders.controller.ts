@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
 import {
   addWasteSchema, addWorkOrderItemSchema, batchDecisionsSchema, createWorkOrderSchema,
   itemDecisionSchema, partCreateSchema, partUpdateSchema, setMarkDoneSchema, updateStatusSchema,
   AddWasteInput, AddWorkOrderItemInput, BatchDecisionsInput, CreateWorkOrderInput,
   ItemDecisionInput, PartCreateInput, PartUpdateInput, SetMarkDoneInput, UpdateStatusInput,
+  simpleRepairStartSchema, simpleRepairCompleteSchema, simpleRepairStopSchema,
+  simpleRepairUpdateSchema, simpleRepairScheduleReturnSchema, SimpleRepairStartInput, SimpleRepairCompleteInput,
+  SimpleRepairStopInput, SimpleRepairUpdateInput, SimpleRepairScheduleReturnInput,
 } from "@autocare/contracts";
 import { z } from "zod";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -14,6 +17,7 @@ import { WorkOrderBillingService } from "./billing.service";
 import { RecommendationsService } from "./recommendations.service";
 import { PartsService } from "./parts.service";
 import { WorkOrderConfigService } from "./config.service";
+import { SimpleRepairsService } from "./simple-repairs.service";
 
 const thresholdSchema = z.object({ thresholdCentavos: z.number().int().min(0) });
 
@@ -25,7 +29,43 @@ export class WorkOrdersController {
     private recommendations: RecommendationsService,
     private parts: PartsService,
     private config: WorkOrderConfigService,
+    private repairs: SimpleRepairsService,
   ) {}
+
+  @Post("inspections/:inspectionId/repair")
+  startRepair(@CurrentUser() u: AbilityUser, @Param("inspectionId", ParseUUIDPipe) inspectionId: string, @Body(new ZodValidationPipe(simpleRepairStartSchema)) dto: SimpleRepairStartInput) {
+    return this.repairs.start(u, inspectionId, dto);
+  }
+
+  @Get("inspections/:inspectionId/repair")
+  inspectionRepair(@CurrentUser() u: AbilityUser, @Param("inspectionId", ParseUUIDPipe) inspectionId: string) {
+    return this.repairs.getForInspection(u, inspectionId);
+  }
+
+  @Get("work-orders/:id/repair")
+  repair(@CurrentUser() u: AbilityUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.repairs.get(u, id);
+  }
+
+  @Patch("work-orders/:id/repair")
+  updateReturnedRepair(@CurrentUser() u: AbilityUser, @Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(simpleRepairUpdateSchema)) dto: SimpleRepairUpdateInput) {
+    return this.repairs.updateReturned(u, id, dto);
+  }
+
+  @Post("work-orders/:id/repair/schedule-return")
+  scheduleRepairReturn(@CurrentUser() u: AbilityUser, @Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(simpleRepairScheduleReturnSchema)) dto: SimpleRepairScheduleReturnInput) {
+    return this.repairs.scheduleReturn(u, id, dto);
+  }
+
+  @Post("work-orders/:id/repair/complete")
+  completeRepair(@CurrentUser() u: AbilityUser, @Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(simpleRepairCompleteSchema)) dto: SimpleRepairCompleteInput) {
+    return this.repairs.complete(u, id, dto);
+  }
+
+  @Post("work-orders/:id/repair/stop")
+  stopRepair(@CurrentUser() u: AbilityUser, @Param("id", ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(simpleRepairStopSchema)) dto: SimpleRepairStopInput) {
+    return this.repairs.stop(u, id, dto);
+  }
 
   @Post("work-orders")
   create(@CurrentUser() u: AbilityUser, @Body(new ZodValidationPipe(createWorkOrderSchema)) dto: CreateWorkOrderInput) {
@@ -40,6 +80,11 @@ export class WorkOrdersController {
   @Get("vehicles/:vehicleId/work-orders")
   listForVehicle(@CurrentUser() u: AbilityUser, @Param("vehicleId") vehicleId: string) {
     return this.workOrders.listForVehicle(u, vehicleId);
+  }
+
+  @Get("vehicles/:vehicleId/repair-work-orders")
+  listRepairsForVehicle(@CurrentUser() u: AbilityUser, @Param("vehicleId", ParseUUIDPipe) vehicleId: string) {
+    return this.repairs.listForVehicle(u, vehicleId);
   }
 
   @Post("work-orders/:id/items")

@@ -8,9 +8,10 @@ import { InspectionsProcessor } from "./inspections.processor";
 import { ScoreEvents } from "./score-events";
 import { ScoringIntegrationService } from "./scoring-integration.service";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
+import { UsersModule } from "../users/users.module";
 
 @Module({
-  imports: [QueueModule, WorkOrdersModule],
+  imports: [QueueModule, WorkOrdersModule, UsersModule],
   controllers: [InspectionsController],
   providers: [
     InspectionsService,

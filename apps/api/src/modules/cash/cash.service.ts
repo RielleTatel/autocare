@@ -31,14 +31,24 @@ export class CashService {
     }
   }
 
+  /** GET /cash-shifts/current — only the authenticated collector's own open shift. */
+  async currentShift(user: AbilityUser) {
+    this.requireCashCollector(user);
+    const shift = await this.prisma.cashShift.findFirst({ where: { userId: user.id, closedAt: null } });
+    return shift ? toShiftResponse(shift) : null;
+  }
+
   /** POST /cash-shifts/open — rejects double-open (Task 7 §cash-shifts/open). */
   async openShift(user: AbilityUser) {
     this.requireCashCollector(user);
-    const open = await this.prisma.cashShift.findFirst({ where: { userId: user.id, closedAt: null } });
-    if (open) {
-      throw new DomainError("SHIFT_ALREADY_OPEN", "You already have an open cash shift — close it before opening another", 409);
-    }
-    const shift = await this.prisma.cashShift.create({ data: { userId: user.id } });
+    const shift = await this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`);
+      const open = await tx.cashShift.findFirst({ where: { userId: user.id, closedAt: null } });
+      if (open) {
+        throw new DomainError("SHIFT_ALREADY_OPEN", "You already have an open cash shift — close it before opening another", 409);
+      }
+      return tx.cashShift.create({ data: { userId: user.id } });
+    });
     return toShiftResponse(shift);
   }
 
@@ -46,31 +56,33 @@ export class CashService {
    * POST /cash-shifts/:id/close — body `{ countedCentavos }`. Only the shift's owner or an
    * ADMIN may close it. `expectedCentavos` is computed at close time as
    * `SUM(payments.amountCentavos WHERE shiftId=... AND status=SUCCEEDED)` — simplest and
-   * race-free vs. maintaining a running total incrementally on every cash payment (brief's
-   * documented choice).
+   * reconciled while holding the same shift row lock as cash collection.
    */
   async closeShift(user: AbilityUser, shiftId: string, countedCentavos: number) {
     this.requireCashCollector(user);
-    const shift = await this.prisma.cashShift.findUnique({ where: { id: shiftId } });
-    if (!shift) throw new DomainError("FORBIDDEN_ROLE", "Cash shift not found", 404);
-    if (shift.userId !== user.id && user.role !== "ADMIN") {
-      throw new DomainError("FORBIDDEN_ROLE", "You cannot close another staff member's shift", 403);
+    if (!Number.isSafeInteger(countedCentavos) || countedCentavos < 0) {
+      throw new DomainError("PAYMENT_FAILED", "Cash counted must be a nonnegative whole-centavo amount within the supported range", 422);
     }
-    if (shift.closedAt) {
-      throw new DomainError("SHIFT_ALREADY_CLOSED", "This cash shift is already closed", 409);
-    }
+    const closed = await this.prisma.$transaction(async tx => {
+      const shift = await this.lockShift(tx, shiftId);
+      if (!shift) throw new DomainError("FORBIDDEN_ROLE", "Cash shift not found", 404);
+      if (shift.userId !== user.id && user.role !== "ADMIN") {
+        throw new DomainError("FORBIDDEN_ROLE", "You cannot close another staff member's shift", 403);
+      }
+      if (shift.closedAt) {
+        throw new DomainError("SHIFT_ALREADY_CLOSED", "This cash shift is already closed", 409);
+      }
 
-    const agg = await this.prisma.payment.aggregate({
-      where: { shiftId, method: "CASH", status: "SUCCEEDED" },
-      _sum: { amountCentavos: true },
-    });
-    const expected = agg._sum.amountCentavos ?? 0n;
-    const counted = BigInt(countedCentavos);
-    const variance = counted - expected;
-
-    const closed = await this.prisma.cashShift.update({
-      where: { id: shiftId },
-      data: { closedAt: new Date(), expectedCentavos: expected, countedCentavos: counted, varianceCentavos: variance },
+      const agg = await tx.payment.aggregate({
+        where: { shiftId, method: "CASH", status: "SUCCEEDED" },
+        _sum: { amountCentavos: true },
+      });
+      const expected = agg._sum.amountCentavos ?? 0n;
+      const counted = BigInt(countedCentavos);
+      return tx.cashShift.update({
+        where: { id: shiftId },
+        data: { closedAt: new Date(), expectedCentavos: expected, countedCentavos: counted, varianceCentavos: counted - expected },
+      });
     });
     return toShiftResponse(closed);
   }
@@ -78,11 +90,11 @@ export class CashService {
   /**
    * POST /payments/cash — requires an OPEN shift for the collecting staff, records a CASH
    * Payment against the invoice, and fires CASH_RECORDED (invoice -> PAID, subscription ->
-   * ACTIVE) all in one transaction. `clientUuid` (unique on Payment) provides offline replay
+   * ACTIVE) all in one transaction. `clientUuid` (unique on Payment) provides retry
    * safety independent of the `Idempotency-Key` header handled by `@Idempotent()`: a P2002 on
    * `clientUuid` here means "already recorded" and is treated as an idempotent success rather
-   * than an error, returning the pre-existing payment (see the replay `changeCentavos` note
-   * below).
+   * than an error, returning the original recorded change. Only the original collector,
+   * invoice and tender may replay that identity.
    *
    * Double-settle / race guard (code-review fix): the invoice is re-read INSIDE the
    * transaction and advanced via a conditional `updateMany({ where: { id, status: <the value
@@ -94,10 +106,8 @@ export class CashService {
    */
   async recordCashPayment(user: AbilityUser, dto: CashPaymentCreate) {
     this.requireCashCollector(user);
-
-    const openShift = await this.prisma.cashShift.findFirst({ where: { userId: user.id, closedAt: null } });
-    if (!openShift) {
-      throw new DomainError("NO_OPEN_SHIFT", "You must open a cash shift before recording cash payments", 409);
+    if (!Number.isSafeInteger(dto.amountTendered) || dto.amountTendered < 0) {
+      throw new DomainError("PAYMENT_FAILED", "Cash tendered must be a nonnegative whole-centavo amount within the supported range", 422);
     }
 
     // Up-front clientUuid replay check (sequential offline retry — the common case): without
@@ -107,15 +117,29 @@ export class CashService {
     // net for the rarer case of two truly concurrent requests sharing the same clientUuid.
     const preExisting = await this.prisma.payment.findUnique({ where: { clientUuid: dto.clientUuid } });
     if (preExisting) {
-      return { paymentId: preExisting.id, changeCentavos: 0 };
+      return this.replayCashPayment(user, dto, preExisting);
+    }
+
+    // A successful replay is a read of the original collection, even after its
+    // shift closes. Every new collection still requires the collector's open shift.
+    const openShift = await this.prisma.cashShift.findFirst({ where: { userId: user.id, closedAt: null } });
+    if (!openShift) {
+      throw new DomainError("NO_OPEN_SHIFT", "You must open a cash shift before recording cash payments", 409);
     }
 
     const tendered = BigInt(dto.amountTendered);
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
+        const shift = await this.lockShift(tx, openShift.id);
+        if (!shift || shift.userId !== user.id || shift.closedAt) {
+          throw new DomainError("NO_OPEN_SHIFT", "Your cash shift is closed; open a shift before recording a new payment", 409);
+        }
         const invoice = await tx.invoice.findUnique({ where: { id: dto.invoiceId } });
         if (!invoice) throw new DomainError("FORBIDDEN_ROLE", "Invoice not found", 404);
+        if (invoice.documentKind === "NO_CHARGE" || invoice.totalCentavos <= 0n) {
+          throw new DomainError("INVOICE_ALREADY_PAID", "No cash payment is due for this document", 409);
+        }
 
         if (tendered < invoice.totalCentavos) {
           // Amount-tendered-too-low: a dedicated code (not PAYMENT_FAILED, which reads as a
@@ -138,7 +162,7 @@ export class CashService {
         // payable.
         const advanced = await tx.invoice.updateMany({
           where: { id: invoice.id, status: invoice.status },
-          data: { status: nextInvoiceState },
+          data: { status: nextInvoiceState, pdfObjectPath: null },
         });
         if (advanced.count === 0) {
           throw new DomainError("INVOICE_ALREADY_PAID", "This invoice is already settled", 409);
@@ -149,6 +173,8 @@ export class CashService {
             invoiceId: invoice.id,
             method: "CASH",
             amountCentavos: invoice.totalCentavos,
+            cashTenderedCentavos: tendered,
+            changeCentavos: tendered - invoice.totalCentavos,
             status: "SUCCEEDED",
             collectedByUserId: user.id,
             shiftId: openShift.id,
@@ -168,23 +194,36 @@ export class CashService {
 
       return result;
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-        // Offline-retry replay via clientUuid (a DIFFERENT Idempotency-Key than the original
-        // request — the header-level replay in IdempotencyInterceptor already returns the
-        // exact original response body for a matching key, so this branch only fires for
-        // that mismatched-key case). `amountTendered` is not persisted on Payment, so the
-        // original change owed cannot be reconstructed from the DB; returning it from the
-        // CURRENT request's dto would be wrong if this replay's amountTendered differs from
-        // the original (the bug this fix addresses). Documented choice: return 0 rather than
-        // a possibly-incorrect value — the original settlement's change was already
-        // communicated to the counter staff in the first response.
+      if ((e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") ||
+          (e instanceof DomainError && e.code === "INVOICE_ALREADY_PAID")) {
+        // A concurrent request may win the invoice-state guard before this request
+        // reaches payment creation. Resolve the exact UUID after that transaction commits.
         const existing = await this.prisma.payment.findUnique({ where: { clientUuid: dto.clientUuid } });
         if (existing) {
-          return { paymentId: existing.id, changeCentavos: 0 };
+          return this.replayCashPayment(user, dto, existing);
         }
       }
       throw e;
     }
+  }
+
+  private async lockShift(tx: Prisma.TransactionClient, shiftId: string) {
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM cash_shifts WHERE id = ${shiftId}::uuid FOR UPDATE`);
+    return tx.cashShift.findUnique({ where: { id: shiftId } });
+  }
+
+  private replayCashPayment(user: AbilityUser, dto: CashPaymentCreate, payment: {
+    id: string; invoiceId: string; method: string; status: string; collectedByUserId: string | null;
+    cashTenderedCentavos: bigint | null; changeCentavos: bigint | null;
+  }) {
+    if (payment.invoiceId !== dto.invoiceId || payment.collectedByUserId !== user.id ||
+        payment.method !== "CASH" || payment.status !== "SUCCEEDED" ||
+        (payment.cashTenderedCentavos != null && payment.cashTenderedCentavos !== BigInt(dto.amountTendered))) {
+      throw new DomainError("DUPLICATE_REQUEST", "This cash operation identity belongs to a different collection", 409);
+    }
+    // Older cash rows did not persist tender or change; do not invent them from
+    // a later request. New collections always retain the exact original amounts.
+    return { paymentId: payment.id, changeCentavos: Number(payment.changeCentavos ?? 0n) };
   }
 
   /**

@@ -15,7 +15,8 @@ const transport: SyncTransport = {
 };
 
 export const outbox = new SqliteOutboxRepo();
-export const syncProcessor = new SyncProcessor({ outbox, transport, photos: new SqlitePhotoUploader() });
+export const photoUploader = new SqlitePhotoUploader();
+export const syncProcessor = new SyncProcessor({ outbox, transport, photos: photoUploader });
 
 let started = false;
 /** Call once at app start: drains on launch and whenever connectivity returns. */

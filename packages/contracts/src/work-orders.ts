@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const workOrderStatuses = ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "IN_PROGRESS", "QC", "READY", "CLOSED", "CANCELLED"] as const;
+export const repairWorkflowStatuses = ["IN_PROGRESS", "AWAITING_ADMIN_REVIEW", "RETURNED_FOR_CORRECTION", "VERIFIED", "STOPPED"] as const;
 export const itemApprovalStatuses = ["PENDING", "APPROVED", "DECLINED", "DEFERRED"] as const;
 export const wasteTypes = ["USED_OIL", "BATTERY", "FILTER", "TIRE", "COOLANT"] as const;
 
@@ -67,3 +68,57 @@ export type PartCreateInput = z.infer<typeof partCreateSchema>;
 
 export const partUpdateSchema = partCreateSchema.partial().omit({ sku: true });
 export type PartUpdateInput = z.infer<typeof partUpdateSchema>;
+
+export const simpleRepairStartSchema = z.object({
+  clientUuid: z.string().uuid(),
+  notes: z.string().trim().min(1).max(4000),
+  estimatedTotalCentavos: z.number().int().min(0).max(100_000_000),
+});
+export type SimpleRepairStartInput = z.infer<typeof simpleRepairStartSchema>;
+
+export const simpleRepairUpdateSchema = z.object({
+  operationId: z.string().uuid(),
+  expectedVersion: z.number().int().min(0),
+  notes: z.string().trim().min(1).max(4000),
+  estimatedTotalCentavos: z.number().int().min(0).max(100_000_000),
+});
+export type SimpleRepairUpdateInput = z.infer<typeof simpleRepairUpdateSchema>;
+
+export const simpleRepairScheduleReturnSchema = z.object({
+  operationId: z.string().uuid(),
+  expectedVersion: z.number().int().min(0),
+  holdId: z.string().min(1).max(512),
+});
+export type SimpleRepairScheduleReturnInput = z.infer<typeof simpleRepairScheduleReturnSchema>;
+
+export const simpleRepairCompleteSchema = z.object({
+  operationId: z.string().uuid(),
+  expectedVersion: z.number().int().min(0),
+  rechecked: z.literal(true),
+  completionNotes: z.string().trim().max(2000).optional(),
+});
+export type SimpleRepairCompleteInput = z.infer<typeof simpleRepairCompleteSchema>;
+
+export const simpleRepairStopSchema = z.object({
+  operationId: z.string().uuid(),
+  expectedVersion: z.number().int().min(0),
+  completedWorkNotes: z.string().trim().min(1).max(4000),
+  reason: z.string().trim().min(1).max(1000),
+});
+export type SimpleRepairStopInput = z.infer<typeof simpleRepairStopSchema>;
+
+export const finalBillingReturnSchema = z.object({
+  operationId: z.string().uuid().optional(),
+  expectedVersion: z.number().int().min(0),
+  reason: z.string().trim().min(1).max(1000),
+});
+export type FinalBillingReturnInput = z.infer<typeof finalBillingReturnSchema>;
+
+export const finalBillingIssueSchema = z.object({
+  operationId: z.string().uuid().optional(),
+  expectedVersion: z.number().int().min(0),
+  finalRepairCentavos: z.number().int().min(0).max(100_000_000).optional(),
+  serviceChargeCentavos: z.number().int().min(0).max(100_000_000).optional(),
+  serviceChargeReason: z.string().trim().min(1).max(1000).optional(),
+});
+export type FinalBillingIssueInput = z.infer<typeof finalBillingIssueSchema>;

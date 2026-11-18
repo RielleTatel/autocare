@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { theme } from "../theme";
 import { Skeleton } from "../components/Skeleton";
 import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
 import { useHealthInspection } from "../features/health-score/useHealthInspection";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { bootstrap, type BootState } from "../features/auth/session";
@@ -52,6 +53,7 @@ import { makeWorkOrderApi, type WorkOrder as MemberWorkOrder, type Recommendatio
 import { ApprovalRequestScreen } from "../features/work-orders/ApprovalRequestScreen";
 import { RecommendationsListScreen } from "../features/work-orders/RecommendationsListScreen";
 import { ServiceHistoryScreen } from "../features/work-orders/ServiceHistoryScreen";
+import { InspectionHistoryRoute, InspectionReportRoute, RepairProgressRoute, ServiceBillRoute } from "../features/service-history/ServiceHistoryRoutes";
 import { makeAttentionApi, type AttentionItem } from "../features/attention/attentionApi";
 import { AnnouncementsScreen } from "../features/announcements/AnnouncementsScreen";
 import { makeAnnouncementsApi, type AnnouncementFeed } from "../features/announcements/announcementsApi";
@@ -254,7 +256,8 @@ function HomeTabContainer({ navigation }: any) {
   const { vehicles, firstName } = useReady();
   const [attention, setAttention] = useState<AttentionItem[]>([]);
   const [planLabel, setPlanLabel] = useState<string | undefined>(undefined);
-  const [health, setHealth] = useState<{ score: number; band: HealthScore["band"] } | null>(null);
+  const [health, setHealth] = useState<{ vehicleId: string; score: number; band: HealthScore["band"]; inspectedAt?: string | null } | null>(null);
+  const healthRequest = useRef(0);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   // null is the honest "not known yet" — the card falls back to its generic
   // line rather than claiming zero cover while the request is in flight.
@@ -292,18 +295,21 @@ function HomeTabContainer({ navigation }: any) {
   // Band + stars + score on the vehicle card, if the primary vehicle is inspected.
   // Refreshes on focus so a review completed elsewhere (e.g. field app) shows up on return.
   const loadHealth = useCallback(() => {
+    const generation = ++healthRequest.current;
+    setHealth(null);
     if (!primary) {
-      setHealth(null);
       return;
     }
     healthScoreApi.getScore(primary.id)
-      .then((s) => setHealth({ score: s.score, band: s.band }))
+      .then((s) => {
+        if (generation === healthRequest.current && s.vehicleId === primary.id) setHealth({ vehicleId: s.vehicleId, score: s.score, band: s.band, inspectedAt: s.inspectedAt });
+      })
       .catch(() => undefined);
   }, [primary?.id]);
   useEffect(() => {
     const unsub = navigation.addListener("focus", loadHealth);
     loadHealth();
-    return unsub;
+    return () => { unsub(); healthRequest.current++; };
   }, [navigation, loadHealth]);
 
   return (
@@ -311,7 +317,7 @@ function HomeTabContainer({ navigation }: any) {
       firstName={firstName}
       vehicle={primary}
       planLabel={planLabel}
-      health={health}
+      health={health?.vehicleId === primary?.id ? health : null}
       onAddVehicle={() => parent?.navigate("AddVehicle")}
       onUpdateOdometer={() =>
         primary
@@ -467,7 +473,7 @@ function VehiclesTabContainer({ navigation }: any) {
     <VehiclesListScreen
       fetchVehicles={refreshVehicles}
       fetchHealth={(vehicleId: string) =>
-        healthScoreApi.getScore(vehicleId).then((s) => ({ score: s.score, band: s.band })).catch(() => null)
+        healthScoreApi.getScore(vehicleId).then((s) => s.vehicleId === vehicleId ? { score: s.score, band: s.band, inspectedAt: s.inspectedAt } : null).catch(() => null)
       }
       onSelectVehicle={(vehicle: Vehicle) => navigation.getParent()?.navigate("VehicleDetail", { vehicle })}
       onAddVehicle={() => navigation.getParent()?.navigate("AddVehicle")}
@@ -560,29 +566,42 @@ function PhotosContainer({ navigation, route, refreshVehicles }: any) {
 
 function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
   const initialVehicle = route.params.vehicle as Vehicle;
-  const [vehicle, setVehicle] = useState<Vehicle>(initialVehicle);
-  const [health, setHealth] = useState<{ score: number; band: any } | null>(null);
+  const [loadedVehicle, setVehicle] = useState<Vehicle>(initialVehicle);
+  const vehicle = loadedVehicle.id === initialVehicle.id ? loadedVehicle : initialVehicle;
+  const [loadedHealth, setHealth] = useState<{ vehicleId: string; score: number; band: HealthScore["band"]; inspectedAt?: string | null } | null>(null);
+  const health = loadedHealth?.vehicleId === vehicle.id ? loadedHealth : null;
+  const healthRequest = useRef(0);
   // null while unknown, so the stat shows "—" rather than a confident zero.
-  const [openItems, setOpenItems] = useState<number | null>(null);
+  const [loadedOpenItems, setOpenItems] = useState<{ vehicleId: string; count: number } | null>(null);
+  const openItems = loadedOpenItems?.vehicleId === vehicle.id ? loadedOpenItems.count : null;
 
-  // A vehicle with no inspection yet legitimately has no score — that is the
-  // "Coming with your first inspection" case, not an error worth surfacing.
+  // Focused-only vehicles legitimately have no full score. Their reports remain
+  // reachable through inspection history.
   // Refreshes on focus so a review completed elsewhere shows up on return.
   const loadHealth = useCallback(() => {
-    api.get<Vehicle>(`/vehicles/${initialVehicle.id}`).then(setVehicle).catch(() => undefined);
+    const generation = ++healthRequest.current;
+    setHealth(null);
+    setOpenItems(null);
+    api.get<Vehicle>(`/vehicles/${initialVehicle.id}`).then(next => {
+      if (generation === healthRequest.current && next.id === initialVehicle.id) setVehicle(next);
+    }).catch(() => undefined);
     healthScoreApi.getScore(vehicle.id)
-      .then((s) => setHealth({ score: s.score, band: s.band }))
-      .catch(() => setHealth(null));
+      .then((s) => {
+        if (generation === healthRequest.current && s.vehicleId === vehicle.id) setHealth({ vehicleId: s.vehicleId, score: s.score, band: s.band, inspectedAt: s.inspectedAt });
+      })
+      .catch(() => { if (generation === healthRequest.current) setHealth(null); });
     // The attention feed is per-member and already carries vehicleId, so the
     // "items to watch" stat is a filter rather than another round trip.
     attentionApi.mine()
-      .then((items) => setOpenItems(items.filter((i) => i.vehicleId === vehicle.id).length))
-      .catch(() => setOpenItems(null));
+      .then((items) => {
+        if (generation === healthRequest.current) setOpenItems({ vehicleId: vehicle.id, count: items.filter((i) => i.vehicleId === vehicle.id).length });
+      })
+      .catch(() => { if (generation === healthRequest.current) setOpenItems(null); });
   }, [initialVehicle.id, vehicle.id]);
   useEffect(() => {
     const unsub = navigation.addListener("focus", loadHealth);
     loadHealth();
-    return unsub;
+    return () => { unsub(); healthRequest.current++; };
   }, [navigation, loadHealth]);
 
   return (
@@ -610,6 +629,7 @@ function VehicleDetailContainer({ navigation, route, refreshVehicles }: any) {
         else navigation.navigate("PlanSelection", { vehicleId: vehicle.id });
       }}
       onViewHealthScore={() => navigation.navigate("HealthScore", { vehicleId: vehicle.id })}
+      onViewInspectionHistory={() => navigation.navigate("InspectionHistory", { vehicleId: vehicle.id })}
     />
   );
 }
@@ -624,7 +644,7 @@ function HealthInspectionError({ message, onRetry }: { message: string; onRetry:
 function HealthScoreContainer({ navigation, route }: any) {
   const returningFromDiagram = useRef(false);
   const { vehicleId } = route.params;
-  const { score, results, error, resultsLoading, resultsError, load: loadScore } = useHealthInspection(healthScoreApi, vehicleId);
+  const { score, results, error, noFullInspection, resultsLoading, resultsError, load: loadScore } = useHealthInspection(healthScoreApi, vehicleId);
   useEffect(() => {
     const unsub = navigation.addListener("focus", () => {
       // The diagram is read-only; retain the mounted overview and scroll position.
@@ -636,6 +656,11 @@ function HealthScoreContainer({ navigation, route }: any) {
   }, [navigation, loadScore]);
 
   if (error) return <HealthInspectionError message={error} onRetry={loadScore} />;
+  if (noFullInspection) return <View style={{ padding: theme.spacing.md, gap: theme.spacing.md }}>
+    <Button variant="ghost" icon="chevron-left" onPress={() => navigation.goBack()}>Back</Button>
+    <EmptyState title="No full inspection yet" body="Focused inspection findings and repair progress remain available in your vehicle history."
+      action={<Button onPress={() => navigation.navigate("InspectionHistory", { vehicleId })}>View inspections & repairs</Button>} />
+  </View>;
   if (!score) return <Skeleton.Screen cards={3} />;
   return (
     <HealthScoreScreen
@@ -650,6 +675,7 @@ function HealthScoreContainer({ navigation, route }: any) {
       }}
       onOpenBreakdown={() => navigation.navigate("CategoryBreakdown", { vehicleId })}
       onOpenHistory={() => navigation.navigate("ScoreHistory", { vehicleId })}
+      onOpenInspectionHistory={() => navigation.navigate("InspectionHistory", { vehicleId })}
       onShare={() => navigation.navigate("ShareCertificate", { vehicleId, healthScoreId: score.id })}
     />
   );
@@ -666,13 +692,15 @@ function VehicleHealthDiagramContainer({ navigation, route }: any) {
 
 function CategoryBreakdownContainer({ navigation, route }: any) {
   const { vehicleId } = route.params;
-  const { score, results, error, resultsLoading, resultsError, load } = useHealthInspection(healthScoreApi, vehicleId);
+  const { score, results, error, noFullInspection, resultsLoading, resultsError, load } = useHealthInspection(healthScoreApi, vehicleId);
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", load);
     void load();
     return unsubscribe;
   }, [navigation, load]);
   if (error) return <HealthInspectionError message={error} onRetry={load} />;
+  if (noFullInspection) return <View style={{ padding: theme.spacing.md }}><EmptyState title="No full inspection yet"
+    action={<Button onPress={() => navigation.navigate("InspectionHistory", { vehicleId })}>View inspections & repairs</Button>} /></View>;
   if (!score) return <Skeleton.Screen cards={3} />;
   return <CategoryBreakdownScreen score={score} results={results} resultsLoading={resultsLoading} resultsError={resultsError} onRetryResults={load} />;
 }
@@ -835,7 +863,7 @@ function InvoicesContainer({ navigation, route }: any) {
     return subscriptionId ? invoices.filter(invoice => invoice.subscriptionId === subscriptionId) : invoices;
   }, [subscriptionId]);
   return <InvoicesScreen navigation={navigation} fetchInvoices={fetchInvoices}
-    onSelectInvoice={(invoice) => navigation.navigate("InvoiceDetail", { invoiceId: invoice.id })} />;
+    onSelectInvoice={(invoice) => navigation.navigate(invoice.subscriptionId === null ? "ServiceBill" : "InvoiceDetail", { invoiceId: invoice.id })} />;
 }
 
 function InvoiceDetailContainer({ navigation, route }: any) {
@@ -923,6 +951,10 @@ function ReadyStack({ setBootState }: { setBootState: (s: BootState) => void }) 
       <Stack.Screen name="ApprovalRequest" component={ApprovalRequestContainer} />
       <Stack.Screen name="Recommendations" component={RecommendationsContainer} />
       <Stack.Screen name="ServiceHistory2" component={ServiceHistoryContainer} />
+      <Stack.Screen name="InspectionHistory" component={InspectionHistoryRoute} />
+      <Stack.Screen name="InspectionReport" component={InspectionReportRoute} />
+      <Stack.Screen name="RepairProgress" component={RepairProgressRoute} />
+      <Stack.Screen name="ServiceBill" component={ServiceBillRoute} />
       <Stack.Screen name="Attention" component={AttentionContainer} />
       <Stack.Screen name="Announcements" component={AnnouncementsContainer} />
       <Stack.Screen name="Roadside">

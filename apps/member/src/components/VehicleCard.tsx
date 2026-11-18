@@ -58,7 +58,7 @@ export function VehicleCard({
   vehicle: Vehicle;
   /** Latest score for this vehicle. Omit and the band pill and stars are dropped
    *  rather than faked — an uninspected vehicle has no score to show. */
-  health?: { score: number; band: Band } | null;
+  health?: { score: number; band: Band; inspectedAt?: string | null } | null;
   onPress?: () => void;
   testID?: string;
   style?: ViewStyle;
@@ -93,8 +93,8 @@ export function VehicleCard({
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={
         health
-          ? `${title}, health score ${health.score}, ${band?.labelEn}`
-          : `${title}, not yet inspected`
+          ? `${title}, last full vehicle score ${health.score}, ${band?.labelEn}`
+          : `${title}, no full vehicle score available`
       }
       onPress={onPress}
       onLayout={onLayout}
@@ -151,6 +151,7 @@ export function VehicleCard({
       {health ? (
         <View style={{ alignItems: "center", paddingVertical: t.spacing.sm }}>
           <StarRating score={health.score} band={health.band} size={28} />
+          <Text style={[t.text("label"), { color: t.colors.onPrimary, marginTop: t.spacing.xs }]}>Last full inspection{health.inspectedAt ? ` · ${new Date(health.inspectedAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })}` : " · Date unavailable"}</Text>
         </View>
       ) : null}
 
@@ -180,7 +181,7 @@ export function VehicleCard({
             <Text style={[t.text("code"), { color: band.on }]}>{health.score}</Text>
           </View>
         ) : (
-          <Pill icon="circle-help">Not yet inspected</Pill>
+          <Pill icon="circle-help">No full vehicle score</Pill>
         )}
       </View>
     </Pressable>

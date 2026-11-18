@@ -1,6 +1,6 @@
 import { deriveStatus } from "@autocare/scoring";
 import type { ChecklistConfig, ConfigCategory, ConfigPoint, PointStatus } from "@autocare/scoring";
-import type { LocalInspection, LocalResult } from "../../shared/db/inspections.repo";
+import type { LocalInspection, LocalObservation, LocalResult } from "../../shared/db/inspections.repo";
 import type { OutboxRepo } from "../../shared/sync/types";
 
 /** The cached GET /checklists/active payload the draft snapshots at start.
@@ -9,6 +9,8 @@ export interface CachedChecklist {
   id: string;
   versionLabel: string;
   weightVersion: string;
+  scope?: "FULL" | "FOCUSED" | "LEGACY_UNKNOWN";
+  serviceName?: string;
   categories: ChecklistConfig["categories"];
 }
 
@@ -22,6 +24,9 @@ export interface DraftInspectionsStore {
   }): Promise<void>;
   saveResult(inspectionClientUuid: string, r: LocalResult): Promise<void>;
   results(inspectionClientUuid: string): Promise<LocalResult[]>;
+  saveObservation?(inspectionClientUuid: string, observation: LocalObservation): Promise<void>;
+  observations?(inspectionClientUuid: string): Promise<LocalObservation[]>;
+  deleteObservation?(inspectionClientUuid: string, clientUuid: string): Promise<void>;
   lock(clientUuid: string, submittedAt: number): Promise<void>;
 }
 
@@ -165,6 +170,21 @@ export class InspectionDraft {
     return this.deps.inspections.results(this.clientUuid);
   }
 
+  async saveObservation(observation: LocalObservation): Promise<void> {
+    if (this.submitted) throw new Error("draft is locked after submission");
+    if (!this.deps.inspections.saveObservation) throw new Error("Additional findings cannot be saved on this device.");
+    await this.deps.inspections.saveObservation(this.clientUuid, observation);
+  }
+
+  observations(): Promise<LocalObservation[]> {
+    return this.deps.inspections.observations?.(this.clientUuid) ?? Promise.resolve([]);
+  }
+
+  async deleteObservation(clientUuid: string): Promise<void> {
+    if (this.submitted) throw new Error("draft is locked after submission");
+    await this.deps.inspections.deleteObservation?.(this.clientUuid, clientUuid);
+  }
+
   async progress(): Promise<{ perCategory: CategoryProgress[]; overall: { answered: number; total: number } }> {
     const results = await this.results();
     return { perCategory: categoryProgress(this.checklist, results), overall: overallProgress(this.checklist, results) };
@@ -187,12 +207,14 @@ export class InspectionDraft {
     const check = await this.completeness();
     if (!check.complete) throw new Error(`inspection incomplete: ${[...check.missingPoints, ...check.missingPhotos].join(", ")}`);
     const results = await this.results();
+    const observations = await this.observations();
     const at = this.deps.now();
     const submitUuid = this.deps.uuid();
     const create = {
       vehicleId: this.vehicleId, appointmentId: this.appointmentId,
       checklistVersionId: this.checklist.id, odometerKm: this.odometerKm ?? undefined,
       results: results.map((r) => ({ pointCode: r.pointCode, status: r.status, measuredValue: r.measuredValue, notes: r.notes })),
+      additionalObservations: observations.filter((observation) => observation.notes.trim()).map((observation) => ({ clientUuid: observation.clientUuid, notes: observation.notes.trim() })),
     };
     const submit = { inspectionClientUuid: this.clientUuid, submittedAt: new Date(at).toISOString() };
     if (this.deps.inspections.persistSubmission) {

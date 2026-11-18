@@ -17,7 +17,7 @@ export interface TopBarProps {
  */
 export function TopBar({ consoleLabel, nav, active, onSignOut }: TopBarProps) {
   return (
-    <header className="flex h-14 flex-none items-center gap-6 bg-primary-deep px-6">
+    <header className="flex min-h-14 flex-none flex-wrap items-center gap-x-4 gap-y-2 bg-primary-deep px-4 py-2 sm:px-6">
       <span className="font-display text-[22px] font-semibold tracking-[0.01em] text-white">
         AutoCare+
       </span>
@@ -28,7 +28,7 @@ export function TopBar({ consoleLabel, nav, active, onSignOut }: TopBarProps) {
         {consoleLabel}
       </span>
 
-      <nav className="ml-4 flex gap-1">
+      <nav className="order-last flex w-full flex-wrap gap-1 sm:order-none sm:ml-2 sm:w-auto" aria-label="Staff navigation">
         {nav.map((n) => {
           const isActive = active === n.label;
           return (
@@ -36,7 +36,7 @@ export function TopBar({ consoleLabel, nav, active, onSignOut }: TopBarProps) {
               key={n.href}
               href={n.href}
               aria-current={isActive ? "page" : undefined}
-              className="flex min-h-9 items-center rounded-sm px-3 text-sm font-medium transition-colors"
+              className="flex min-h-12 items-center rounded-sm px-3 text-sm font-medium transition-colors"
               style={
                 isActive
                   ? { background: "rgba(255,255,255,0.12)", color: "#FFFFFF" }

@@ -75,7 +75,7 @@ export function TaskDetailScreen({ onStart, initialVehicleId, appointmentId, onB
               <Text style={[t.text("label"), { color: t.colors.inkMuted }]}>Odometer (km)</Text>
               <TextInput accessibilityLabel="Odometer reading" keyboardType="number-pad" value={odometer} onChangeText={setOdometer}
                 style={{ minHeight: t.minTarget, borderWidth: 1, borderColor: t.colors.line, borderRadius: t.radii.md, backgroundColor: t.colors.surface, paddingHorizontal: t.spacing.md, fontSize: 24, color: t.colors.ink }} />
-              <Button accessibilityLabel="Begin 50-point inspection" onPress={() => onStart(vehicle, odometer.trim() === "" ? null : Number(odometer))}>
+              <Button accessibilityLabel="Begin booked inspection" onPress={() => onStart(vehicle, odometer.trim() === "" ? null : Number(odometer))}>
                 Begin inspection
               </Button>
             </View>

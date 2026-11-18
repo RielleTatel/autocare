@@ -1,17 +1,19 @@
 import type { Band, PointStatus } from "@autocare/scoring";
 import { api, API_BASE_URL } from "../../shared/api";
-import { kvGet, kvSet } from "../../shared/db/kv";
+import { getDb } from "../../shared/db/schema";
 
 export type VehicleHistoryPoint = {
-  /** The HealthScore id — not usable against the inspection detail route. */
+  /** Stable inspection history identity. */
   id: string;
-  /** What the detail route takes. Added server-side for exactly this. */
   inspectionId: string;
-  score: number;
-  band: Band;
+  score?: number | null;
+  band?: Band | null;
   isStale: boolean;
   computedAt: string;
   odometerKm: number | null;
+  scope?: "FULL" | "FOCUSED" | "LEGACY_UNKNOWN";
+  templateName?: string | null;
+  serviceName?: string | null;
 };
 
 export type InspectionResultDetail = {
@@ -36,9 +38,13 @@ export type InspectionDetail = {
   submittedAt: string | null;
   odometerKm: number | null;
   results: InspectionResultDetail[];
+  scope?: "FULL" | "FOCUSED" | "LEGACY_UNKNOWN";
+  templateName?: string | null;
+  serviceName?: string | null;
+  observations?: Array<{ id: string; notes: string; photoUrls: string[] }>;
 };
 
-const historyKey = (vehicleId: string) => `vhs:${API_BASE_URL}:${vehicleId}`;
+const historyKey = (vehicleId: string) => `inspections:${API_BASE_URL}:${vehicleId}`;
 
 /**
  * Prior inspections for a vehicle, newest first — the reference a technician
@@ -51,17 +57,23 @@ const historyKey = (vehicleId: string) => `vhs:${API_BASE_URL}:${vehicleId}`;
 export async function getVehicleHistory(
   vehicleId: string,
 ): Promise<{ history: VehicleHistoryPoint[]; stale: boolean; downloadedAt?: number }> {
+  const cacheDb = getDb();
   try {
-    const fresh = await api.get<VehicleHistoryPoint[]>(`/vehicles/${vehicleId}/health-score/history`);
-    // The endpoint returns oldest-first; the useful order here is most recent.
-    const ordered = [...fresh].reverse();
+    const fresh = await api.get<Array<{
+      id: string; vehicleId: string; appointmentId: string | null; submittedAt: string | null;
+      odometerKm: number | null; scope: "FULL" | "FOCUSED" | "LEGACY_UNKNOWN";
+      templateName?: string | null; serviceName?: string | null; score?: number | null; band?: Band | null;
+    }>>(`/vehicles/${encodeURIComponent(vehicleId)}/inspections`);
+    const ordered: VehicleHistoryPoint[] = fresh.filter((row) => row.submittedAt && row.vehicleId === vehicleId)
+      .map((row) => ({ ...row, inspectionId: row.id, computedAt: row.submittedAt!, isStale: Date.now() - Date.parse(row.submittedAt!) > 90 * 86_400_000 }))
+      .sort((a, b) => Date.parse(b.computedAt) - Date.parse(a.computedAt));
     const downloadedAt = Date.now();
-    await kvSet(historyKey(vehicleId), JSON.stringify({ history: ordered, downloadedAt }));
+    await (await cacheDb).runAsync("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", historyKey(vehicleId), JSON.stringify({ history: ordered, downloadedAt }));
     return { history: ordered, stale: false, downloadedAt };
   } catch (error) {
-    const cached = await kvGet(historyKey(vehicleId));
+    const cached = await (await cacheDb).getFirstAsync<{ value: string }>("SELECT value FROM kv WHERE key = ?", historyKey(vehicleId));
     if (!cached) throw error;
-    const saved = JSON.parse(cached);
+    const saved = JSON.parse(cached.value);
     return Array.isArray(saved) ? { history: saved, stale: true } : { ...saved, stale: true };
   }
 }

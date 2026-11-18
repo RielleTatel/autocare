@@ -14,6 +14,11 @@ export class AppointmentsController {
     return this.appointments.listForUser(u);
   }
 
+  @Get(":id/inspection-context")
+  inspectionContext(@CurrentUser() u: AbilityUser, @Param("id") id: string) {
+    return this.appointments.inspectionContext(u, id);
+  }
+
   @Post()
   create(@CurrentUser() u: AbilityUser, @Body(new ZodValidationPipe(appointmentCreateSchema)) dto: AppointmentCreate) {
     return this.appointments.book(u, dto);
@@ -31,5 +36,10 @@ export class AppointmentsController {
   @Post(":id/cancel")
   cancel(@CurrentUser() u: AbilityUser, @Param("id") id: string) {
     return this.appointments.cancel(u, id);
+  }
+
+  @Post(":id/complete-service")
+  completeServiceWithoutInspection(@CurrentUser() u: AbilityUser, @Param("id") id: string) {
+    return this.appointments.completeServiceWithoutInspection(u, id);
   }
 }

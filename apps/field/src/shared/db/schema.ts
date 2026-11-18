@@ -44,9 +44,19 @@ CREATE TABLE IF NOT EXISTS photos_pending (
   owner_client_uuid TEXT NOT NULL,
   local_uri TEXT NOT NULL,
   remote_path TEXT,
-  state TEXT NOT NULL DEFAULT 'PENDING'
+  state TEXT NOT NULL DEFAULT 'PENDING',
+  point_code TEXT,
+  observation_client_uuid TEXT,
+  last_error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_photos_owner ON photos_pending(owner_client_uuid, state);
+CREATE TABLE IF NOT EXISTS local_observations (
+  inspection_client_uuid TEXT NOT NULL,
+  client_uuid TEXT NOT NULL,
+  notes TEXT NOT NULL,
+  photo_uris TEXT NOT NULL DEFAULT '[]',
+  PRIMARY KEY (inspection_client_uuid, client_uuid)
+);
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -76,6 +86,11 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
     databases.set(key, (async () => {
       const db = await SQLite.openDatabaseAsync(await storageFileName(key));
       await db.execAsync(DDL);
+      const photoColumns = await db.getAllAsync<{ name: string }>("PRAGMA table_info(photos_pending)");
+      const existing = new Set(photoColumns.map((column) => column.name));
+      for (const column of ["point_code", "observation_client_uuid", "last_error"]) {
+        if (!existing.has(column)) await db.execAsync(`ALTER TABLE photos_pending ADD COLUMN ${column} TEXT`);
+      }
       return db;
     })().catch((error) => { databases.delete(key); throw error; }));
   }
