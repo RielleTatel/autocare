@@ -135,6 +135,22 @@ describe("PaymentsService (unit, mocked Prisma)", () => {
   });
 
   describe("handleWebhook", () => {
+    it("stores an incomplete delivery before lookup and leaves it pending if PayMongo is still processing", async () => {
+      const { service, prisma, tx } = setup();
+      const { eventId, raw } = makeEvent();
+      const pending = new DomainError("PAYMENT_FAILED", "PayMongo checkout payment is still pending", 503);
+      const resolvePayment = jest.fn(async () => {
+        expect(prisma.pspWebhookEvent.create).toHaveBeenCalledWith({
+          data: { provider: "paymongo", eventId, rawPayload: raw },
+        });
+        throw pending;
+      });
+
+      await expect(service.handleWebhook({ eventId, raw, resolvePayment })).rejects.toBe(pending);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(tx.pspWebhookEvent.update).not.toHaveBeenCalled();
+    });
+
     it.each(["CARD", "GCASH", "MAYA"] as const)("records the verified %s payment method and amount", async (method) => {
       const { service, tx } = setup();
 

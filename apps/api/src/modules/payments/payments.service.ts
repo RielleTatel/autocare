@@ -4,7 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { DomainError } from "../../common/errors/domain-error";
 import { AbilityUser } from "../../common/policies/ability.factory";
 import { VehiclesService } from "../vehicles/vehicles.service";
-import { PROVIDER_PORT, ProviderPort, PspEvent } from "./provider.port";
+import { PROVIDER_PORT, ProviderPort, VerifiedPspEvent } from "./provider.port";
 import { InvoiceState, nextState, subscriptionStatusFor } from "./invoice-lifecycle";
 import { checkoutEligible, hasCheckoutOrigin, MEMBER_CHECKOUT_ORIGIN } from "./checkout-policy";
 
@@ -68,7 +68,7 @@ export class PaymentsService {
    *   2. Persist PspWebhookEvent; completed replays are no-ops, unprocessed replays retry.
    *   3. Process in a transaction, retrying a lost invoice-state race without dropping success.
    */
-  async handleWebhook(event: PspEvent): Promise<{ alreadyProcessed: boolean }> {
+  async handleWebhook(event: VerifiedPspEvent): Promise<{ alreadyProcessed: boolean }> {
     let webhookEventId: string;
     try {
       const row = await this.prisma.pspWebhookEvent.create({
@@ -94,7 +94,8 @@ export class PaymentsService {
   }
 
   /** Advances Payment/Invoice/Subscription for one verified PspEvent, and marks the webhook row processed. */
-  async processEvent(event: PspEvent, webhookEventId: string): Promise<void> {
+  async processEvent(delivery: VerifiedPspEvent, webhookEventId: string): Promise<void> {
+    const event = "resolvePayment" in delivery ? await delivery.resolvePayment() : delivery;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         await this.prisma.$transaction(async (tx) => {

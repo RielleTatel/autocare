@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Inject } from "@nestjs/common";
+import { Inject, Logger } from "@nestjs/common";
 import type { Job } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
@@ -20,6 +20,8 @@ import { PROVIDER_PORT, ProviderPort } from "./provider.port";
  */
 @Processor("webhooks")
 export class WebhooksProcessor extends WorkerHost {
+  private readonly logger = new Logger(WebhooksProcessor.name);
+
   constructor(
     private prisma: PrismaService,
     private payments: PaymentsService,
@@ -50,8 +52,13 @@ export class WebhooksProcessor extends WorkerHost {
       });
       if (claimed.count === 0) continue; // already processed elsewhere since the read above
 
-      const event = this.provider.mapEvent(row.rawPayload);
-      await this.payments.processEvent(event, row.id);
+      try {
+        const event = this.provider.mapEvent(row.rawPayload);
+        await this.payments.processEvent(event, row.id);
+      } catch (error) {
+        // Leave the row pending without letting one unsettled checkout block later deliveries.
+        this.logger.warn(`Payment webhook row ${row.id} remains unprocessed (${error instanceof Error ? error.name : "unknown error"})`);
+      }
     }
   }
 }

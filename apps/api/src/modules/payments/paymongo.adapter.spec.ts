@@ -278,8 +278,42 @@ describe("PaymongoAdapter (unit, test fixtures only)", () => {
       expect(() => adapter.verifyWebhook(body, signed(body))).toThrow("Invalid PayMongo test payment event");
     });
 
-    it.each([{ payments: [] }, { payments: [payment(), { ...payment(), id: "pay_second" }] }])("rejects zero or multiple paid payments: %j", ({ payments }) => {
-      expect(() => adapter.mapEvent(checkoutEvent({ payments }))).toThrow("Invalid PayMongo test payment event");
+    it.each([
+      { payments: [], metadata: null, reference_number: null },
+      { payments: [payment(), { ...payment(), id: "pay_second" }] },
+    ])("rejects a checkout without a usable payment or invoice reference: %j", (attributes) => {
+      expect(() => adapter.mapEvent(checkoutEvent(attributes))).toThrow("Invalid PayMongo test payment event");
+    });
+
+    it("retrieves a paid payment for a signed checkout snapshot that was still processing", async () => {
+      const event = checkoutEvent({ payments: [], payment_intent: { attributes: { status: "processing" } } });
+      const body = JSON.stringify(event);
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: checkoutEvent().data.attributes.data }),
+      });
+
+      const delivery = adapter.verifyWebhook(body, signed(body));
+      expect(fetchMock).not.toHaveBeenCalled();
+      if (!("resolvePayment" in delivery)) throw new Error("Expected deferred payment lookup");
+      await expect(delivery.resolvePayment()).resolves.toMatchObject({
+        eventId: "evt_fixture", pspReference: "pay_fixture", invoiceId: invoice.id,
+        amountCentavos: 89900, method: "CARD", succeeded: true, raw: event,
+      });
+      expect(fetchMock).toHaveBeenCalledWith("https://api.paymongo.com/v1/checkout_sessions/cs_fixture", expect.any(Object));
+    });
+
+    it.each([
+      ["still pending", checkoutEvent({ payments: [] }).data.attributes.data, 503],
+      ["a different invoice", checkoutEvent({ metadata: { invoiceId: "other" }, reference_number: "other", payments: [payment({ metadata: null })] }).data.attributes.data, 400],
+      ["a different session", { ...checkoutEvent().data.attributes.data, id: "cs_other" }, 503],
+    ])("does not settle when the retrieved checkout is %s", async (_description, session, httpStatus) => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ data: session }) });
+      const body = JSON.stringify(checkoutEvent({ payments: [] }));
+      const delivery = adapter.verifyWebhook(body, signed(body));
+
+      if (!("resolvePayment" in delivery)) throw new Error("Expected deferred payment lookup");
+      await expect(delivery.resolvePayment()).rejects.toMatchObject({ code: "PAYMENT_FAILED", httpStatus });
     });
 
     it("rejects a live envelope even with an authentic test signature", () => {

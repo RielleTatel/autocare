@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { DomainError } from "../../common/errors/domain-error";
-import { ProviderPort, PspEvent } from "./provider.port";
+import { ProviderPort, PspEvent, VerifiedPspEvent } from "./provider.port";
 import { verifyPaymongoSignature } from "./webhook-signature";
 
 const PAYMONGO_API_BASE = "https://api.paymongo.com/v1";
@@ -36,6 +36,11 @@ const checkoutSchema = z.object({
     metadata: invoiceMetadataSchema.nullish(),
     reference_number: z.string().min(1).nullish(),
     payments: z.array(z.unknown()),
+  }),
+});
+const retrievedCheckoutSchema = z.object({
+  data: checkoutSchema.extend({
+    attributes: checkoutSchema.shape.attributes.extend({ livemode: z.literal(false) }),
   }),
 });
 const checkoutResponseSchema = z.object({
@@ -80,7 +85,9 @@ function checkoutReturnUrl(name: "PAYMONGO_SUCCESS_URL" | "PAYMONGO_CANCEL_URL")
  * `PspWebhookEvent.rawPayload` without re-verifying the (already-verified-once) signature — via
  * the injected PROVIDER_PORT, never by importing this concrete adapter directly.
  */
-export function mapPaymongoEvent(raw: unknown): PspEvent {
+type IncompleteCheckoutEvent = { eventId: string; raw: unknown; checkoutSessionId: string; invoiceId: string };
+
+export function mapPaymongoEvent(raw: unknown): PspEvent | IncompleteCheckoutEvent {
   const envelope = eventSchema.safeParse(raw);
   if (!envelope.success) throw invalidEvent();
   const { id: eventId, attributes: attrs } = envelope.data.data;
@@ -98,6 +105,10 @@ export function mapPaymongoEvent(raw: unknown): PspEvent {
     const referenceInvoiceId = session.data.attributes.reference_number;
     if (sessionInvoiceId && referenceInvoiceId && sessionInvoiceId !== referenceInvoiceId) throw invalidEvent();
     invoiceId = sessionInvoiceId ?? referenceInvoiceId ?? undefined;
+    if (session.data.attributes.payments.length === 0 && invoiceId) {
+      // PayMongo can capture the webhook snapshot before the paid payment appears on the session.
+      return { eventId, raw, checkoutSessionId: session.data.id, invoiceId };
+    }
     const paidPayments = session.data.attributes.payments.filter((item) =>
       (item as { attributes?: { status?: string } } | null)?.attributes?.status === "paid",
     );
@@ -188,7 +199,7 @@ export class PaymongoAdapter implements ProviderPort {
     };
   }
 
-  verifyWebhook(rawBody: Buffer | string, signature: string): PspEvent {
+  verifyWebhook(rawBody: Buffer | string, signature: string): VerifiedPspEvent {
     verifyPaymongoSignature(rawBody, signature, this.webhookSecret);
     let raw: unknown;
     try {
@@ -199,8 +210,37 @@ export class PaymongoAdapter implements ProviderPort {
     return this.mapEvent(raw);
   }
 
-  mapEvent(raw: unknown): PspEvent {
-    return mapPaymongoEvent(raw);
+  mapEvent(raw: unknown): VerifiedPspEvent {
+    const event = mapPaymongoEvent(raw);
+    if (!("checkoutSessionId" in event)) return event;
+    return { eventId: event.eventId, raw, resolvePayment: () => this.retrieveCheckoutPayment(event) };
+  }
+
+  private async retrieveCheckoutPayment(event: IncompleteCheckoutEvent): Promise<PspEvent> {
+    const url = `${PAYMONGO_API_BASE}/checkout_sessions/${encodeURIComponent(event.checkoutSessionId)}`;
+    const auth = this.authHeader();
+    let body: unknown;
+    try {
+      const response = await fetch(url, {
+        headers: { Authorization: auth, Accept: "application/json" },
+        signal: AbortSignal.timeout(8_000),
+      });
+      body = response.ok ? await response.json() : null;
+    } catch {
+      throw new DomainError("PAYMENT_FAILED", "Could not retrieve PayMongo checkout for settlement", 503);
+    }
+    const session = retrievedCheckoutSchema.safeParse(body);
+    if (!session.success || session.data.data.id !== event.checkoutSessionId) {
+      throw new DomainError("PAYMENT_FAILED", "Could not verify PayMongo checkout for settlement", 503);
+    }
+    const payment = mapPaymongoEvent({ data: { id: event.eventId, attributes: {
+      type: "checkout_session.payment.paid", livemode: false, data: session.data.data,
+    } } });
+    if ("checkoutSessionId" in payment) {
+      throw new DomainError("PAYMENT_FAILED", "PayMongo checkout payment is still pending", 503);
+    }
+    if (payment.invoiceId !== event.invoiceId) throw invalidEvent();
+    return { ...payment, raw: event.raw };
   }
 
   async refund(paymentId: string, amountCentavos: number) {

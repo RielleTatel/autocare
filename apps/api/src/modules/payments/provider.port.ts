@@ -17,13 +17,20 @@ export interface PspEvent {
   raw: unknown;
 }
 
+/** An authenticated delivery whose payment details must be resolved before settlement. */
+export type VerifiedPspEvent = PspEvent | {
+  eventId: string;
+  raw: unknown;
+  resolvePayment: () => Promise<PspEvent>;
+};
+
 export interface ProviderPort {
   createCheckout(invoice: { id: string; totalCentavos: number; description: string }): Promise<{
     checkoutUrl: string;
     pspRef: string;
   }>;
   /** Verifies the provider's signature over the RAW body and maps the payload to a PspEvent. Throws (WEBHOOK_SIGNATURE_INVALID, 401) on a bad/missing signature. */
-  verifyWebhook(rawBody: Buffer | string, signature: string): PspEvent;
+  verifyWebhook(rawBody: Buffer | string, signature: string): VerifiedPspEvent;
   /**
    * Maps an already-persisted, already-verified webhook payload (PspWebhookEvent.rawPayload)
    * back to a PspEvent, WITHOUT re-checking any signature. Used by the retry path
@@ -32,6 +39,6 @@ export interface ProviderPort {
    * whichever adapter is env-selected (fake in tests, real PayMongo in prod), matching the
    * payload shape that adapter actually produced.
    */
-  mapEvent(raw: unknown): PspEvent;
+  mapEvent(raw: unknown): VerifiedPspEvent;
   refund(paymentId: string, amountCentavos: number): Promise<{ refundRef: string }>;
 }
